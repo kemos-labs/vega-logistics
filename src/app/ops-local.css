@@ -1,0 +1,11 @@
+.ops-job-advance {
+  margin-left: auto;
+  padding: 4px 7px;
+  color: #c7e88d;
+  font: 500 10px 'Space Grotesk', sans-serif;
+  background: rgba(184, 227, 75, .08);
+  border: 1px solid rgba(184, 227, 75, .24);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.ops-job-advance:hover { color: #101615; background: #b8e34b; }
