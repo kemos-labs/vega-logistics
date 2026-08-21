@@ -18,8 +18,9 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
-  // Local device/browser QA uses the machine's LAN address.
-  allowedDevOrigins: ["127.0.0.1", "192.168.1.220"],
+  // Local device/browser QA uses the machine's LAN address; vega.localhost is
+  // the portless proxy name (http://vega.localhost:8080).
+  allowedDevOrigins: ["127.0.0.1", "192.168.1.220", "vega.localhost"],
 
   // Production output: standalone enables Docker/containerized deployments
   output: isGitHubPages ? "export" : "standalone",

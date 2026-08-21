@@ -11,7 +11,7 @@
 | **Version** | `0.4.0` |
 | **Stack** | Next.js 16.3.1 + Turbopack + Tailwind CSS v4 + TypeScript 5 |
 | **Path** | `/data/Ai slop/vega-logistics` (NTFS-mounted) |
-| **Dev Server** | `http://localhost:3003` (3000 = Gitea, 3002 = lore-engine — do NOT use) |
+| **Dev Server** | `http://vega.localhost:8080` via portless proxy (old `localhost:3003` retired) |
 | **Build Status** | ✅ PASSING — `next build` compiles, TypeScript clean (exit 0) |
 | **Python Tests** | ✅ 25/25 passing (calculations: 9, feasibilityEngine: 10, ghostGrowth: 6) |
 | **ESLint** | ✅ 0 errors, 0 warnings (fully clean; fonts migrated to `next/font/google`) |
@@ -46,7 +46,8 @@
 
 ```bash
 # Dev server
-npm run dev    # starts on :3000, we use :3003 (3002 taken by lore-engine)
+npm run dev:portless   # http://vega.localhost:8080 (preferred)
+npm run dev            # plain next dev (choose own port)
 
 # Build
 npm run build  # ✅ compiles + typechecks
@@ -202,6 +203,13 @@ src/
 - **Applied**: next 16.3.1 (9 CVEs cleared), sharp override ^0.35.3 (GHSA-f88m-g3jw-g9cj), transitive audit fixes. Prod audit: 2 moderate left (uuid via exceljs — accepted, not attacker-facing).
 - **Next.js 16.3+ auto-generates AGENTS.md** managed block on `next dev` — don't hand-delete; commit it.
 - **Backlog, referenced**: TanStack Virtual if tables need >1k rows; IndexedDB for daily records when localStorage ~5MiB becomes real; NDJSON/section-filtering for the 923KB snapshot endpoint; scenario-comparison UX per ProjectionLab/cinder patterns (baseline + what-if overlays, side-by-side deltas).
+
+### Portless setup (Aug 21)
+- App now runs behind [portless](https://github.com/vercel-labs/portless): **http://vega.localhost:8080**
+- Proxy mode: `--no-tls --port 8080` (HTTPS/443 needs interactive sudo for CA trust — unavailable here; browsers resolve `*.localhost` → 127.0.0.1 natively)
+- Start order matters: `portless proxy start --no-tls --port 8080` (persists config), then `npm run dev:portless`
+- Portless assigns a random PORT env (4000–4999); Next.js respects it — no port conflicts with Gitea/lore-engine
+- `vega.localhost` added to `allowedDevOrigins`; portless installed globally (v0.15.5)
 
 ### Next candidates (P1)
 - Scenario manager (save/load/diff named scenarios)
