@@ -10,12 +10,13 @@
 | **Name** | VEGA Logistics OS / Levered Beta Logistics |
 | **Version** | `0.4.0` |
 | **Stack** | Next.js 16.2.6 + Turbopack + Tailwind CSS v4 + TypeScript 5 |
-| **Path** | `/run/media/kalde/186E2FB96E2F8E96/Users/kalde/Downloads/Ai slop/vega-logistics` |
+| **Path** | `/data/Ai slop/vega-logistics` (NTFS-mounted) |
 | **Dev Server** | `http://localhost:3003` (3000 = Gitea, 3002 = lore-engine — do NOT use) |
 | **Build Status** | ✅ PASSING — `next build` compiles, TypeScript clean (exit 0) |
 | **Python Tests** | ✅ 25/25 passing (calculations: 9, feasibilityEngine: 10, ghostGrowth: 6) |
 | **ESLint** | ✅ 0 errors, 0 warnings (fully clean; fonts migrated to `next/font/google`) |
-| **Git** | 2 commits |
+| **Vitest** | ✅ 40/40 passing (`npx vitest run`) |
+| **Git** | 5 commits + `archive/v2026-modules` branch |
 
 ## Filesystem Warning
 
@@ -137,12 +138,15 @@ src/
 ## Key Decisions Log
 
 1. **Database: NONE** — All data is simulated client-side via `useSimulatedData()` hook
-2. **Port 3002** — Port 3000 occupied by Gitea on this machine
+2. **Port 3003** — 3000 = Gitea, 3002 = lore-engine (unrelated project). Never use 3002.
 3. **lightningcss `^1.25.0`** — Both `devDependencies` and `optionalDependencies` pinned to `^1.25.0`; v1.32.0 binaries are corrupted on NTFS. `package-lock.json` is stale — regenerate after `npm install`.
-4. **SSR: false** — All 30+ modules use `next/dynamic` with `ssr: false` for SPA performance
+4. **SSR: false** — All modules use `next/dynamic` with `ssr: false` for SPA performance
 5. **Dark only** — No light mode; theme is forced dark
-6. **Arabic/RTL** — Supported via `react-i18next` with `html[dir='rtl']`
-7. **BreakEvenAnalytics uses @heroui/react** — The only component using this library (Button, Card)
+6. **Arabic/RTL** — i18next wired in ClientLayout but the live UI (`BusinessModelApp`) is hardcoded English — P1 decision pending: wire translations or drop i18next
+7. **Dead code archived, not deleted** — 67 orphaned modules (~17.9k LOC) live on branch `archive/v2026-modules`. Recover via `git checkout archive/v2026-modules -- <path>`
+8. **Excel export = exceljs** — replaced vulnerable xlsx@0.18.5 (prototype-pollution/ReDoS CVEs); same 5-sheet workbook, dynamically imported
+9. **CSP strict** — no external origins (fonts self-hosted); `unsafe-eval` dev-only for Turbopack HMR
+10. **sharp/libvips CVEs inherited from next@16** — not actionable until Next ships an update; re-check after upgrades
 
 ## Known Issues
 
@@ -179,9 +183,21 @@ src/
 **Start**: Aug 21, 2026
 **Dev Server**: http://localhost:3003 ✅ Running (`npx next dev -p 3003`)
 
-### Fixed this session
-- Migrated Google Fonts `<link>` tags → `next/font/google` (self-hosted; Space Grotesk, Cairo [arabic+latin], IBM Plex Mono) with CSS variables `--font-space-grotesk`, `--font-cairo`, `--font-ibm-plex-mono`; updated all `globals.css` references. ESLint now fully clean.
-- Discovered port 3002 is occupied by unrelated project `lore-engine` (Next.js 14) — old session memory was stale. Moved vega dev server to 3003; API routes verified returning JSON.
+### P0 hardening complete (Aug 21)
+- Fixed stale NumberInput/CellNumber drafts (null-draft pattern, no effects)
+- Fixed UTC date bug — shared `toDateString()` local-time helper (report keys + projections)
+- Archived 67 orphaned files / ~17.9k LOC → branch `archive/v2026-modules`; repo now ~6k LOC of live code
+- Pruned 12 unused deps (plotly, leaflet, framer-motion, dompurify, canvg, clsx, tailwind-merge, cva, html2canvas, xlsx…); added exceljs
+- Rewrote Excel export on exceljs; removed unpkg Leaflet link + dead CSS overrides
+- Tightened CSP: no external origins, unsafe-eval dev-only
+- All gates green post-change: build ✓ tsc ✓ eslint 0/0 ✓ vitest 40/40 ✓ python 25/25 ✓ NTFS binaries verified ✓
+
+### Next candidates (P1)
+- Scenario manager (save/load/diff named scenarios)
+- Plan-vs-actual monthly variance report
+- i18n decision: wire BusinessModelApp translations or remove i18next
+- Un-wrap unused AppProvider/AppProvider50 or wire them properly
+- Model backup/restore as JSON export/import
 
 ```
 vega-logistics-os@0.4.0 /run/media/kalde/186E2FB96E2F8E96/Users/kalde/Downloads/Ai slop/vega-logistics
