@@ -177,28 +177,6 @@ html[dir='rtl'] .pr-4 {
   color: var(--accent-cyan);
 }
 
-/* Leaflet overrides for dark theme */
-.leaflet-container {
-  background: var(--bg-primary) !important;
-}
-
-.leaflet-tile-pane {
-  filter: brightness(0.6) invert(0.85) hue-rotate(180deg) saturate(0.5) !important;
-}
-
-.leaflet-control-zoom a {
-  background: var(--bg-surface) !important;
-  color: var(--text-primary) !important;
-  border-color: var(--border-primary) !important;
-}
-
-.leaflet-popup-content-wrapper {
-  background: var(--bg-surface) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border-primary) !important;
-}
-
-
 /* Accessibility: visible focus indicators */
 *:focus-visible {
   outline: 2px solid var(--accent-blue);

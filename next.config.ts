@@ -4,12 +4,15 @@ const isGitHubPages = process.env.GITHUB_ACTIONS === "true";
 const repositoryName = process.env.GITHUB_REPOSITORY?.split("/")[1] ?? "";
 const pagesBasePath = isGitHubPages && repositoryName ? `/${repositoryName}` : "";
 
+// Turbopack dev needs eval for HMR; production builds do not.
+// Fonts are self-hosted via next/font; no external origins are required.
+const devUnsafeEval = process.env.NODE_ENV !== "production" ? " 'unsafe-eval'" : "";
 const csp = [
   `default-src 'self'`,
-  `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com`,
-  `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com`,
-  `font-src 'self' https://fonts.gstatic.com`,
-  `img-src 'self' data: blob: https://*.tile.openstreetmap.org`,
+  `script-src 'self' 'unsafe-inline'${devUnsafeEval}`,
+  `style-src 'self' 'unsafe-inline'`,
+  `font-src 'self'`,
+  `img-src 'self' data: blob:`,
   `connect-src 'self'`,
   `frame-ancestors 'none'`,
 ].join("; ");

@@ -49,17 +49,24 @@ export async function exportDailyReportPdf(record: DailyRecord, input: Financial
 }
 
 export async function exportBusinessModelExcel(record: DailyRecord, input: FinancialInput, output: FinancialOutput) {
-  const XLSX = await import('xlsx');
+  const ExcelJS = await import('exceljs');
   const metrics = calculateDailyMetrics(record, input, output);
-  const workbook = XLSX.utils.book_new();
-  const summary = XLSX.utils.aoa_to_sheet([
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'VEGA Logistics OS';
+
+  const summary = workbook.addWorksheet('Summary');
+  summary.columns = [{ width: 28 }, { width: 20 }];
+  summary.addRows([
     ['VEGA Business Model', 'Current value'],
     ['Monthly revenue', amount(output.totalRevenue)], ['Monthly cost', amount(output.totalCost)],
     ['Monthly profit / loss', amount(output.netMargin)], ['Net margin %', amount(output.netMarginPercent)],
     ['Shipments / day', output.totalDailyShipments], ['Cars and drivers', input.companyDriverCount],
     ['Cost / shipment', amount(output.costPerShipment)], ['Revenue / shipment', amount(output.avgRevenuePerShipment)],
   ]);
-  const daily = XLSX.utils.aoa_to_sheet([
+
+  const daily = workbook.addWorksheet('Daily report');
+  daily.columns = [{ width: 28 }, { width: 20 }];
+  daily.addRows([
     ['Daily report', record.date], ['Planned shipments', metrics.plannedShipments],
     ['Completed shipments', record.completedShipments], ['Failed shipments', record.failedShipments],
     ['Completion rate %', amount(metrics.completionRate)], ['Drivers present', record.driversPresent],
@@ -67,28 +74,49 @@ export async function exportBusinessModelExcel(record: DailyRecord, input: Finan
     ['Revenue', amount(metrics.revenue)], ['Allocated cost', amount(metrics.allocatedCost)],
     ['Profit / loss', amount(metrics.profit)], ['Notes', record.notes],
   ]);
-  const costs = XLSX.utils.json_to_sheet([
-    { Category: 'Vehicle ownership', 'Monthly SAR': amount(output.costBreakdown.vehicleOwnership) },
-    { Category: 'Vehicle running', 'Monthly SAR': amount(output.costBreakdown.vehicleRunning) },
-    { Category: 'People', 'Monthly SAR': amount(output.costBreakdown.people) },
-    { Category: 'Facilities', 'Monthly SAR': amount(output.costBreakdown.facilities) },
-    { Category: 'Per shipment', 'Monthly SAR': amount(output.costBreakdown.perShipment) },
-    { Category: 'Other', 'Monthly SAR': amount(output.costBreakdown.other) },
+
+  const costs = workbook.addWorksheet('Company costs');
+  costs.columns = [{ header: 'Category', key: 'category', width: 28 }, { header: 'Monthly SAR', key: 'monthlySar', width: 20 }];
+  costs.addRows([
+    { category: 'Vehicle ownership', monthlySar: amount(output.costBreakdown.vehicleOwnership) },
+    { category: 'Vehicle running', monthlySar: amount(output.costBreakdown.vehicleRunning) },
+    { category: 'People', monthlySar: amount(output.costBreakdown.people) },
+    { category: 'Facilities', monthlySar: amount(output.costBreakdown.facilities) },
+    { category: 'Per shipment', monthlySar: amount(output.costBreakdown.perShipment) },
+    { category: 'Other', monthlySar: amount(output.costBreakdown.other) },
   ]);
-  const fleet = XLSX.utils.json_to_sheet(input.vehicleClasses.map(vehicle => ({
-    'Vehicle type': vehicle.name, Quantity: vehicle.quantity, 'Rent / vehicle': vehicle.monthlyRent,
-    'Insurance + maintenance': vehicle.variableCost, 'Fuel L/100km': vehicle.fuelEfficiency,
-    'Distance km/day': vehicle.avgDailyDistance,
-  })));
-  const customers = XLSX.utils.json_to_sheet(input.providers.map(provider => ({
-    Customer: provider.name, 'Shipments / day': provider.shipmentsPerDay,
-    'Price / shipment': provider.pricePerShipment, Enabled: provider.enabled ? 'Yes' : 'No',
-  })));
-  [summary, daily, costs, fleet, customers].forEach(sheet => { sheet['!cols'] = [{ wch: 28 }, { wch: 20 }, { wch: 22 }, { wch: 24 }, { wch: 20 }, { wch: 20 }]; });
-  XLSX.utils.book_append_sheet(workbook, summary, 'Summary');
-  XLSX.utils.book_append_sheet(workbook, daily, 'Daily report');
-  XLSX.utils.book_append_sheet(workbook, costs, 'Company costs');
-  XLSX.utils.book_append_sheet(workbook, fleet, 'Cars and drivers');
-  XLSX.utils.book_append_sheet(workbook, customers, 'Customers');
-  XLSX.writeFile(workbook, `vega-business-model-${record.date}.xlsx`);
+
+  const fleet = workbook.addWorksheet('Cars and drivers');
+  fleet.columns = [
+    { header: 'Vehicle type', key: 'name', width: 28 }, { header: 'Quantity', key: 'quantity', width: 12 },
+    { header: 'Rent / vehicle', key: 'rent', width: 20 }, { header: 'Insurance + maintenance', key: 'overhead', width: 24 },
+    { header: 'Fuel L/100km', key: 'efficiency', width: 16 }, { header: 'Distance km/day', key: 'distance', width: 18 },
+  ];
+  input.vehicleClasses.forEach(vehicle => fleet.addRow({
+    name: vehicle.name, quantity: vehicle.quantity, rent: vehicle.monthlyRent,
+    overhead: vehicle.variableCost, efficiency: vehicle.fuelEfficiency, distance: vehicle.avgDailyDistance,
+  }));
+
+  const customers = workbook.addWorksheet('Customers');
+  customers.columns = [
+    { header: 'Customer', key: 'customer', width: 28 }, { header: 'Shipments / day', key: 'shipmentsPerDay', width: 16 },
+    { header: 'Price / shipment', key: 'pricePerShipment', width: 18 }, { header: 'Enabled', key: 'enabled', width: 10 },
+  ];
+  input.providers.forEach(provider => customers.addRow({
+    customer: provider.name, shipmentsPerDay: provider.shipmentsPerDay,
+    pricePerShipment: provider.pricePerShipment, enabled: provider.enabled ? 'Yes' : 'No',
+  }));
+
+  [costs, fleet, customers].forEach(sheet => sheet.getRow(1).font = { bold: true });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `vega-business-model-${record.date}.xlsx`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
