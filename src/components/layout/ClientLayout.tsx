@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '@/lib/i18n';
-import { AppProvider } from '@/lib/AppContext';
-import { AppProvider50 } from '@/lib/AppContext50';
 
 export default function ClientLayout({
   children,
@@ -32,17 +30,13 @@ export default function ClientLayout({
 
   return (
     <I18nextProvider i18n={i18n}>
-      <AppProvider>
-        <AppProvider50>
-          <div
-            dir={lang === 'ar' ? 'rtl' : 'ltr'}
-            suppressHydrationWarning
-            style={{ direction: lang === 'ar' ? 'rtl' : 'ltr', visibility: mounted ? 'visible' : 'hidden' }}
-          >
-            {children}
-          </div>
-        </AppProvider50>
-      </AppProvider>
+      <div
+        dir={lang === 'ar' ? 'rtl' : 'ltr'}
+        suppressHydrationWarning
+        style={{ direction: lang === 'ar' ? 'rtl' : 'ltr', visibility: mounted ? 'visible' : 'hidden' }}
+      >
+        {children}
+      </div>
     </I18nextProvider>
   );
 }

@@ -107,6 +107,17 @@ export function useSimulatedData() {
     [recompute, setFinancialInput]
   );
 
+  /** Replace the entire financial input — used by scenario load and backup import. */
+  const applyFinancialInput = useCallback(
+    (next: FinancialInput) => {
+      inputRef.current = next;
+      userOverrideRef.current = true;
+      setFinancialInput(next);
+      recompute(next);
+    },
+    [recompute, setFinancialInput]
+  );
+
   /** Replace the entire drivers list. */
   const setDrivers = useCallback(
     (updater: (prev: DriverRecord[]) => DriverRecord[]) => {
@@ -173,6 +184,7 @@ export function useSimulatedData() {
     zones,
     lastUpdate,
     updateFinancialInput,
+    applyFinancialInput,
     setVehicleClasses,
     setProviders,
     setMaintenance,

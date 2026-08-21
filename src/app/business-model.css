@@ -9,3 +9,13 @@
 @media(max-width:620px){.bm-total-result{grid-template-columns:1fr}.bm-total-rows>div{align-items:flex-start;flex-direction:column;padding:12px 0}.bm-total-rows b{align-self:flex-end}}
 @media(max-width:430px){.bm-kpis,.bm-core-inputs{grid-template-columns:1fr}.bm-kpis article{gap:12px}.bm-cost-bars>div{grid-template-columns:110px 1fr 75px}}
 @media(prefers-reduced-motion:reduce){.bm-sidebar{transition:none}}
+/* Scenarios view */
+.bm-trend svg line.breakeven{stroke:#245b43;stroke-width:1;stroke-dasharray:3 4;opacity:.55}
+.bm-scenario-save h2{margin:0 0 4px}
+.bm-scenario-save-row{display:flex;gap:8px;margin-top:10px}
+.bm-scenario-save-row input{flex:1;height:36px;padding:0 10px;border:1px solid #cfd5d0;border-radius:6px;background:#fff;color:var(--ink);font:10px 'IBM Plex Mono',monospace}
+.bm-scenario-row,.bm-table-head:has(+.bm-scenario-row){display:grid;grid-template-columns:minmax(120px,1.3fr) 70px repeat(5,minmax(80px,1fr)) auto;align-items:center}
+.bm-scenario-actions{display:flex;gap:6px;justify-content:flex-end}
+.bm-scenario-actions button{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 9px;border:1px solid #cfd5d0;border-radius:5px;background:#fff;color:var(--ink);font-size:9px;cursor:pointer}
+.bm-scenario-actions button:hover{background:#edf1ed}
+@media(max-width:900px){.bm-scenario-row{grid-template-columns:minmax(110px,1.2fr) repeat(3,minmax(70px,1fr)) auto}.bm-scenario-row span:nth-child(2),.bm-scenario-row span:nth-child(6),.bm-scenario-row span:nth-child(7){display:none}}
