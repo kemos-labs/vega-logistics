@@ -18,6 +18,14 @@
 | **Vitest** | ✅ 40/40 passing (`npx vitest run`) |
 | **Git** | 5 commits + `archive/v2026-modules` branch |
 
+| **Live site** | https://kemos-labs.github.io/vega-logistics/ (GitHub Pages, static export) |
+| **Git** | remote `kemos-labs/vega-logistics`, branch `main` |
+
+## Deployment
+- Workflow: `.github/workflows/deploy-pages.yml` (pre-existing; do NOT add a second Pages workflow — shared `pages` concurrency group cancels runs)
+- Pages build strips `src/app/api` (force-dynamic handlers can't export) and relies on `GITHUB_ACTIONS=true` in next.config.ts for `output: export` + basePath `/vega-logistics`
+- Local test: `GITHUB_ACTIONS=true GITHUB_REPOSITORY=kemos-labs/vega-logistics npx next build` → inspect `out/`
+
 ## Filesystem Warning
 
 **NTFS (ntfs3)** — This project lives on an NTFS-mounted drive. Native `.node` binaries can get corrupted/truncated during `npm install`. Verified fixes:
