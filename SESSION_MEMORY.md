@@ -211,6 +211,14 @@ src/
 - Portless assigns a random PORT env (4000–4999); Next.js respects it — no port conflicts with Gitea/lore-engine
 - `vega.localhost` added to `allowedDevOrigins`; portless installed globally (v0.15.5)
 
+### P1 delivered (Aug 21)
+- **Scenarios view**: save/load/delete named model snapshots + side-by-side compare table with Δ net vs current (`src/lib/scenarios.ts`, `applyFinancialInput` on the hook)
+- **Backup/restore**: JSON export/import of inputs+records+scenarios, strict validation (corrupt records dropped)
+- **Plan-vs-actual**: `buildMonthlyRollup` monthly variance table under daily history
+- **Break-even line** on the 14-day trend chart
+- **Removed AppProvider/AppProvider50** from ClientLayout — killed the ~923KB snapshot fetch on every page load; archived 5 newly-orphaned files (AppContext×2, feasibility/rentedFleet/saudi engines .ts)
+- Tests now 64; live code ~4.5k LOC
+
 ### Next candidates (P1)
 - Scenario manager (save/load/diff named scenarios)
 - Plan-vs-actual monthly variance report
