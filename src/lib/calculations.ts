@@ -26,7 +26,95 @@ function isOn(toggles: FinancialInput['costToggles'], key: CostLineKey): boolean
   return !!toggles[key];
 }
 
+// ─── Input sanitation ─────────────────────────────────────────────────
+// One corrupted number (hand-edited localStorage, `1e999` typed into a
+// number field, bad import) must not poison the whole P&L with NaN or
+// Infinity. Every scalar is clamped to a finite, non-negative domain bound.
+
+const MONEY_CAP = 1e12;      // SAR per month — generous for any real fleet
+const COUNT_CAP = 1e6;       // headcounts / shipment volumes
+const DRIVER_COUNT_CAP = 100_000; // materializes one record per driver
+const PERCENT_CAP = 100;
+const DAY_CAP = 3650;        // ~10 years of payment delay
+
+function fin(value: unknown, cap = MONEY_CAP): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(cap, Math.max(0, n));
+}
+
+export function sanitizeFinancialInput(input: FinancialInput): FinancialInput {
+  const s = (key: keyof FinancialInput, cap = MONEY_CAP) => fin(input[key], cap);
+
+  return {
+    ...input,
+    freelancerProviderPrice: s('freelancerProviderPrice'),
+    freelancerRate: s('freelancerRate'),
+    freelancerMonthlyVolume: input.freelancerMonthlyVolume === undefined ? undefined : fin(input.freelancerMonthlyVolume),
+    companyDriverCount: Math.min(fin(input.companyDriverCount, DRIVER_COUNT_CAP), DRIVER_COUNT_CAP),
+    driverSalary: s('driverSalary'),
+    opsTeamCount: s('opsTeamCount', COUNT_CAP),
+    opsTeamAvgSalary: s('opsTeamAvgSalary'),
+    salesTeamCount: s('salesTeamCount', COUNT_CAP),
+    salesTeamBaseSalary: s('salesTeamBaseSalary'),
+    salesCommissionPercent: s('salesCommissionPercent', PERCENT_CAP),
+    warehouseRent: s('warehouseRent'),
+    warehouseUtilities: s('warehouseUtilities'),
+    warehouseStaff: s('warehouseStaff', COUNT_CAP),
+    warehouseStaffSalary: s('warehouseStaffSalary'),
+    internetCost: s('internetCost'),
+    electricityCost: s('electricityCost'),
+    officeRent: s('officeRent'),
+    marketingBudget: s('marketingBudget'),
+    accountingLegal: s('accountingLegal'),
+    packagingCostPerUnit: s('packagingCostPerUnit'),
+    pickPackLaborPerOrder: s('pickPackLaborPerOrder'),
+    labelsAndDocs: s('labelsAndDocs'),
+    returnLogisticsCost: s('returnLogisticsCost'),
+    technologySaaS: s('technologySaaS'),
+    gpsTelematics: s('gpsTelematics'),
+    dashcamSubscription: s('dashcamSubscription'),
+    fuelCardFee: s('fuelCardFee'),
+    fuelPricePerLiter: s('fuelPricePerLiter', 1e4),
+    fuelEfficiencyL100km: s('fuelEfficiencyL100km', 1e3),
+    avgDistancePerVehiclePerDay: s('avgDistancePerVehiclePerDay', 1e4),
+    failedDeliveryRate: s('failedDeliveryRate', PERCENT_CAP),
+    failedDeliveryCost: input.failedDeliveryCost === undefined ? undefined : fin(input.failedDeliveryCost),
+    returnRate: s('returnRate', PERCENT_CAP),
+    clientPaymentDelay: s('clientPaymentDelay', DAY_CAP),
+    cargoInsurance: s('cargoInsurance'),
+    liabilityInsurance: s('liabilityInsurance'),
+    healthInsurancePerEmployee: s('healthInsurancePerEmployee'),
+    miscExpenses: s('miscExpenses'),
+    fulfillmentRevenue: s('fulfillmentRevenue'),
+    subcontractingRevenue: s('subcontractingRevenue'),
+    vehicleClasses: (input.vehicleClasses ?? []).map((c) => ({
+      ...c,
+      quantity: fin(c.quantity, COUNT_CAP),
+      monthlyRent: fin(c.monthlyRent),
+      variableCost: fin(c.variableCost),
+      driverSalary: fin(c.driverSalary),
+      purchasePrice: fin(c.purchasePrice),
+      depreciationMonths: fin(c.depreciationMonths, 1200),
+      fuelEfficiency: fin(c.fuelEfficiency, 1e3),
+      avgDailyDistance: fin(c.avgDailyDistance, 1e4),
+    })),
+    providers: (input.providers ?? []).map((p) => ({
+      ...p,
+      shipmentsPerDay: fin(p.shipmentsPerDay, COUNT_CAP),
+      pricePerShipment: fin(p.pricePerShipment),
+    })),
+    maintenance: (input.maintenance ?? []).map((m) => ({
+      ...m,
+      costPerEvent: fin(m.costPerEvent),
+      frequency: fin(m.frequency, COUNT_CAP),
+    })),
+  };
+}
+
 export function calculateFinancials(input: FinancialInput): FinancialOutput {
+  input = sanitizeFinancialInput(input);
+
   const enabledClasses = enabled(input.vehicleClasses);
   const enabledProviders = enabled(input.providers);
   const enabledMaintenance = enabled(input.maintenance);
@@ -295,24 +383,30 @@ export function applyOperationalPatch(
   patch: Partial<FinancialInput>
 ): FinancialInput {
   const next = { ...input, ...patch };
-  if (patch.companyDriverCount !== undefined && patch.companyDriverCount !== input.drivers.length) {
-    const diff = patch.companyDriverCount - input.drivers.length;
+  if (patch.companyDriverCount !== undefined) {
+    // Clamp before syncing so a wild count can never materialize unbounded records.
+    const raw = patch.companyDriverCount;
+    const target = Math.min(
+      DRIVER_COUNT_CAP,
+      Math.max(0, Math.floor(typeof raw === 'number' && Number.isFinite(raw) ? raw : input.drivers.length))
+    );
+    next.companyDriverCount = target;
+    const diff = target - input.drivers.length;
     if (diff > 0) {
-      for (let i = 0; i < diff; i++) {
-        next.drivers = [
-          ...next.drivers,
-          {
-            id: `drv-${Date.now().toString(36)}-${i}`,
-            fullName: `Driver ${next.drivers.length + 1}`,
-            phone: '',
-            nationalId: '',
-            assignedVehicle: 'Van',
-            status: 'active',
-          },
-        ];
-      }
-    } else {
-      next.drivers = next.drivers.slice(0, patch.companyDriverCount);
+      // Single allocation — spreading per iteration made this O(n²) and froze
+      // the UI for tens of seconds on large fleet counts.
+      const start = input.drivers.length;
+      const additions = Array.from({ length: diff }, (_, i) => ({
+        id: `drv-${Date.now().toString(36)}-${start + i}`,
+        fullName: `Driver ${start + i + 1}`,
+        phone: '',
+        nationalId: '',
+        assignedVehicle: 'Van',
+        status: 'active' as const,
+      }));
+      next.drivers = [...input.drivers, ...additions];
+    } else if (diff < 0) {
+      next.drivers = input.drivers.slice(0, target);
     }
   }
   return next;
