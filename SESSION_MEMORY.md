@@ -11,10 +11,10 @@
 | **Version** | `0.4.0` |
 | **Stack** | Next.js 16.2.6 + Turbopack + Tailwind CSS v4 + TypeScript 5 |
 | **Path** | `/run/media/kalde/186E2FB96E2F8E96/Users/kalde/Downloads/Ai slop/vega-logistics` |
-| **Dev Server** | `http://localhost:3002` (port 3000 taken by Gitea) |
+| **Dev Server** | `http://localhost:3003` (3000 = Gitea, 3002 = lore-engine — do NOT use) |
 | **Build Status** | ✅ PASSING — `next build` compiles, TypeScript clean (exit 0) |
 | **Python Tests** | ✅ 25/25 passing (calculations: 9, feasibilityEngine: 10, ghostGrowth: 6) |
-| **ESLint** | ✅ 0 errors, 204 warnings (mostly unused vars in `v2026/*` + legacy `AppContext.tsx`) |
+| **ESLint** | ✅ 0 errors, 0 warnings (fully clean; fonts migrated to `next/font/google`) |
 | **Git** | 2 commits |
 
 ## Filesystem Warning
@@ -45,7 +45,7 @@
 
 ```bash
 # Dev server
-npm run dev    # starts on :3000, we use :3002
+npm run dev    # starts on :3000, we use :3003 (3002 taken by lore-engine)
 
 # Build
 npm run build  # ✅ compiles + typechecks
@@ -176,8 +176,12 @@ src/
 
 ## Current Session
 
-**Start**: June 20, 2026
-**Dev Server**: http://localhost:3002 ✅ Running
+**Start**: Aug 21, 2026
+**Dev Server**: http://localhost:3003 ✅ Running (`npx next dev -p 3003`)
+
+### Fixed this session
+- Migrated Google Fonts `<link>` tags → `next/font/google` (self-hosted; Space Grotesk, Cairo [arabic+latin], IBM Plex Mono) with CSS variables `--font-space-grotesk`, `--font-cairo`, `--font-ibm-plex-mono`; updated all `globals.css` references. ESLint now fully clean.
+- Discovered port 3002 is occupied by unrelated project `lore-engine` (Next.js 14) — old session memory was stale. Moved vega dev server to 3003; API routes verified returning JSON.
 
 ```
 vega-logistics-os@0.4.0 /run/media/kalde/186E2FB96E2F8E96/Users/kalde/Downloads/Ai slop/vega-logistics

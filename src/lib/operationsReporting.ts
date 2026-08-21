@@ -22,6 +22,14 @@ export interface DailyMetrics {
 
 export const WORKING_DAYS_PER_MONTH = 26;
 
+/** Local-timezone YYYY-MM-DD key. Never use UTC ISO slices for "today" —
+ *  Saudi Arabia (UTC+3) would misfile reports between 00:00 and 03:00. */
+export function toDateString(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 export function calculateDailyMetrics(record: DailyRecord, input: FinancialInput, output: FinancialOutput): DailyMetrics {
   const recordedAttempts = record.completedShipments + record.failedShipments;
   const revenue = record.completedShipments * output.avgRevenuePerShipment;
@@ -41,8 +49,8 @@ export function buildProjection(output: FinancialOutput, days: number, records: 
   const factors = [0.92, 0.97, 1.03, 1, 1.06, 0.95, 1.02];
   return Array.from({ length: days }, (_, index) => {
     const date = new Date(endDate);
-    date.setUTCDate(endDate.getUTCDate() - (days - index - 1));
-    const key = date.toISOString().slice(0, 10);
+    date.setDate(endDate.getDate() - (days - index - 1));
+    const key = toDateString(date);
     const record = records[key];
     const factor = factors[index % factors.length];
     return {

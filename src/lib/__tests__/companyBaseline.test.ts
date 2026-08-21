@@ -40,7 +40,7 @@ describe('company baseline', () => {
   it('replaces projection values with recorded daily shipments', () => {
     const result = calculateFinancials(structuredClone(defaultFinancialInput));
     const record: DailyRecord = { date: '2026-08-20', completedShipments: 190, failedShipments: 10, fuelLitres: 68.4, driversPresent: 4, notes: '', updatedAt: '' };
-    const trend = buildProjection(result, 14, { [record.date]: record }, new Date('2026-08-20T12:00:00Z'));
+    const trend = buildProjection(result, 14, { [record.date]: record }, new Date(2026, 7, 20, 12, 0, 0));
 
     expect(trend).toHaveLength(14);
     expect(trend.at(-1)).toMatchObject({ date: '2026-08-20', shipments: 190, recorded: true });
