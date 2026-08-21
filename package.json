@@ -18,7 +18,7 @@
     "i18next": "^26.3.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.16.0",
-    "next": "16.2.6",
+    "next": "^16.3.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-i18next": "^17.0.8"
@@ -32,7 +32,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "^16.3.1",
     "jsdom": "^29.1.1",
     "lightningcss-linux-x64-gnu": "^1.25.0",
     "tailwindcss": "^4",
@@ -44,5 +44,8 @@
     "@tailwindcss/oxide-linux-x64-gnu": "^4.3.1",
     "lightningcss": "^1.25.0",
     "lightningcss-win32-x64-msvc": "^1.25.0"
+  },
+  "overrides": {
+    "sharp": "^0.35.3"
   }
 }
