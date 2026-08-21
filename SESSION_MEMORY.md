@@ -9,7 +9,7 @@
 |-------|-------|
 | **Name** | VEGA Logistics OS / Levered Beta Logistics |
 | **Version** | `0.4.0` |
-| **Stack** | Next.js 16.2.6 + Turbopack + Tailwind CSS v4 + TypeScript 5 |
+| **Stack** | Next.js 16.3.1 + Turbopack + Tailwind CSS v4 + TypeScript 5 |
 | **Path** | `/data/Ai slop/vega-logistics` (NTFS-mounted) |
 | **Dev Server** | `http://localhost:3003` (3000 = Gitea, 3002 = lore-engine — do NOT use) |
 | **Build Status** | ✅ PASSING — `next build` compiles, TypeScript clean (exit 0) |
@@ -197,6 +197,11 @@ src/
 - **Fixed**: NaN/∞ engine contamination → `sanitizeFinancialInput()` boundary clamp; O(n²) driver sync (23.5s @ 50k) → O(n); roster 160k `<option>` nodes → shared datalist (fleet view 11.3s → 1.16s jsdom)
 - **Kept as regression guards**: `src/lib/__tests__/stress.test.ts` + `src/__tests__/ui-stress.test.tsx` (57 vitest tests total now)
 - **Known/deferred**: snapshot API ships ~923KB JSON (~41 rps, p50 ~650ms) — demo endpoint for archived v2026 modules; shrink payload when they return. sharp/libvips CVEs inherited from next@16.
+
+### Web-researched recommendations (Aug 21)
+- **Applied**: next 16.3.1 (9 CVEs cleared), sharp override ^0.35.3 (GHSA-f88m-g3jw-g9cj), transitive audit fixes. Prod audit: 2 moderate left (uuid via exceljs — accepted, not attacker-facing).
+- **Next.js 16.3+ auto-generates AGENTS.md** managed block on `next dev` — don't hand-delete; commit it.
+- **Backlog, referenced**: TanStack Virtual if tables need >1k rows; IndexedDB for daily records when localStorage ~5MiB becomes real; NDJSON/section-filtering for the 923KB snapshot endpoint; scenario-comparison UX per ProjectionLab/cinder patterns (baseline + what-if overlays, side-by-side deltas).
 
 ### Next candidates (P1)
 - Scenario manager (save/load/diff named scenarios)
