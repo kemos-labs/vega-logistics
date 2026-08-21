@@ -192,6 +192,12 @@ src/
 - Tightened CSP: no external origins, unsafe-eval dev-only
 - All gates green post-change: build ✓ tsc ✓ eslint 0/0 ✓ vitest 40/40 ✓ python 25/25 ✓ NTFS binaries verified ✓
 
+### Stress test results (Aug 21)
+- **HTTP (prod standalone)**: page 344 rps p50 45ms; health 447 rps; zero errors at c=100 spike
+- **Fixed**: NaN/∞ engine contamination → `sanitizeFinancialInput()` boundary clamp; O(n²) driver sync (23.5s @ 50k) → O(n); roster 160k `<option>` nodes → shared datalist (fleet view 11.3s → 1.16s jsdom)
+- **Kept as regression guards**: `src/lib/__tests__/stress.test.ts` + `src/__tests__/ui-stress.test.tsx` (57 vitest tests total now)
+- **Known/deferred**: snapshot API ships ~923KB JSON (~41 rps, p50 ~650ms) — demo endpoint for archived v2026 modules; shrink payload when they return. sharp/libvips CVEs inherited from next@16.
+
 ### Next candidates (P1)
 - Scenario manager (save/load/diff named scenarios)
 - Plan-vs-actual monthly variance report
