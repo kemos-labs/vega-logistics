@@ -1,5 +1,7 @@
 import type { MetadataRoute } from 'next';
 
+export const dynamic = 'force-static';
+
 /** PWA manifest — step 1 of mobile field-operations support: the app can be
  *  installed to a phone home screen. Service worker (full offline) is a
  *  later, separate increment. */
