@@ -9,7 +9,7 @@ import {
   type InsightKey,
   type ReportModel,
 } from '@/lib/reportEngine';
-import { entryAgeDays, RECOVERY_TARGETS } from '@/lib/recoveryBoard';
+import { buildWeeklyRecoveryTrend, entryAgeDays, RECOVERY_TARGETS } from '@/lib/recoveryBoard';
 
 const amount = (value: number) => Math.round(value * 100) / 100;
 
@@ -741,7 +741,7 @@ export async function exportBusinessModelExcel(
   output: FinancialOutput,
   extras?: {
     records?: Record<string, DailyRecord>;
-    recoveryEntries?: Array<{ createdAt: string; shipments: number; reasonKey?: string; customer?: string; owner: string; status: string; resolvedAt?: string }>;
+    recoveryEntries?: Array<{ createdAt: string; shipments: number; reasonKey?: string; customer?: string; owner: string; status: 'pending' | 'recovered' | 'written_off'; resolvedAt?: string }>;
   },
 ) {
   const ExcelJS = await import('exceljs');
@@ -841,6 +841,21 @@ export async function exportBusinessModelExcel(
         daysOpen: entry.status === 'pending' ? entryAgeDays({ ...entry, createdAt: entry.createdAt } as Parameters<typeof entryAgeDays>[0]) : '',
       }));
       recovery.getRow(1).font = { bold: true };
+
+      /* Weekly recovered vs written-off trend */
+      const trend = buildWeeklyRecoveryTrend(entries as never[], 6);
+      if (trend.some(week => week.recovered + week.writtenOff > 0)) {
+        const trendSheet = workbook.addWorksheet('Recovery trend');
+        trendSheet.columns = [
+          { header: 'Week start', key: 'week', width: 14 }, { header: 'Recovered', key: 'recovered', width: 12 },
+          { header: 'Written off', key: 'woff', width: 12 }, { header: 'Closed total', key: 'total', width: 12 },
+        ];
+        trend.forEach(week => trendSheet.addRow({
+          week: week.weekStart, recovered: week.recovered, woff: week.writtenOff,
+          total: week.recovered + week.writtenOff,
+        }));
+        trendSheet.getRow(1).font = { bold: true };
+      }
     }
   }
 
