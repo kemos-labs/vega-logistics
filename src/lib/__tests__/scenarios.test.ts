@@ -45,9 +45,9 @@ describe('backup parse/validate', () => {
 
   it('filters invalid daily records but keeps good ones', () => {
     const backup = buildBackup(defaultFinancialInput, {
-      '2026-08-20': { date: '2026-08-20', completedShipments: 10, failedShipments: 1, fuelLitres: 5, driversPresent: 3, notes: 'ok', updatedAt: '' },
-      'bad-date': { date: 'bad-date', completedShipments: 9, failedShipments: 0, fuelLitres: 0, driversPresent: 0, notes: '', updatedAt: '' },
-      '2026-08-21': { date: '2026-08-21', completedShipments: NaN, failedShipments: 'x', fuelLitres: null, driversPresent: {}, notes: 42, updatedAt: 7 } as unknown as DailyRecord,
+      '2026-08-20': { date: '2026-08-20', completedShipments: 10, failedShipments: 1, fuelCost: 5, driversPresent: 3, notes: 'ok', updatedAt: '' },
+      'bad-date': { date: 'bad-date', completedShipments: 9, failedShipments: 0, fuelCost: 0, driversPresent: 0, notes: '', updatedAt: '' },
+      '2026-08-21': { date: '2026-08-21', completedShipments: NaN, failedShipments: 'x', fuelCost: null, driversPresent: {}, notes: 42, updatedAt: 7 } as unknown as DailyRecord,
     }, []);
     const parsed = parseBackup(JSON.stringify(backup))!;
     expect(Object.keys(parsed.dailyRecords)).toEqual(['2026-08-20']);
@@ -56,14 +56,14 @@ describe('backup parse/validate', () => {
 
 describe('monthly variance rollup', () => {
   const output = calculateFinancials(defaultFinancialInput);
-  const record = (date: string, completed: number): DailyRecord => ({ date, completedShipments: completed, failedShipments: 0, fuelLitres: 10, driversPresent: 4, notes: '', updatedAt: '' });
+  const record = (date: string, completed: number): DailyRecord => ({ date, completedShipments: completed, failedShipments: 0, fuelCost: 10, driversPresent: 4, notes: '', updatedAt: '' });
 
   it('aggregates by month newest first with variance', () => {
     const rollups = buildMonthlyRollup({
       '2026-08-01': record('2026-08-01', 130),
       '2026-08-02': record('2026-08-02', 140),
       '2026-07-15': record('2026-07-15', 100),
-    }, output, 2.18);
+    }, output);
     expect(rollups.map(r => r.month)).toEqual(['2026-08', '2026-07']);
     const aug = rollups[0];
     expect(aug.recordedDays).toBe(2);
@@ -74,6 +74,6 @@ describe('monthly variance rollup', () => {
   });
 
   it('handles empty records', () => {
-    expect(buildMonthlyRollup({}, output, 2.18)).toEqual([]);
+    expect(buildMonthlyRollup({}, output)).toEqual([]);
   });
 });

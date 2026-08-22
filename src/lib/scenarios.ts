@@ -58,13 +58,13 @@ export function parseBackup(raw: string): ModelBackup | null {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !isRecord(record)) continue;
       // Required numerics must be real finite numbers — null/NaN/string
       // records are corrupt and would skew variance as phantom zero days.
-      const nums = [record.completedShipments, record.failedShipments, record.fuelLitres, record.driversPresent];
+      const nums = [record.completedShipments, record.failedShipments, record.fuelCost, record.driversPresent];
       if (!nums.every(n => typeof n === 'number' && Number.isFinite(n))) continue;
       dailyRecords[date] = {
         date,
         completedShipments: record.completedShipments as number,
         failedShipments: record.failedShipments as number,
-        fuelLitres: record.fuelLitres as number,
+        fuelCost: record.fuelCost as number,
         driversPresent: record.driversPresent as number,
         notes: typeof record.notes === 'string' ? record.notes.slice(0, 2000) : '',
         updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : '',

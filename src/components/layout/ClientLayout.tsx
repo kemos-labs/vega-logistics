@@ -28,6 +28,16 @@ export default function ClientLayout({
     document.documentElement.lang = lang;
   }, [lang, mounted]);
 
+  useEffect(() => {
+    // In-app language toggle (BusinessModelApp header) notifies this layout.
+    const onSetLanguage = (event: Event) => {
+      const next = (event as CustomEvent<string>).detail;
+      if (next === 'ar' || next === 'en') setLang(next);
+    };
+    window.addEventListener('vega:set-language', onSetLanguage);
+    return () => window.removeEventListener('vega:set-language', onSetLanguage);
+  }, []);
+
   return (
     <I18nextProvider i18n={i18n}>
       <div

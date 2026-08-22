@@ -32,7 +32,7 @@
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: var(--font-space-grotesk), ui-sans-serif, sans-serif;
+  font-family: var(--font-archivo), ui-sans-serif, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -242,7 +242,7 @@ button {
   overflow: hidden;
   background: var(--ops-bg);
   color: var(--ops-text);
-  font-family: var(--font-space-grotesk), ui-sans-serif, sans-serif;
+  font-family: var(--font-archivo), ui-sans-serif, sans-serif;
 }
 
 .ops-sidebar {

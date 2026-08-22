@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
-import { Cairo, IBM_Plex_Mono, Space_Grotesk } from 'next/font/google';
+import { Archivo, Cairo, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 import ClientLayout from '@/components/layout/ClientLayout';
 
-const spaceGrotesk = Space_Grotesk({
+const archivo = Archivo({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-space-grotesk',
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-archivo',
   display: 'swap',
 });
 
@@ -38,12 +38,12 @@ export default function RootLayout({
     <html
       lang="en"
       dir="ltr"
-      className={`dark ${spaceGrotesk.variable} ${cairo.variable} ${ibmPlexMono.variable}`}
+      className={`dark ${archivo.variable} ${cairo.variable} ${ibmPlexMono.variable}`}
       suppressHydrationWarning
       data-i18n-managed="true"
     >
       <head>
-        <meta name="theme-color" content="#10171b" />
+        <meta name="theme-color" content="#13291f" />
       </head>
       <body className="antialiased">
         <ClientLayout>{children}</ClientLayout>
