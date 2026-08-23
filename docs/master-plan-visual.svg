@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" font-family="Archivo, Arial, sans-serif">
+  <defs>
+    <linearGradient id="pine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#122e20"/><stop offset="1" stop-color="#0c2117"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c9a227"/><stop offset="1" stop-color="#e3c565"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#pine)"/>
+  <rect x="28" y="28" width="1224" height="664" fill="none" stroke="#c9a227" stroke-opacity=".35" rx="14"/>
+  <text x="64" y="92" fill="#f4f1e8" font-size="40" font-weight="800" letter-spacing="1">VEGA LOGISTICS OS</text>
+  <text x="64" y="124" fill="#9fb8a8" font-size="17" letter-spacing="6">MASTER PLAN · DAILY OPERATIONS COCKPIT · KSA-GRADE</text>
+  <rect x="64" y="150" width="120" height="34" rx="8" fill="#c9a227"/>
+  <text x="76" y="173" fill="#0c2117" font-size="15" font-weight="700">ROADMAP</text>
+  <text x="1216" y="92" text-anchor="end" fill="#e8e2d2" font-size="14">فيجا — نظام إدارة اللوجستيات</text>
+
+  <!-- spine -->
+  <line x1="80" y1="330" x2="1200" y2="330" stroke="#2f5240" stroke-width="3"/>
+
+  <!-- P0 -->
+  <g>
+    <circle cx="110" cy="330" r="13" fill="#4caf7d"/>
+    <rect x="52" y="196" width="150" height="112" rx="10" fill="#163526" stroke="#4caf7d" stroke-opacity=".6"/>
+    <text x="66" y="222" fill="#4caf7d" font-size="14" font-weight="700">P0 · HARDENING</text>
+    <text x="66" y="244" fill="#dfe8df" font-size="12.5">Reports EN/AR · Recovery</text>
+    <text x="66" y="262" fill="#dfe8df" font-size="12.5">board · Daily rebuild</text>
+    <text x="66" y="280" fill="#dfe8df" font-size="12.5">Cairo Arabic · PWA</text>
+    <text x="66" y="298" fill="#8fd6ae" font-size="12" font-weight="700">✓ DEPLOYED</text>
+    <line x1="127" y1="308" x2="127" y2="318" stroke="#2f5240"/>
+  </g>
+
+  <!-- P1 -->
+  <g>
+    <circle cx="255" cy="330" r="13" fill="#e3c565"/>
+    <rect x="197" y="360" width="150" height="118" rx="10" fill="#163526" stroke="#e3c565" stroke-opacity=".7"/>
+    <text x="211" y="386" fill="#e3c565" font-size="14" font-weight="700">P1 · DATA SAFETY</text>
+    <text x="211" y="408" fill="#dfe8df" font-size="12.5">One-tap JSON backup</text>
+    <text x="211" y="426" fill="#dfe8df" font-size="12.5">+ restore &amp; merge</text>
+    <text x="211" y="444" fill="#dfe8df" font-size="12.5">Arabic WhatsApp parser</text>
+    <text x="211" y="462" fill="#dfe8df" font-size="12.5">→ structured record</text>
+    <text x="211" y="474" fill="#fff" font-size="11" font-weight="700">▲ NEXT UP</text>
+    <line x1="272" y1="343" x2="272" y2="358" stroke="#2f5240"/>
+  </g>
+
+  <!-- P2 -->
+  <g>
+    <circle cx="400" cy="330" r="11" fill="#2f5240"/>
+    <rect x="342" y="196" width="150" height="112" rx="10" fill="#163526" stroke="#3a6a50"/>
+    <text x="356" y="222" fill="#9fd4b4" font-size="14" font-weight="700">P2 · COMPLIANCE</text>
+    <text x="356" y="244" fill="#dfe8df" font-size="12.5">National Address +</text>
+    <text x="356" y="262" fill="#dfe8df" font-size="12.5">AAAA9999 validator</text>
+    <text x="356" y="280" fill="#dfe8df" font-size="12.5">ZATCA receipt + QR</text>
+    <text x="356" y="298" fill="#dfe8df" font-size="12.5">TGA cargo manifest</text>
+  </g>
+
+  <!-- P3 -->
+  <g>
+    <circle cx="545" cy="330" r="11" fill="#2f5240"/>
+    <rect x="487" y="360" width="150" height="112" rx="10" fill="#163526" stroke="#3a6a50"/>
+    <text x="501" y="386" fill="#9fd4b4" font-size="14" font-weight="700">P3 · ROUTE-LITE</text>
+    <text x="501" y="408" fill="#dfe8df" font-size="12.5">Stop sequencing UI</text>
+    <text x="501" y="426" fill="#dfe8df" font-size="12.5">OSRM (opt-in flag)</text>
+    <text x="501" y="444" fill="#dfe8df" font-size="12.5">Offline-first fallback</text>
+    <text x="501" y="462" fill="#dfe8df" font-size="12.5">Fuel sanity vs distance</text>
+  </g>
+
+  <!-- P4 -->
+  <g>
+    <circle cx="690" cy="330" r="11" fill="#2f5240"/>
+    <rect x="632" y="196" width="150" height="112" rx="10" fill="#163526" stroke="#3a6a50"/>
+    <text x="646" y="222" fill="#9fd4b4" font-size="14" font-weight="700">P4 · ANALYTICS</text>
+    <text x="646" y="244" fill="#dfe8df" font-size="12.5">COD remit-lag trend</text>
+    <text x="646" y="262" fill="#dfe8df" font-size="12.5">Driver leaderboard</text>
+    <text x="646" y="280" fill="#dfe8df" font-size="12.5">Fuel control chart</text>
+    <text x="646" y="298" fill="#dfe8df" font-size="12.5">Actions cron digest</text>
+  </g>
+
+  <!-- P5 -->
+  <g>
+    <circle cx="835" cy="330" r="11" fill="#2f5240"/>
+    <rect x="777" y="360" width="150" height="112" rx="10" fill="#163526" stroke="#3a6a50"/>
+    <text x="791" y="386" fill="#9fd4b4" font-size="14" font-weight="700">P5 · SYNC (FREE)</text>
+    <text x="791" y="408" fill="#dfe8df" font-size="12.5">Supabase opt-in</text>
+    <text x="791" y="426" fill="#dfe8df" font-size="12.5">Local-first writes</text>
+    <text x="791" y="444" fill="#dfe8df" font-size="12.5">Two-device converge</text>
+    <text x="791" y="462" fill="#dfe8df" font-size="12.5">Weekly cron keep-alive</text>
+  </g>
+
+  <!-- P6 -->
+  <g>
+    <circle cx="980" cy="330" r="11" fill="#2f5240"/>
+    <rect x="922" y="196" width="150" height="112" rx="10" fill="#163526" stroke="#3a6a50"/>
+    <text x="936" y="222" fill="#9fd4b4" font-size="14" font-weight="700">P6 · LIVE FLEET</text>
+    <text x="936" y="244" fill="#dfe8df" font-size="12.5">Traccar self-host</text>
+    <text x="936" y="262" fill="#dfe8df" font-size="12.5">Telematics adapter</text>
+    <text x="936" y="280" fill="#dfe8df" font-size="12.5">Idle → fuel insight</text>
+    <text x="936" y="298" fill="#dfe8df" font-size="12.5">$4 VPS when live</text>
+  </g>
+
+  <!-- P7 -->
+  <g>
+    <circle cx="1130" cy="330" r="11" fill="#2f5240"/>
+    <rect x="1072" y="360" width="150" height="100" rx="10" fill="#163526" stroke="#3a6a50"/>
+    <text x="1086" y="386" fill="#9fd4b4" font-size="14" font-weight="700">P7 · SCALE-OUT</text>
+    <text x="1086" y="408" fill="#dfe8df" font-size="12.5">ERPNext import/export</text>
+    <text x="1086" y="426" fill="#dfe8df" font-size="12.5">WhatsApp API (cost⚠)</text>
+    <text x="1086" y="444" fill="#dfe8df" font-size="12.5">Multi-company</text>
+  </g>
+
+  <!-- KPI strip -->
+  <rect x="64" y="520" width="1158" height="130" rx="12" fill="#10281b" stroke="#2f5240"/>
+  <text x="88" y="552" fill="#c9a227" font-size="14" font-weight="800" letter-spacing="3">TARGET KPI BOARD — APP COMPUTES ALL BY P4</text>
+  <g fill="#dfe8df" font-size="13.5">
+    <text x="88" y="584">First-attempt ≥90%</text><text x="88" y="612">(stretch 95%)</text>
+    <text x="300" y="584">Miss ≤8% warn / ≤3% ok</text><text x="300" y="612">recovery close ≥50%</text>
+    <text x="560" y="584">e-POD ≥98%</text><text x="560" y="612">(industry median 80%)</text>
+    <text x="800" y="584">COD remit ≤2 days</text><text x="800" y="612">~25% of KSA e-com is COD</text>
+    <text x="1030" y="584">Cost/stop ±10%</text><text x="1030" y="612">of 4-week baseline</text>
+  </g>
+  <line x1="270" y1="568" x2="270" y2="618" stroke="#2f5240"/><line x1="530" y1="568" x2="530" y2="618" stroke="#2f5240"/>
+  <line x1="770" y1="568" x2="770" y2="618" stroke="#2f5240"/><line x1="1000" y1="568" x2="1000" y2="618" stroke="#2f5240"/>
+
+  <text x="64" y="682" fill="#7d998a" font-size="11.5">Sources: zatca.gov.sa · tga.gov.sa · splonline.com.sa · SAMA 2023 · Parcel Perform Q2-2025 · APQC — full dossier: docs/MASTER_PLAN.md</text>
+</svg>

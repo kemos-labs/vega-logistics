@@ -334,7 +334,12 @@ src/
 - `scripts/make-provider-report.mjs` → reports/provider-daily-report-2026-08-20_22.xlsx (RTL sheet, pine header, totals row: تحميل 51 · توصيل 37 · راجع 14 · 72.5%)
 - Gates: build ✓ tsc ✓ lint ✓ vitest 106/106 ✓
 
-### Next candidates (P1)
+### Pass 14 — Deep research + governance docs
+- Deep web research (ZATCA/TGA/National-Address/SAMA COD/benchmarks/free OSS stack) → `docs/MASTER_PLAN.md` (P0–P7 roadmap, KPI board, free-stack decisions, risk register) + `docs/RESEARCH_AGENT_PROMPT.md` (reusable research contract) + `docs/master-plan-visual.svg`
+- `AGENTS.md`: added STRICT rules R1–R10 (gates+live verify, NTFS hazard, AR parity native phrasing, Cairo/RTL law, assert-patches, CSP, data durability, sourced claims, roadmap authority, simplicity budget)
+- Arabic rewrite + Cairo font fix shipped earlier this session (commits 0467f98, 215c4e9)
+
+## Next candidates (P1)
 - Scenario manager (save/load/diff named scenarios)
 - Plan-vs-actual monthly variance report
 - i18n decision: wire BusinessModelApp translations or remove i18next
