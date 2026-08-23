@@ -14,7 +14,7 @@
   <text x="64" y="124" fill="#9fb8a8" font-size="17" letter-spacing="6">MASTER PLAN · DAILY OPERATIONS COCKPIT · KSA-GRADE</text>
   <rect x="64" y="150" width="120" height="34" rx="8" fill="#c9a227"/>
   <text x="76" y="173" fill="#0c2117" font-size="15" font-weight="700">ROADMAP</text>
-  <text x="1216" y="92" text-anchor="end" fill="#e8e2d2" font-size="14">فيجا — نظام إدارة اللوجستيات</text>
+  <text x="1216" y="92" text-anchor="end" fill="#e8e2d2" font-size="14">Bilingual EN / AR · KSA-grounded</text>
 
   <!-- spine -->
   <line x1="80" y1="330" x2="1200" y2="330" stroke="#2f5240" stroke-width="3"/>
@@ -27,7 +27,7 @@
     <text x="66" y="244" fill="#dfe8df" font-size="12.5">Reports EN/AR · Recovery</text>
     <text x="66" y="262" fill="#dfe8df" font-size="12.5">board · Daily rebuild</text>
     <text x="66" y="280" fill="#dfe8df" font-size="12.5">Cairo Arabic · PWA</text>
-    <text x="66" y="298" fill="#8fd6ae" font-size="12" font-weight="700">✓ DEPLOYED</text>
+    <text x="66" y="298" fill="#8fd6ae" font-size="12" font-weight="700">DONE - DEPLOYED</text>
     <line x1="127" y1="308" x2="127" y2="318" stroke="#2f5240"/>
   </g>
 
@@ -36,11 +36,11 @@
     <circle cx="255" cy="330" r="13" fill="#e3c565"/>
     <rect x="197" y="360" width="150" height="118" rx="10" fill="#163526" stroke="#e3c565" stroke-opacity=".7"/>
     <text x="211" y="386" fill="#e3c565" font-size="14" font-weight="700">P1 · DATA SAFETY</text>
-    <text x="211" y="408" fill="#dfe8df" font-size="12.5">One-tap JSON backup</text>
-    <text x="211" y="426" fill="#dfe8df" font-size="12.5">+ restore &amp; merge</text>
-    <text x="211" y="444" fill="#dfe8df" font-size="12.5">Arabic WhatsApp parser</text>
-    <text x="211" y="462" fill="#dfe8df" font-size="12.5">→ structured record</text>
-    <text x="211" y="474" fill="#fff" font-size="11" font-weight="700">▲ NEXT UP</text>
+    <text x="211" y="406" fill="#8fd6ae" font-size="12">v2 backup DONE:</text>
+    <text x="211" y="422" fill="#dfe8df" font-size="12">strict parse, merge/</text>
+    <text x="211" y="438" fill="#dfe8df" font-size="12">replace/cancel, tests</text>
+    <text x="211" y="456" fill="#fff" font-size="11" font-weight="700">&gt;&gt; NEXT: banner,</text>
+    <text x="211" y="470" fill="#fff" font-size="11" font-weight="700">WhatsApp parser</text>
     <line x1="272" y1="343" x2="272" y2="358" stroke="#2f5240"/>
   </g>
 
@@ -74,7 +74,7 @@
     <text x="646" y="244" fill="#dfe8df" font-size="12.5">COD remit-lag trend</text>
     <text x="646" y="262" fill="#dfe8df" font-size="12.5">Driver leaderboard</text>
     <text x="646" y="280" fill="#dfe8df" font-size="12.5">Fuel control chart</text>
-    <text x="646" y="298" fill="#dfe8df" font-size="12.5">Actions cron digest</text>
+    <text x="646" y="298" fill="#dfe8df" font-size="12.5">Digest: manual export</text>
   </g>
 
   <!-- P5 -->
@@ -85,7 +85,7 @@
     <text x="791" y="408" fill="#dfe8df" font-size="12.5">Supabase opt-in</text>
     <text x="791" y="426" fill="#dfe8df" font-size="12.5">Local-first writes</text>
     <text x="791" y="444" fill="#dfe8df" font-size="12.5">Two-device converge</text>
-    <text x="791" y="462" fill="#dfe8df" font-size="12.5">Weekly cron keep-alive</text>
+    <text x="791" y="462" fill="#dfe8df" font-size="12.5">Pause-aware, no hacks</text>
   </g>
 
   <!-- P6 -->
@@ -95,7 +95,7 @@
     <text x="936" y="222" fill="#9fd4b4" font-size="14" font-weight="700">P6 · LIVE FLEET</text>
     <text x="936" y="244" fill="#dfe8df" font-size="12.5">Traccar self-host</text>
     <text x="936" y="262" fill="#dfe8df" font-size="12.5">Telematics adapter</text>
-    <text x="936" y="280" fill="#dfe8df" font-size="12.5">Idle → fuel insight</text>
+    <text x="936" y="280" fill="#dfe8df" font-size="12.5">Idle-time feeds fuel view</text>
     <text x="936" y="298" fill="#dfe8df" font-size="12.5">$4 VPS when live</text>
   </g>
 
@@ -105,22 +105,30 @@
     <rect x="1072" y="360" width="150" height="100" rx="10" fill="#163526" stroke="#3a6a50"/>
     <text x="1086" y="386" fill="#9fd4b4" font-size="14" font-weight="700">P7 · SCALE-OUT</text>
     <text x="1086" y="408" fill="#dfe8df" font-size="12.5">ERPNext import/export</text>
-    <text x="1086" y="426" fill="#dfe8df" font-size="12.5">WhatsApp API (cost⚠)</text>
+    <text x="1086" y="426" fill="#dfe8df" font-size="12.5">WhatsApp API (cost?)</text>
     <text x="1086" y="444" fill="#dfe8df" font-size="12.5">Multi-company</text>
   </g>
 
   <!-- KPI strip -->
-  <rect x="64" y="520" width="1158" height="130" rx="12" fill="#10281b" stroke="#2f5240"/>
-  <text x="88" y="552" fill="#c9a227" font-size="14" font-weight="800" letter-spacing="3">TARGET KPI BOARD — APP COMPUTES ALL BY P4</text>
-  <g fill="#dfe8df" font-size="13.5">
-    <text x="88" y="584">Completion ≥90%</text><text x="88" y="612">[internal target]</text>
-    <text x="300" y="584">Miss ≤8% warn / ≤3% ok</text><text x="300" y="612">recovery close ≥50% [internal]</text>
-    <text x="560" y="584">e-POD ≥98% [internal]</text><text x="560" y="612">benchmark median 80% APQC</text>
-    <text x="800" y="584">COD stays core:</text><text x="800" y="612">25% of last orders paid cash (SAMA p24)</text>
-    <text x="1060" y="584">Cost/stop ±10%</text><text x="1060" y="612">of baseline [internal]</text>
+  <rect x="64" y="520" width="1158" height="140" rx="12" fill="#10281b" stroke="#2f5240"/>
+  <text x="88" y="552" fill="#c9a227" font-size="14" font-weight="800" letter-spacing="3">TARGETS — INTERNAL UNLESS CITED · SEE docs/RESEARCH_DOSSIER.md §3,§5</text>
+  <g fill="#dfe8df" font-size="13">
+    <text x="84" y="586">Completion at least 90%</text>
+    <text x="84" y="608">Miss: 8% warn / 3% ok</text>
+    <text x="84" y="630">Recovery at least 50%</text>
+    <text x="316" y="586">e-POD 98% [internal]</text>
+    <text x="316" y="608">APQC median 80.0%</text>
+    <text x="316" y="630">(n=1,144 companies)</text>
+    <text x="556" y="586">COD core: 25% of surveyed</text>
+    <text x="556" y="608">respondents reported COD for</text>
+    <text x="556" y="630">their last purchase (SAMA p24)</text>
+    <text x="852" y="586">Cost/stop +/-10% of base</text>
+    <text x="852" y="608">of 4-wk baseline [int]</text>
+    <text x="852" y="630">Fuel alert above 115% model</text>
   </g>
-  <line x1="270" y1="568" x2="270" y2="618" stroke="#2f5240"/><line x1="530" y1="568" x2="530" y2="618" stroke="#2f5240"/>
-  <line x1="770" y1="568" x2="770" y2="618" stroke="#2f5240"/><line x1="1000" y1="568" x2="1000" y2="618" stroke="#2f5240"/>
+  <line x1="292" y1="566" x2="292" y2="640" stroke="#2f5240"/>
+  <line x1="532" y1="566" x2="532" y2="640" stroke="#2f5240"/>
+  <line x1="828" y1="566" x2="828" y2="640" stroke="#2f5240"/>
 
-  <text x="64" y="682" fill="#7d998a" font-size="11.5">Verified register: docs/RESEARCH_DOSSIER.md — TGA news 198 (2026-01-01) · SAMA 2023 p.24 · APQC 108931 · zatca.gov.sa · splonline.com.sa</text>
+  <text x="64" y="684" fill="#7d998a" font-size="11.5">Verified register: docs/RESEARCH_DOSSIER.md — TGA news 198 (2026-01-01) · SAMA 2023 PDF p.24 · APQC 108931 · zatca.gov.sa · splonline.com.sa</text>
 </svg>

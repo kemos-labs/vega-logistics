@@ -39,7 +39,7 @@ Everything else serves that sentence.
 | ZATCA Phase 2 ("Integration", waves from 1 Jan 2023): Fatoora integration, XML or PDF/A-3 w/ embedded XML, clearance (B2B) vs 24h reporting (B2C), cryptographic stamp; wave assignment only via ZATCA notice ≥6 months ahead [REG] | [PRIMARY] docs; mechanism details VERIFY pending page-level extraction | VEGA can only keep data ZATCA-shaped. No "compliant" wording anywhere in UI. Operator checks own wave notice | zatca.gov.sa How-to-get-ready.pdf · Detailed Guideline · 19-May-2023 Resolution |
 | TGA light-freight (≤3,500 kg) rules & electronic transport documents | **VERIFY** | P2 manifest export labelled "informed by TGA fields", explicitly non-authoritative | tga.gov.sa/ar/Regulations/Regulation/4786 |
 | COD: 25% of surveyed consumers chose cash for their **last** online purchase (debit 50%) — survey of payment method, NOT value share | [PRIMARY] SAMA 2023, p.24 | COD reconciliation stays core; no market-value claims in copy | sama.gov.sa Report_on_Payments_Usage_Study_2023_en.pdf |
-| Ramadan / Hajj / Riyadh-season alter demand patterns and truck-access windows | [SECONDARY] press/consultancy | Season mode = manual plan multiplier + shifted shift labels; no numeric claim | see dossier §4 (Grant Thornton piece, SPA items) |
+| Ramadan seasonal surge is real and measured: 26M+ parcels in Ramadan 1446 (+18% YoY), 1.1M peak day [PRIMARY: SPA/TGA, 2025-03-29]; last mile ≈ up to 50% of total logistics costs [VENDOR: Grant Thornton] | Season mode = manual plan multiplier + shifted shift labels; no numeric plan claim inherited from these figures | dossier Addendum (SPA verbatim; GT verbatim) |
 
 ## 4. Targets — three separate registers
 
@@ -79,8 +79,8 @@ Nothing else matters if records die with the browser.
 ### P2 — Compliance-lite data capture (~2 weeks)
 1. National Address + Short Address fields w/ `^[A-Za-z]{4}\d{4}$` **format** validator (labelled format-only).
 2. Manifest PDF gains cargo-statement-style block (vehicle, plate, driver, stop list) — explicitly non-authoritative pending TGA VERIFY.
-3. Invoice-shaped receipt draft: VAT 15% lines, Phase-1-style QR payload; UI copy says "data-ready for e-invoicing", never "compliant".
-**Accept:** validator tests; receipts render EN/AR; no regulatory claim strings in locales.
+3. Invoice-shaped receipt draft: VAT lines driven by a **configurable `vatRate` constant** (default 15 flagged VERIFY — rate not yet quoted verbatim from a primary source), Phase-1-style QR payload; UI copy says "data-ready for e-invoicing", never "compliant".
+**Accept:** validator tests; receipts render EN/AR; no regulatory claim strings in locales; no hard-coded rate anywhere.
 
 ### P3 — Route-lite (~2 weeks)
 1. Per-driver stop sequencing: manual drag order default; optional drive-order suggestion behind `NEXT_PUBLIC_OSRM_URL`.
@@ -98,7 +98,7 @@ Nothing else matters if records die with the browser.
 ### P5 — Optional sync backend (free tier)
 1. Supabase free tier behind `NEXT_PUBLIC_SYNC=supabase`: Postgres mirror, email-link auth, RLS owner-only.
 2. Local-first write-through; conflicts last-writer-wins per record via updatedAt; localStorage remains boot source.
-3. **Accepted platform limits** (no workarounds): ~500 MB DB, pause after ~1 week inactivity, no PITR. Pause consequence = temporary sync outage; recovery path = local data + P1 backups. Documented, not engineered around.
+3. **Accepted platform limits** (per official docs): pause after 7 days of LOW ACTIVITY with warning email ~1 week prior; restore possible for up to 1 year; normal operator activity ("a few user requests each day") naturally prevents pausing — no artificial keep-alive. Pause consequence = temporary sync outage; recovery paths = local-first data + P1 backups + dashboard resume.
 **Accept:** two devices converge; airplane-mode edits reconcile.
 
 ### P6 — Live fleet (when hardware exists)

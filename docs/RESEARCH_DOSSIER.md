@@ -110,5 +110,101 @@ VEGA ships `connect-src 'self'`. Therefore **any** browser-side call to OSRM/Nom
 - **Supabase Free tier:** https://supabase.com/pricing and https://supabase.com/docs/guides/platform/database-size (accessed 2026-08-23): 500 MB database, 1 GB file storage, projects may pause after ~1 week of inactivity, no automatic backups/PITR on free. `[VENDOR]`
 - **Traccar:** https://www.traccar.org/ , https://github.com/traccar/traccar/ (accessed 2026-08-23): open-source GPS tracking platform, live tracking/history/geofences/reports; tracking layer only — dispatch/POD/accounting remain integrations. `[PRIMARY]` project docs / `[VENDOR]` positioning.
 
+
+---
+
+## 5. Workstream W2 — KPI evidence & evidence gaps (formal)
+
+| KPI | Best external evidence | Gap | VEGA stance |
+|---|---|---|---|
+| FADR | Parcel Perform 99.22% US-domestic [VENDOR, no methodology] | No small-fleet/KSA distribution published | Internal target ≥90%; no benchmark claim |
+| e-POD completeness | APQC measure 108931 median **80.0%**, n=1,144 [PRIMARY]; quartiles behind login | Percentile spread unavailable publicly | Use median as context only; VEGA target ≥98% internal |
+| Cost per delivered stop | Grant Thornton: last mile ≈ "up to 50% of total logistics costs" (KSA) [VENDOR] | No SAR small-fleet baseline published | Rolling ±10% control band vs own 4-week baseline |
+| Recovery close rate | Industry playbooks 50–65% w/ contact/reschedule [SECONDARY, docs/daily-ops-painpoints.md] | Vendor-sourced | ≥50% internal target (pinned in tests) |
+| COD prevalence | SAMA p.24 verbatim — 25% of respondents' last online purchase [PRIMARY survey] | Survey ≠ value share; 2023 data | COD first-class feature; no value-share claims |
+| Ramadan surge | SPA/TGA verbatim: 26M+ parcels Ramadan 1446 (+18% YoY), 1.1M peak day [PRIMARY press arm of state agency] | City-level split not in lede | Season-mode multiplier, no numeric plan claim |
+
+## 6. Workstream W3 — tooling register (license + operational catch)
+
+| Tool | Role | License (verified via GitHub license API, 2026-08-23) | Operational catch | Source |
+|---|---|---|---|---|
+| OSRM backend | routing/matrix | BSD-2-Clause | demo server fair-use ~1rps no SLA → self-host for production; Trip endpoint = single-vehicle ordering only | github.com/Project-OSRM/osrm-backend |
+| VROOM | multi-vehicle VRP | BSD-2-Clause | needs OSRM matrix; separate service to operate | github.com/vroom-project/vroom |
+| Traccar | GPS ingestion | Apache-2.0 | tracking layer only — dispatch/POD/accounting are integrations; needs a small VPS | traccar.org · github.com/traccar/traccar |
+| Nominatim (public) | geocoding | ODbL (data); code GPL | 1 req/s cap; identifying UA/Referer; attribution duty; anti-bulk; self-install for scale | operations.osmfoundation.org/policies/nominatim |
+| Supabase Free | future sync backend | platform T&C | **verbatim:** "Supabase pauses Free Plan projects that show low activity over a 7-day period"; warning email ~1 week prior; restore possible "for up to 1 year"; "a few user requests to the database each day" prevents pausing — normal operator usage qualifies; no artificial keep-alive needed or permitted | supabase.com/docs/guides/platform/free-project-pausing · /pricing |
+| ERPNext / Odoo | future ERP bridge | GPL-3 / LGPL+OPL modules | Delivery-Trip models differ from VEGA schema; export/import adapter work | docs.frappe.io/erpnext/delivery-trip · odoo.com/documentation |
+
+**CSP interaction (engineering fact):** app ships `connect-src 'self'`; any browser-side OSRM/Nominatim call requires explicit CSP origin additions + attribution UI + policy-compliant UA, else the feature ships offline-manual. No silent loosening (AGENTS.md R6).
+
+## 7. Workstream W4 — Riyadh daily workflow & ten friction points
+
+Basis: founder-operator workflow as captured in `docs/daily-ops-painpoints.md` (industry surveys DC Velocity/FarEye/JJ-Keller + practitioner guidance Bringg/AfterShip/Smartsheet, researched 2026-08-22) `[SECONDARY]`; corroborated by GT structural-challenge list [VENDOR].
+
+Operator day (as-built): WhatsApp manifests at dawn → drivers dispatched → mid-day exception calls → evening cash/count reconciliation → owner types yesterday's numbers into VEGA → weekly report to provider.
+
+| # | Friction moment | VEGA answer (status) |
+|---|---|---|
+| 1 | Miss reasons scattered across chats | 7 fixed codes + Σ-reconciliation guard ✅ |
+| 2 | Recoveries never closed out | Recovery board + close-rate ✅ |
+| 3 | Cash counted ≠ deliveries claimed | payments ≤ deliveries checklist ✅ |
+| 4 | Fuel receipts vs litres confusion | fuel-in-SAR-only model ✅ |
+| 5 | Plan numbers polluted by actuals | plan/actual separation ✅ |
+| 6 | Month-end report assembly by hand | one-click EN/AR PDF/Excel ✅ |
+| 7 | Provider wants driver/car/plate per day | identity fields + manifest block ✅ |
+| 8 | Customer blame disputes | per-customer breakdown → scorecards ✅ |
+| 9 | Data trapped in one browser | P1 backups (done) / P5 sync (opt-in) ⏳ |
+| 10 | Tomorrow's priorities lost in chat | next-day-focus field → Pro report closing note ✅ |
+
+## 8. Workstream W5 — minimal schema, migration & sync design
+
+Storage today (localStorage JSON):
+`vega-financialInput-v2 {FinancialInput}` · `vega-daily-reports-v2 {date→DailyRecord}` · `vega-scenarios-v1 [Scenario{id}]` · `vega-recovery-board-v1 [RecoveryEntry{id}]` · `vega-followup-actions-v1 [FollowUpAction{id}]` · `language "en"|"ar"`.
+
+Migration ledger: v1→v2 DailyRecord (fuelLitres→fuelCost, +optional fields) `migrateDailyRecords()` ✅; backup v1→v2 envelope (adds recovery/actions/language; warns about absent scope) ✅; row-level `updatedAt` backfill on write paths ✅ (absent = oldest).
+
+Future Supabase mirror (P5, opt-in): table-per-collection with text PK (=existing ids/date), jsonb payload column, `updated_at timestamptz`, RLS `auth.uid() = owner_id`; sync = push local rows where local.updatedAt > remote, pull where remote newer; conflicts resolved LWW per row with server timestamp tiebreak identical to backup rules; localStorage remains boot source (offline-first). No schema break required — payloads already serialize.
+
+## 9. Workstream W6 — risk register (twelve items)
+
+| # | Risk | L×I | Mitigation | Early signal |
+|---|---|---|---|---|
+| 1 | localStorage loss (reset/clear) | H×H | P1 backups + banner (post-acceptance) | days-since-backup |
+| 2 | National Address obligation scope ambiguity | M×H | capture fields now; legal scope VERIFY | % shipments missing address |
+| 3 | ZATCA wave notice arrives unannounced to us | M×M | invoice-shaped data ready; operator monitors notices | revenue growth near thresholds |
+| 4 | OSRM/Nominatim policy or availability drift | M×L | env-flag endpoints; offline-manual fallback | fetch-failure streak |
+| 5 | Supabase free pause | M×L | local-first; restore ≤1yr documented | pause-warning email |
+| 6 | RTL/Arabic regression | M×L | typography laws + parity checks | screenshot diff |
+| 7 | Backup file user error (replace wrong device) | M×M | preview counts + lossless gate + cancel default | support question |
+| 8 | Quota exhaustion on big history | L×M | persistBundle failure surfacing; prune guidance | partialSaveMessage seen |
+| 9 | Single-maintainer bus factor | M×H | AGENTS rules + dossier + this plan | session gaps |
+| 10 | Provider API/report format change | M×L | parser isolated behind tests | parse warnings spike |
+| 11 | Currency/VAT parameter drift | L×M | single config constants; ZATCA notice watch | invoice mismatch |
+| 12 | Scope creep past simplicity budget | M×M | R10 budget + phase gates | phase overrun |
+
+## 10. Build-next top 10 (priority order)
+
+| # | Item | Workstream | Pain solved | Stack | Effort | Depends on |
+|---|---|---|---|---|---|---|
+| 1 | Backup-age banner (in-app) | W5/W6 | silent data rot | none | S | Commit C accepted |
+| 2 | Arabic WhatsApp paste-parser | W4 | manual daily entry | none | M | Commit C accepted |
+| 3 | National Address fields + AAAA9999 validator | W1 | 2026 carrier rule | none | S | — |
+| 4 | Cargo-statement-style manifest block | W1 | provider/TGA paperwork | jsPDF | S | #3 |
+| 5 | Invoice-shaped receipt draft (rate configurable) | W1 | billing readiness | jsPDF QR | M | #3 |
+| 6 | Driver leaderboard | W2 | performance visibility | existing data | M | — |
+| 7 | COD remittance-lag trend | W2 | cash discipline | existing data | S | — |
+| 8 | Stop sequencing UI (offline manual) | W3 | tomorrow's routes | none | M | — |
+| 9 | OSRM suggestion behind CSP-flagged env | W3 | drive-order sanity | OSRM self-host path | L | #8, CSP decision |
+| 10 | Supabase opt-in sync | W5 | multi-device | supabase free | L | stable P1–P2 |
+
 ---
 *Items flagged VERIFY above block any product claim that depends on them. They are queued for direct document extraction before related features ship.*
+
+
+## Addendum citations (contract D)
+
+- **Grant Thornton KSA last-mile article** — *"Transforming last-mile delivery in Saudi Arabia: From cost burden to competitive advantage"*, Grant Thornton Saudi Arabia, grantthornton.sa/en/insights/articles-and-publications/transforming_last_mile_delivery_in_saudi_arabia/ (undated; accessed 2026-08-23). Verbatim: *"…last-mile delivery remains the most challenging and expensive element of logistics, often accounting for up to 50% of total logistics costs."* · *"Cash-on-Delivery dependency, resulting in failed deliveries, higher return rates, and working capital pressure"* · *"Network coverage gaps, with approximately 40% of demand originating outside major urban centres."* `[VENDOR]`
+- **SPA / TGA Ramadan parcel volume** — *"TGA: Over 26 Million Shipments Delivered during Ramadan, Marking 18% Growth"*, Saudi Press Agency (state agency), spa.gov.sa/en/N2290417, published Riyadh March 29, 2025 (accessed 2026-08-23). Verbatim (og:description lede): *"The Transport General Authority (TGA) announced that licensed parcel transport companies delivered more than 26 million shipments and postal parcels during Ramadan 1446 AH, reflecting an 18% increase compared to the same period last year."* · *"the highest daily delivery rate was recorded on the 24th of Ramadan, surpassing 1.1 million shipments within 24 hours… capacity to handle seasonal surges in demand."* Series: ~22M (Ramadan 1445/2024), 14M (1444/2023). `[PRIMARY]` (state press; figures attributed by SPA to TGA)
+- **VAT standard rate 15%** — ZATCA VAT portal, zatca.gov.sa/en/RulesRegulations/VAT/Pages/default.aspx (accessed 2026-08-23). Page confirms VAT regime + SME simplified-invoice requirements (verbatim: *"Using a simplified tax invoice that includes the issuance date, supplier name and address, item/service description, payment amount, and VAT value."*) but the extracted page does NOT itself state "15%" — rate figure rests on secondary synthesis of ZATCA's Implementing-Regulation amendment PDF (zatca.gov.sa/en/HelpCenter/guidelines/Documents/Amendments-to-the-Implementing-Regulation-of-%28VAT%29.PDF). **Classification: VERIFY for verbatim; therefore removed from implementation acceptance criteria — receipt generator ships a configurable `vatRate` (default 15, flagged VERIFY in code comment).** `[SECONDARY→VERIFY]`
+- **Supabase project pausing (correction)** — *"Project Pausing | Supabase Docs"*, supabase.com/docs/guides/platform/free-project-pausing (accessed 2026-08-23). Verbatim: *"Supabase pauses Free Plan projects that show low activity over a 7-day period to save server resources."* · *"Typically a few user requests to the database each day over the previous week is enough to keep the project from being paused."* · warning email ~one week before pause · *"You can restore a paused project for up to 1 year after it was paused."* `[VENDOR doc]` — corrects the earlier dossier line that implied indefinite loss; normal operator activity is sufficient, and no artificial keep-alive is used.
+- **Tool licenses** — GitHub license API, 2026-08-23: Project-OSRM/osrm-backend LICENSE.TXT → **BSD-2-Clause**; vroom-project/vroom LICENSE → **BSD-2-Clause**; traccar/traccar LICENSE.txt → **Apache-2.0**. `[PRIMARY]`
