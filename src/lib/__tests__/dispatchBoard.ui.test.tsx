@@ -90,6 +90,19 @@ describe('DispatchBoardView', () => {
     expect(screen.getByTestId('dispatch-message').textContent).toContain('persistFailed');
   });
 
+  it('two runs sharing a display name but different vehicles print their OWN stops', () => {
+    const a = stop({ driverName: 'سالم', carNumber: 'Van-1', sequence: 1, reference: 'VA' });
+    const b = stop({ driverName: 'سالم', carNumber: 'Van-2', sequence: 1, reference: 'VB' });
+    renderBoard([a, b]);
+    expect(screen.getByTestId('run-سالم|Van-1|—')).toBeTruthy();
+    expect(screen.getByTestId('run-سالم|Van-2|—')).toBeTruthy();
+    window.print = vi.fn();
+    fireEvent.click(screen.getByTestId('print-سالم|Van-2|—'));
+    const sheet = screen.getByTestId('driver-sheet');
+    expect(sheet.textContent).toContain('VB');
+    expect(sheet.textContent).not.toContain('VA');
+  });
+
   it('workload line reports count, COD and missing-data counts per run', () => {
     const a = stop({ driverName: 'سالم', carNumber: 'Van-1', sequence: 1, codAmountSar: 30 });
     renderBoard([a]);
@@ -103,7 +116,7 @@ describe('DispatchBoardView', () => {
     const printSpy = vi.fn();
     window.print = printSpy;
     renderBoard([a]);
-    fireEvent.click(screen.getByTestId(`print-سالم`));
+    fireEvent.click(screen.getByTestId('print-سالم|Van-1|—'));
     const sheet = screen.getByTestId('driver-sheet');
     expect(sheet.textContent).toContain('مستند تشغيلي داخلي');
     expect(sheet.textContent).toContain('not an official transport document');

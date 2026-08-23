@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // StopPlanning UI flows (Release R2-B): create/edit/delete, preview gates,
 // atomic confirmation, persistence-failure honesty.
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 type CommitArgs = [{ stops?: StopRecord[] }, string | undefined, { keys?: string[] } | undefined];
@@ -249,7 +249,7 @@ describe('StopPlanning — bulk import safety', () => {
     expect(writtenStops()[0].codAmountSar).toBe(21);
   });
 
-  it('oversized uploads are rejected by byte size before reading; read failures are honest', () => {
+  it('oversized uploads are rejected by byte size before reading; read failures are honest', async () => {
     const { setStops } = renderPlanner([]);
     // boundary: exactly at limit reads; above limit rejects — via mocked File
     const atLimit = { size: IMPORT_MAX_FILE_BYTES, text: async () => 'customer,label\nA,B' } as unknown as File;
@@ -257,10 +257,10 @@ describe('StopPlanning — bulk import safety', () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     const setFiles = (file: File) => Object.defineProperty(input, 'files', { value: { 0: file, length: 1, item: () => file }, configurable: true });
     setFiles(atLimit);
-    fireEvent.change(input);
+    await act(async () => { fireEvent.change(input); });
     expect(screen.queryByTestId('file-error')).toBeNull();
     setFiles(above);
-    fireEvent.change(input);
+    await act(async () => { fireEvent.change(input); });
     expect(screen.getByTestId('file-error').textContent).toContain('errTooLarge');
     expect(setStops).not.toHaveBeenCalled();
   });

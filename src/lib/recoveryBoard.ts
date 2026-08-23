@@ -19,6 +19,8 @@ export interface RecoveryEntry {
   status: RecoveryStatus;
   /** Set when status leaves `pending`. */
   resolvedAt?: string;
+  /** Link to the originating stop (R4 recovery idempotency). */
+  stopId?: string;
   /** Normalized ISO stamp set on every edit (backup conflict resolution). */
   updatedAt?: string;
 }

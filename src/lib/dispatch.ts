@@ -34,6 +34,11 @@ export function assignableDrivers(drivers: DriverRecord[] | undefined): Array<{ 
     }));
 }
 
+/** Stable operational identity of a run — NEVER the display name alone. */
+export function runKey(run: Pick<DriverRun, 'driverName' | 'carNumber' | 'plateNumber'>): string {
+  return [run.driverName, run.carNumber ?? '—', run.plateNumber ?? '—'].join('|');
+}
+
 export interface DriverRun {
   driverName: string;
   carNumber?: string;

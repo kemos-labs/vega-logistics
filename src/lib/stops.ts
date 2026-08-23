@@ -210,21 +210,16 @@ export function normalizeStopRecord(value: Record<string, unknown>): StopRecord 
   if (value.podStatus === 'complete' || value.podStatus === 'partial' || value.podStatus === 'none') {
     record.podStatus = value.podStatus;
   }
+  // Failure-reason metadata: REQUIRED for failed/returned; on pending it is
+  // the documented failed-ATTEMPT metadata (R4 mapping) and is preserved;
+  // delivered stops must not retain stale reasons (applyStopOutcome clears).
   if (
-    (record.status === 'failed' || record.status === 'returned')
-    && typeof value.failureReasonKey === 'string'
+    typeof value.failureReasonKey === 'string'
     && (FAILURE_REASON_KEYS as readonly string[]).includes(value.failureReasonKey)
+    && record.status !== 'delivered'
   ) {
     record.failureReasonKey = value.failureReasonKey as FailureReasonKey;
-  } else if (
-    record.status !== 'failed' && record.status !== 'returned'
-    && typeof value.failureReasonKey === 'string'
-    && (FAILURE_REASON_KEYS as readonly string[]).includes(value.failureReasonKey)
-  ) {
-    // A reason recorded on a successful stop is preserved harmlessly? No —
-    // reasons belong to exceptions only; drop to keep state vocabulary tight.
   }
-  if (record.status !== 'failed' && record.status !== 'returned') delete record.failureReasonKey;
   return record;
 }
 

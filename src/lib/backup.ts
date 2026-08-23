@@ -285,7 +285,25 @@ function sanitizeDailyRecord(rawDate: string, value: unknown, warn: (msg: string
   const remitted = finite(value.cashRemittedSar);
   if (remitted !== null) record.cashRemittedSar = remitted;
   else if (value.cashRemittedSar !== undefined && value.cashRemittedSar !== null) stampWarn('cashRemittedSar-invalid');
-  const weather = value.weatherCondition;
+  const loadedS = finite(value.loadedShipments);
+  if (loadedS !== null && Number.isInteger(loadedS) && loadedS >= 0) record.loadedShipments = loadedS;
+  else if (value.loadedShipments !== undefined && value.loadedShipments !== null) stampWarn('loadedShipments-invalid');
+  const returnedS = finite(value.returnedShipments);
+  if (returnedS !== null && Number.isInteger(returnedS) && returnedS >= 0) record.returnedShipments = returnedS;
+  else if (value.returnedShipments !== undefined && value.returnedShipments !== null) stampWarn('returnedShipments-invalid');
+  const pendingS = finite(value.pendingShipments);
+  if (pendingS !== null && Number.isInteger(pendingS) && pendingS >= 0) record.pendingShipments = pendingS;
+  else if (value.pendingShipments !== undefined && value.pendingShipments !== null) stampWarn('pendingShipments-invalid');
+  const codExpected = finite(value.codExpectedSar);
+  if (codExpected !== null && codExpected >= 0) record.codExpectedSar = codExpected;
+  else if (value.codExpectedSar !== undefined && value.codExpectedSar !== null) stampWarn('codExpectedSar-invalid');
+  if (value.closeStatus === 'draft' || value.closeStatus === 'reconciled') record.closeStatus = value.closeStatus;
+  else if (value.closeStatus !== undefined && value.closeStatus !== null) stampWarn('closeStatus-invalid');
+  const closedAt = normalizeIso(value.closedAt);
+  if (closedAt) record.closedAt = closedAt;
+  else if (value.closedAt !== undefined && value.closedAt !== null && str(value.closedAt, 40) !== '') stampWarn('closedAt-invalid');
+
+    const weather = value.weatherCondition;
   if (weather === 'clear' || weather === 'rain' || weather === 'fog' || weather === 'sand') record.weatherCondition = weather;
   else if (weather !== undefined && weather !== null) stampWarn('weatherCondition-invalid');
 
@@ -377,6 +395,8 @@ function sanitizeRecoveryEntries(value: unknown[], warn: (msg: string) => void):
       owner: str(raw.owner, 120),
       status,
     };
+    if (typeof raw.stopId === 'string') entry.stopId = str(raw.stopId, 80);
+    else if (raw.stopId !== undefined && raw.stopId !== null) warn(`recovery:${entry.id}:stopId-type`);
     if (typeof raw.reasonKey === 'string') entry.reasonKey = str(raw.reasonKey, 40) as RecoveryEntry['reasonKey'];
     else if (raw.reasonKey !== undefined && raw.reasonKey !== null) warn(`recovery:${entry.id}:reasonKey-type`);
     if (typeof raw.customer === 'string') entry.customer = raw.customer.slice(0, 120);

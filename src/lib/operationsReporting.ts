@@ -56,6 +56,13 @@ export interface DailyRecord {
   /** Cash handed over to finance today (SAR). Outstanding = collected − remitted. */
   cashRemittedSar?: number;
   weatherCondition?: WeatherCondition;
+  // --- Evening close (R4) - optional, backward compatible ---
+  loadedShipments?: number;
+  returnedShipments?: number;
+  pendingShipments?: number;
+  codExpectedSar?: number;
+  closeStatus?: 'draft' | 'reconciled';
+  closedAt?: string;
 }
 
 export interface DailyMetrics {

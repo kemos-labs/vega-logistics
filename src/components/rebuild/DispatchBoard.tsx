@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 
 import { commitBundle } from '@/lib/backup';
 import {
-  assignStop, buildDispatchBoard, assignableDrivers, moveStop, runWorkload, unassignStop,
+  assignStop, buildDispatchBoard, assignableDrivers, moveStop, runWorkload, runKey, unassignStop,
   type DriverRun, type RunWorkload as Workload,
 } from '@/lib/dispatch';
 import { toDateString } from '@/lib/operationsReporting';
@@ -36,7 +36,7 @@ export function DispatchBoardView({ stops, setStops, drivers }: {
   function persist(next: StopRecord[], successMessage?: string): boolean {
     const result = commitBundle({ stops: next }, undefined, { keys: ['stops'] });
     if (result.persistedOk) { setStops(next); if (successMessage) setMessage(successMessage); return true; }
-    setMessage(t(S + result.rollbackOk ? S + 'persistFailed' : S + 'rollbackCritical', { keys: result.failedKeys.join(', ') }));
+    setMessage(t(S + (result.rollbackOk ? 'persistFailed' : 'rollbackCritical'), { keys: result.failedKeys.join(', ') }));
     return false;
   }
 
@@ -49,7 +49,7 @@ export function DispatchBoardView({ stops, setStops, drivers }: {
   const doMove = (stopId: string, direction: 'up' | 'down') => persist(moveStop(stops, stopId, direction, new Date().toISOString()));
 
   const doPrint = (run: DriverRun) => {
-    setPrintRun(run.driverName);
+    setPrintRun(runKey(run)); // stable operational identity, NOT display name
     // next frame so the print-only section mounts before the dialog
     requestAnimationFrame(() => { window.print(); });
   };
@@ -57,7 +57,7 @@ export function DispatchBoardView({ stops, setStops, drivers }: {
   const workloadLine = (workload: Workload) =>
     `${t(S + 'workload.count')}: ${fmt(workload.stopCount)} · ${t(S + 'workload.cod')}: ${fmt(workload.codTotalSar)} · ${t(S + 'workload.morning')}/${t(S + 'workload.afternoon')}/${t(S + 'workload.evening')}: ${fmt(workload.windows.morning)}/${fmt(workload.windows.afternoon)}/${fmt(workload.windows.evening)} · ${t(S + 'workload.missingAddress')}: ${fmt(workload.missingAddress)} · ${t(S + 'workload.missingPhone')}: ${fmt(workload.missingPhone)}${workload.missingReference > 0 ? ` · ${t(S + 'workload.missingReference')}: ${fmt(workload.missingReference)}` : ''}`;
 
-  const manifestRun = board.runs.find(run => run.driverName === printRun);
+  const manifestRun = board.runs.find(run => runKey(run) === printRun);
 
   return (
     <section className="bm-panel bm-dispatch" data-testid="dispatch-board">
@@ -107,12 +107,13 @@ export function DispatchBoardView({ stops, setStops, drivers }: {
       {/* Per-driver runs */}
       {board.runs.map(run => {
         const workload = runWorkload(run.stops);
+        const runId = runKey(run);
         return (
-          <div key={run.driverName} className="bm-run" data-testid={`run-${run.driverName}`}>
+          <div key={runId} className="bm-run" data-testid={`run-${runId}`}>
             <div className="bm-run-head">
               <h3>{run.driverName}{run.carNumber ? ` · ${run.carNumber}` : ''}</h3>
               <div className="bm-stop-actions">
-                <button data-testid={`print-${run.driverName}`} onClick={() => doPrint(run)}>{t(S + 'printBtn')}</button>
+                <button data-testid={`print-${runId}`} onClick={() => doPrint(run)}>{t(S + 'printBtn')}</button>
               </div>
             </div>
             <p className="bm-import-note" data-testid={`workload-${run.driverName}`}>{workloadLine(workload)}</p>
@@ -167,13 +168,15 @@ export function DispatchBoardView({ stops, setStops, drivers }: {
                 </tr>
               ))}
             </tbody>
+          <tfoot className="bm-manifest-disclaimer">
+            <tr><td colSpan={8}>
+              «مستند تشغيلي داخلي — ليس مستند نقل نظامياً ولا يثبت صحة العنوان الوطني»<br />
+              Internal operational document — not an official transport document and not proof of National Address validity.
+            </td></tr>
+          </tfoot>
           </table>
           <p className="bm-manifest-totals">{workloadLine(runWorkload(manifestRun.stops))}</p>
           <p className="bm-manifest-sign">{t(S + 'manifest.signature')}</p>
-          <footer className="bm-manifest-disclaimer">
-            <p>«مستند تشغيلي داخلي — ليس مستند نقل نظامياً ولا يثبت صحة العنوان الوطني»</p>
-            <p>Internal operational document — not an official transport document and not proof of National Address validity.</p>
-          </footer>
         </div>
       )}
     </section>
