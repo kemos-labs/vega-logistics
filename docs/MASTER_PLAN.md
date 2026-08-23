@@ -64,14 +64,17 @@ Everything else serves that sentence.
 ### P0 — Hardening (DONE)
 Redesign · report engine v2 · recovery board · daily rebuild · native-Arabic rewrite · Cairo typography · PWA shell · deploy pipeline. Gates green.
 
-### P1 — Backup integrity *(current phase — gate to everything else)*
+### P1 — Backup integrity *(core done — review contract C)*
 Nothing else matters if records die with the browser.
-1. Audit every persisted key (`vega-financialInput-v2`, `vega-daily-reports-v2`, `vega-scenarios-v1`, `vega-recovery-board-v1`, `vega-followup-actions-v1`, `vega-vehicles`, `vega-zones`, language pref).
-2. **Versioned backup envelope v2** round-tripping FinancialInput, every DailyRecord field, scenarios, recovery entries, follow-up actions, vehicles/zones.
-3. Import preview with explicit **merge / replace / cancel**; deterministic conflict rule via updatedAt (newer wins; ties → existing wins; conflict count surfaced). Never silently overwrite newer records; never mutate state on parse failure.
-4. Backward-compatible import of legacy v1 dumps.
-5. In-app backup-age banner after 7 days without export (no push/local-notification dependency).
-**Accept:** export→import deep-equality tests; corrupt file rejected without touching current data; v1 migration test; merge-conflict determinism test.
+- [x] Audit persisted keys → final inventory: five data keys + `language`; `vega-vehicles`/`vega-zones` were immutable seeds and their persistence was REMOVED (truthful-design option b).
+- [x] Strict versioned envelope v2 round-tripping FinancialInput, every DailyRecord field (incl. optionals), scenarios, recovery entries, follow-up actions, language pref. Missing/malformed collection ⇒ whole-file rejection; FinancialInput validated BEFORE sanitize (`{}` rejected); corrupt individual records ⇒ warnings + lossless=false.
+- [x] Import preview with explicit **merge / replace / cancel**; deterministic conflicts via normalized-ISO `updatedAt` (numeric compare; newer incoming wins; ties keep local; identical ignored; visible counts). Merge never overwrites model inputs. Parse failure never touches state or localStorage.
+- [x] Destructive-Replace guard: any dropped record disables Replace; localStorage write failures are collected and NEVER announced as success (`persistBundle`).
+- [x] Legacy v1 import migration + explicit "v1 never stored recovery/actions" warning; Replace disabled for v1.
+- [x] Tests: unit (17) + browser/component jsdom suite (7: cancel-changes-nothing, strict-fail-changes-nothing, merge persists keys, replace persists keys incl. language, v1 legacy note, lossy disables Replace, wipe→restore→reload deep equality).
+- [ ] In-app backup-age banner after 7 days without export — **BLOCKED until owner accepts the backup-integrity commit**.
+- [ ] Arabic WhatsApp paste-parser — same gate.
+**Accept:** export→import deep-equality tests; corrupt file rejected without touching current data; v1 migration test; merge-conflict determinism test; malformed-import-cannot-change-state integration proof. ✅ delivered (all tests passing: 130).
 
 ### P2 — Compliance-lite data capture (~2 weeks)
 1. National Address + Short Address fields w/ `^[A-Za-z]{4}\d{4}$` **format** validator (labelled format-only).
@@ -130,7 +133,7 @@ ERPNext Delivery Trip import/export; WhatsApp Cloud API outbound templates (veri
 
 ## 8. Definition of Done (every phase)
 
-`tsc ✓ · vitest 100% ✓ · lint 0/0 · build ✓ · Pages workflow success ✓ · live-site spot-check ✓ · locale parity ✓ · SESSION_MEMORY.md updated · this doc's checkboxes moved · no unsupported claims introduced`.
+`tsc ✓ · all tests passing ✓ · lint 0/0 · build ✓ · Pages workflow success ✓ · live-site spot-check ✓ · locale parity EN+AR ✓ · SESSION_MEMORY.md updated · roadmap checkboxes above moved for the shipped work · no unsupported claims introduced`.
 
 ---
 

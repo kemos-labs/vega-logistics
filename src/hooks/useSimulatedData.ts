@@ -10,8 +10,6 @@ import {
   FinancialInput,
   FinancialOutput,
   GhostGrowthResult,
-  VehicleLocation,
-  ZoneDensity,
   KPIData,
   VehicleClass,
   Provider,
@@ -39,8 +37,10 @@ export function useSimulatedData() {
     calculateGhostGrowthIndex(defaultGhostMetrics, calculateFinancials(defaultFinancialInput).fleetUtilization)
   );
   const [kpis, setKpis] = useState<KPIData[]>(() => getKPIData());
-  const [vehicles] = useLocalStorage<VehicleLocation[]>('vega-vehicles', getVehicles());
-  const [zones] = useLocalStorage<ZoneDensity[]>('vega-zones', getZoneDensity());
+  // Immutable seed catalogs — intentionally NOT persisted (review C3-b):
+  // both consumers are read-only; localStorage copies could only drift.
+  const vehicles = getVehicles();
+  const zones = getZoneDensity();
   const [lastUpdate] = useState<Date>(new Date());
 
   const inputRef = useRef(defaultFinancialInput);

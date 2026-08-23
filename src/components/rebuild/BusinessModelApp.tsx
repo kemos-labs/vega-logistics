@@ -20,7 +20,7 @@ import { resolveTelematicsProvider } from '@/lib/platform/telematics';
 
 type View = 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios';
 type RecoveryOpenRow = { id: string; createdAt: string; shipments: number; owner: string; status: 'pending' | 'recovered' | 'written_off' };
-import { applyBackupMerge, buildBackup, parseBackup, replaceWithBackup, type BackupFileV2 } from '@/lib/backup';
+import { applyBackupMerge, buildBackup, parseBackup, persistBundle, replaceWithBackup, type BackupFileV2, type FollowUpAction } from '@/lib/backup';
 import { createScenario, type Scenario } from '@/lib/scenarios';
 type NumberField = keyof Pick<FinancialInput,
   'companyDriverCount' | 'driverSalary' | 'opsTeamCount' | 'opsTeamAvgSalary' | 'salesTeamCount' |
@@ -191,7 +191,7 @@ export default function BusinessModelApp() {
         {view === 'risks' && <Page title={t('businessModel.risks.title')} description={t('businessModel.risks.desc')}><div className="bm-risk-table"><div className="bm-risk-head"><span>{t('businessModel.risks.thStatus')}</span><span>{t('businessModel.risks.thRisk')}</span><span>{t('businessModel.risks.thValue')}</span><span>{t('businessModel.risks.thReason')}</span></div>{risks.map(risk => <div className="bm-risk-row" key={risk.titleKey}><span className={risk.level === 'controlled' ? 'ok' : 'bad'}>{levelLabel[risk.level]}</span><strong>{t(`businessModel.risks.${risk.titleKey}`)}</strong><span>{risk.value}</span><p>{risk.detail}</p></div>)}</div></Page>}
         {view === 'scenarios' && <ScenarioView input={input} output={output} scenarios={scenarios} setScenarios={setScenarios} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} actions={actions} setActions={setActions} applyFinancialInput={applyFinancialInput} />}
         {view === 'recovery' && <Page title={t('businessModel.recovery.recovery')} description={t('businessModel.recovery.recoveryDesc')}><RecoveryBoard entries={recoveryEntries} setEntries={setRecoveryEntries} /></Page>}
-        {view === 'actions' && <Page title={t('businessModel.actionsPage.title')} description={t('businessModel.actionsPage.desc')}><div className="bm-actions">{actions.map(action => <div className={action.done ? 'done' : ''} key={action.id}><button aria-label={action.done ? action.text : action.text} onClick={() => setActions(rows => rows.map(row => row.id === action.id ? {...row,done:!row.done}:row))}>{action.done ? <Check size={15}/> : null}</button><span><strong>{action.text}</strong><small>{action.owner}</small></span></div>)}</div></Page>}
+        {view === 'actions' && <Page title={t('businessModel.actionsPage.title')} description={t('businessModel.actionsPage.desc')}><div className="bm-actions">{actions.map(action => <div className={action.done ? 'done' : ''} key={action.id}><button aria-label={action.done ? action.text : action.text} onClick={() => setActions(rows => rows.map(row => row.id === action.id ? {...row,done:!row.done,updatedAt:new Date().toISOString()}:row))}>{action.done ? <Check size={15}/> : null}</button><span><strong>{action.text}</strong><small>{action.owner}</small></span></div>)}</div></Page>}
       </main>
     </div>
     {proModel && <ProReport model={proModel} onClose={() => setProModel(null)} />}
@@ -681,7 +681,7 @@ function CostSections({input,output,setNumber,changeVehicle}:{input:FinancialInp
               <small>{t(C+'ofCosts',{percent:share.toFixed(0)})}</small>
             </div>
           </section>;})}</div>; }
-function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDailyRecords,recoveryEntries,setRecoveryEntries,actions,setActions,applyFinancialInput}:{input:FinancialInput;output:ReturnType<typeof useSimulatedData>['financialOutput'];scenarios:Scenario[];setScenarios:(value:Scenario[]|((prev:Scenario[])=>Scenario[]))=>void;dailyRecords:Record<string,DailyRecord>;setDailyRecords:(value:Record<string,DailyRecord>|((prev:Record<string,DailyRecord>)=>Record<string,DailyRecord>))=>void;recoveryEntries:RecoveryEntry[];setRecoveryEntries:(value:RecoveryEntry[]|((prev:RecoveryEntry[])=>RecoveryEntry[]))=>void;actions:{id:number;text:string;owner:string;done:boolean}[];setActions:(value:{id:number;text:string;owner:string;done:boolean}[]|((prev:{id:number;text:string;owner:string;done:boolean}[])=>{id:number;text:string;owner:string;done:boolean}[]))=>void;applyFinancialInput:(next:FinancialInput)=>void}) {
+export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDailyRecords,recoveryEntries,setRecoveryEntries,actions,setActions,applyFinancialInput}:{input:FinancialInput;output:ReturnType<typeof useSimulatedData>['financialOutput'];scenarios:Scenario[];setScenarios:(value:Scenario[]|((prev:Scenario[])=>Scenario[]))=>void;dailyRecords:Record<string,DailyRecord>;setDailyRecords:(value:Record<string,DailyRecord>|((prev:Record<string,DailyRecord>)=>Record<string,DailyRecord>))=>void;recoveryEntries:RecoveryEntry[];setRecoveryEntries:(value:RecoveryEntry[]|((prev:RecoveryEntry[])=>RecoveryEntry[]))=>void;actions:FollowUpAction[];setActions:(value:FollowUpAction[]|((prev:FollowUpAction[])=>FollowUpAction[]))=>void;applyFinancialInput:(next:FinancialInput)=>void}) {
   const { t, i18n } = useTranslation();
   const locale = localeOf(i18n.language);
   const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
@@ -692,7 +692,7 @@ function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDaily
   const save=()=>{ setScenarios(prev=>[...prev, createScenario(name,input,prev)]); setName(''); setMessage(t(S+'savedMessage')); };
   const load=(scenario:Scenario)=>{ applyFinancialInput(structuredClone(scenario.input)); setMessage(t(S+'loadedMessage',{name:scenario.name})); };
   const remove=(id:string)=>setScenarios(prev=>prev.filter(s=>s.id!==id));
-  const [pendingImport,setPendingImport]=useState<{file:BackupFileV2;migratedFrom?:1}|null>(null);
+  const [pendingImport,setPendingImport]=useState<{file:BackupFileV2;migratedFrom?:1;warnings:string[];lossless:boolean}|null>(null);
   const bundle={financialInput:input,dailyRecords,scenarios,recoveryEntries,followUpActions:actions};
   const previewStats=useMemo(()=>{
     if(!pendingImport) return null;
@@ -711,25 +711,35 @@ function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDaily
     const text=await file.text();
     const parsed=parseBackup(text);
     if(!parsed.ok){ setMessage(t(S+'importFailed')); return; }
-    setMessage(''); setPendingImport({file:parsed.file,migratedFrom:parsed.migratedFrom});
+    setMessage(''); 
+    setPendingImport({file:parsed.file,migratedFrom:parsed.migratedFrom,warnings:parsed.warnings,lossless:parsed.lossless});
   };
-  const doMerge=()=>{
-    if(!pendingImport) return;
-    const {next,stats}=applyBackupMerge(bundle,pendingImport.file);
-    applyFinancialInput(next.financialInput); // merge keeps current inputs — this is a no-op for them
-    setDailyRecords(next.dailyRecords); setScenarios(next.scenarios);
-    setRecoveryEntries(next.recoveryEntries); setActions(next.followUpActions);
-    setPendingImport(null);
-    setMessage(t(S+'mergedMessage',{added:stats.added,updated:stats.updated,conflicts:stats.conflicts}));
-  };
-  const doReplace=()=>{
-    if(!pendingImport) return;
-    const next=replaceWithBackup(bundle,pendingImport.file);
+  // Commit restored state to React AND localStorage. Storage failures must
+  // never be announced as success (review contract C2).
+  const commit=(next:ReturnType<typeof applyBackupMerge>['next'],lang?:string)=>{
     applyFinancialInput(next.financialInput);
     setDailyRecords(next.dailyRecords); setScenarios(next.scenarios);
     setRecoveryEntries(next.recoveryEntries); setActions(next.followUpActions);
+    const result=persistBundle(next,lang);
+    return result;
+  };
+  const doMerge=()=>{
+    if(!pendingImport) return;
+    const {next}=applyBackupMerge(bundle,pendingImport.file);
+    const result=commit(next,next===undefined?undefined:undefined); // merge keeps current inputs & language
     setPendingImport(null);
-    setMessage(t(S+'replacedMessage',{date:fmtDateMedium(locale,pendingImport.file.exportedAt||new Date().toISOString())}));
+    if(!result.persistedOk){ setMessage(t(S+'partialFailMessage',{keys:result.failedKeys.join(', ')})); return; }
+    setMessage(t(S+'mergeDoneMessage'));
+  };
+  const doReplace=()=>{
+    if(!pendingImport||!pendingImport.lossless) return;
+    const next=replaceWithBackup(bundle,pendingImport.file);
+    const lang=pendingImport.file.data.language;
+    const result=commit(next,lang);
+    if(lang&&result.persistedOk){ void i18n.changeLanguage(lang); window.dispatchEvent(new CustomEvent('vega:set-language',{detail:lang})); }
+    setPendingImport(null);
+    if(!result.persistedOk){ setMessage(t(S+'partialFailMessage',{keys:result.failedKeys.join(', ')})); return; }
+    setMessage(t(S+'replaceDoneMessage',{date:fmtDateMedium(locale,pendingImport.file.exportedAt||new Date().toISOString())}));
   };
   return <><div className="bm-page-head"><h1>{t(S+'title')}</h1><p>{t(S+'desc')}</p></div>
     <section className="bm-form-card bm-scenario-save"><h2>{t(S+'saveHead')}</h2><div className="bm-scenario-save-row"><input aria-label={t(S+'scenarioName')} placeholder={t(S+'namePlaceholder')} value={name} maxLength={60} onChange={event=>setName(event.target.value)} onKeyDown={event=>{if(event.key==='Enter')save();}} /><button className="bm-primary" onClick={save}><Plus size={15}/> {t(S+'saveBtn')}</button></div>{message&&<output aria-live="polite">{message}</output>}</section>
@@ -750,9 +760,10 @@ function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDaily
     </section>
     <section className="bm-panel bm-export-card"><div><span>{t(S+'backupTag')}</span><h2>{t(S+'backupHead')}</h2><p>{t(S+'backupDesc')}</p></div>
       <div><button onClick={downloadBackup}><Download size={15}/> {t(S+'downloadBackup')}</button><button onClick={()=>fileRef.current?.click()}><Upload size={15}/> {t(S+'importBackup')}</button><input ref={fileRef} type="file" accept="application/json,.json" style={{display:'none'}} aria-label={t(S+'importFileAria')} onChange={event=>{const file=event.target.files?.[0]; if(file) void importBackup(file); event.target.value='';}} /></div>
-      {pendingImport&&<div className="bm-import-preview">
+      {pendingImport&&<div className="bm-import-preview" data-testid="import-preview">
         <h3>{t(S+'previewHead')}</h3>
-        {pendingImport.migratedFrom===1&&<p className="bm-import-note">{t(S+'legacyNote')}</p>}
+        {pendingImport.migratedFrom===1&&<p className="bm-import-note" data-testid="legacy-note">{t(S+'legacyNote')}</p>}
+        {!pendingImport.lossless&&<p className="bm-import-warning" data-testid="import-warning">{t(S+'droppedWarning')}</p>}
         <dl className="bm-import-counts">
           <div><dt>{t(S+'countDays')}</dt><dd>{Object.keys(pendingImport.file.data.dailyRecords).length}</dd></div>
           <div><dt>{t(S+'countScenarios')}</dt><dd>{pendingImport.file.data.scenarios.length}</dd></div>
@@ -761,9 +772,9 @@ function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDaily
         </dl>
         <p className="bm-import-note">{t(S+'keptInputsNote')}</p>
         <div className="bm-import-choices">
-          <button className="bm-primary" onClick={doMerge}>{t(S+'mergeBtn')}</button>
-          <button onClick={doReplace}>{t(S+'replaceBtn')}</button>
-          <button onClick={()=>setPendingImport(null)}>{t(S+'cancelBtn')}</button>
+          <button className="bm-primary" data-testid="import-merge" onClick={doMerge}>{t(S+'mergeBtn')}</button>
+          <button data-testid="import-replace" onClick={doReplace} disabled={!pendingImport.lossless} title={!pendingImport.lossless?t(S+'droppedWarning'):undefined}>{t(S+'replaceBtn')}</button>
+          <button data-testid="import-cancel" onClick={()=>{setPendingImport(null);setMessage('');}}>{t(S+'cancelBtn')}</button>
         </div>
         {previewStats&&<p className="bm-import-stats">{t(S+'previewStats',{added:previewStats.added,updated:previewStats.updated,conflicts:previewStats.conflicts})}</p>}
       </div>}

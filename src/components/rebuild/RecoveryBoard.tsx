@@ -45,14 +45,14 @@ export default function RecoveryBoard({ entries, setEntries }: Props) {
       customer: customer.trim() || undefined,
       owner: owner.trim(),
     });
-    setEntries(rows => [entry, ...rows]);
+    setEntries(rows => [{ ...entry, updatedAt: new Date().toISOString() }, ...rows]);
     setShipments('1');
     setCustomer('');
   };
 
   const setStatus = (id: string, status: RecoveryStatus) => {
     setEntries(rows => rows.map(row => row.id === id
-      ? { ...row, status, resolvedAt: status === 'pending' ? undefined : new Date().toISOString() }
+      ? { ...row, status, resolvedAt: status === 'pending' ? undefined : new Date().toISOString(), updatedAt: new Date().toISOString() }
       : row));
   };
   const removeRow = (id: string) => setEntries(rows => rows.filter(row => row.id !== id));

@@ -1128,8 +1128,10 @@
       "cancelBtn": "Cancel",
       "keptInputsNote": "Merge keeps your current model inputs — choose Replace to adopt the backup's inputs instead.",
       "previewStats": "Merge plan: {{added}} will be added · {{updated}} updated · {{conflicts}} conflicts stay local (newest wins).",
-      "mergedMessage": "Merged: {{added}} added · {{updated}} updated · {{conflicts}} kept local.",
-      "replacedMessage": "Data replaced from the backup dated {{date}}."
+      "droppedWarning": "Some records in this file were corrupt and will be skipped — Replace is disabled to protect your history; Merge keeps every valid row.",
+      "mergeDoneMessage": "Merged into current data. Model inputs were kept — use Replace on a lossless backup to adopt them.",
+      "replaceDoneMessage": "All data replaced from the backup dated {{date}}.",
+      "partialFailMessage": "Restore finished in memory but NOT fully saved: {{keys}} failed to write. Free up storage and re-run the restore."
     },
     "charts": {
       "customersTag": "Customer concentration",

@@ -2,13 +2,16 @@
 
 > Governance: `AGENTS.md` (strict rules R1–R10) · Roadmap authority: `docs/MASTER_PLAN.md` · Claims discipline: `docs/RESEARCH_DOSSIER.md`
 
-## Authoritative state (2026-08-23)
-- Dev :3002 running · Pages deploy green (kemos-labs.github.io/vega-logistics) · tsc clean · vitest 106/106 · ESLint 0/0 · python suite passing
+## Authoritative state (2026-08-23, post review-contract C)
+- Dev = http://vega.localhost:8080 (portless alias; localhost:3002 belongs to the Options Terminal project — never cite it here) · Pages deploy green · tsc clean · all 130 tests passing · ESLint 0/0
 - package-lock.json 334KB committed & CI-healthy — never regenerate casually on NTFS
 - BreakEvenAnalytics / @heroui fully removed from repo
 
 ## Current phase
-**P1 Backup integrity** (MASTER_PLAN §5-P1): versioned v2 backup envelope round-tripping all persisted keys (`vega-financialInput-v2`, `vega-daily-reports-v2`, `vega-scenarios-v1`, `vega-recovery-board-v1`, `vega-followup-actions-v1`, `vega-vehicles`, `vega-zones`, language), import preview w/ merge|replace|cancel, updatedAt conflict rule + visible count, v1 backward compat, corrupt-file safety, in-app 7-day backup banner. Reminder/parser only AFTER backup integrity lands.
+**P1 backup core DONE under review contract C; banner + parser still BLOCKED pending owner acceptance of Commit C.**
+Backup scope (final): `vega-financialInput-v2` · `vega-daily-reports-v2` · `vega-scenarios-v1` · `vega-recovery-board-v1` · `vega-followup-actions-v1` · `language`. `vega-vehicles`/`vega-zones` persistence removed (immutable seed catalogs — read-only consumers; truthful-design option b).
+Engine facts: strict v2 containers (missing/malformed collection ⇒ whole-file reject); FinancialInput structurally validated BEFORE sanitize (`{}` rejected); per-record drops ⇒ warnings + Replace disabled (lossless flag); RecoveryEntry & FollowUpAction carry normalized-ISO `updatedAt`; numeric timestamp comparison; identical rows ignored (not conflicts); incoming duplicate ids → LAST wins + warning; merge never overwrites model inputs (one visible conflict when differing); persistBundle collects write failures — success never announced on partial failure.
+Review contracts outstanding: D (dossier W1–W6 completion + SVG reflow/render-check).
 
 ## Recently shipped (this session, commits in order)
 1933b75 deploy fix → 7bda133 Excel recovery-trend sheet → 0467f98 native-Arabic rewrite (~180 strings, costs.* gaps filled) → 215c4e9 Cairo typography root-fix (Archivo had no AR glyphs; RTL letter-spacing law) → 6beded0 master plan v1 + AGENTS R1–R10 → **remediation commit A** (dossier/plan/governance corrections per review).

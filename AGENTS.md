@@ -13,13 +13,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 Read `SESSION_MEMORY.md` for full history, then `docs/MASTER_PLAN.md` (roadmap authority) and `docs/RESEARCH_DOSSIER.md` (claim discipline).
 
-## Authoritative running state (verified 2026-08-23)
-- **Dev server**: http://localhost:3002 (node listening; also reachable via portless alias if active)
+## Authoritative running state (verified 2026-08-23, review contract C)
+- **Dev URL (authoritative)**: http://vega.localhost:8080 via the portless alias. `localhost:3002` is the unrelated Options Trading Terminal project — never cite it for VEGA.
 - **Public**: https://kemos-labs.github.io/vega-logistics/ — deploy workflow green
-- **TypeScript**: clean · **Vitest**: 106/106 · **ESLint**: 0 errors, 0 warnings · **Python suite** (`src/__tests__/run_all_tests.py`): passing
+- **TypeScript**: clean · **Tests**: all passing (130: 106 prior + 24 backup) · **ESLint**: 0 errors, 0 warnings ("all tests passing" replaces unmeasured "100%" claims; no coverage tool is configured)
 - **package-lock.json**: 334KB, committed, `npm ci` green in CI — do NOT regenerate casually on this NTFS mount
 - **Archived**: BreakEvenAnalytics and @heroui are fully removed from the repo — do not reference them
-- **Current phase**: P1 Backup integrity (see MASTER_PLAN §5-P1). Do not start features beyond it without owner approval.
+- **Persisted user-state keys** (backup scope, single source of truth = `src/lib/backup.ts` STORAGE_KEYS): vega-financialInput-v2 · vega-daily-reports-v2 · vega-scenarios-v1 · vega-recovery-board-v1 · vega-followup-actions-v1 · language. `vega-vehicles`/`vega-zones` persistence REMOVED (immutable seeds, review C3-b).
+- **Current phase**: P1 backup integrity core is DONE (strict v2 parse, merge/replace/cancel, conflict semantics, browser tests). Backup-age banner + WhatsApp parser remain BLOCKED until the owner accepts Commit C.
 
 ## Quick commands
 ```bash
