@@ -16,11 +16,11 @@ Read `SESSION_MEMORY.md` for full history, then `docs/MASTER_PLAN.md` (roadmap a
 ## Authoritative running state (verified 2026-08-23, review contract C)
 - **Dev URL (authoritative)**: http://vega.localhost:8080 via the portless alias. `localhost:3002` is the unrelated Options Trading Terminal project — never cite it for VEGA.
 - **Public**: https://kemos-labs.github.io/vega-logistics/ — deploy workflow green
-- **TypeScript**: clean · **Tests**: all passing (130: 106 prior + 24 backup) · **ESLint**: 0 errors, 0 warnings ("all tests passing" replaces unmeasured "100%" claims; no coverage tool is configured)
+- **TypeScript**: clean · **Tests**: all passing (151: 106 prior + 45 backup) · **ESLint**: 0 errors, 0 warnings ("all tests passing" replaces unmeasured "100%" claims; no coverage tool is configured)
 - **package-lock.json**: 334KB, committed, `npm ci` green in CI — do NOT regenerate casually on this NTFS mount
 - **Archived**: BreakEvenAnalytics and @heroui are fully removed from the repo — do not reference them
 - **Persisted user-state keys** (backup scope, single source of truth = `src/lib/backup.ts` STORAGE_KEYS): vega-financialInput-v2 · vega-daily-reports-v2 · vega-scenarios-v1 · vega-recovery-board-v1 · vega-followup-actions-v1 · language. `vega-vehicles`/`vega-zones` persistence REMOVED (immutable seeds, review C3-b).
-- **Current phase**: P1 backup integrity core is DONE (strict v2 parse, merge/replace/cancel, conflict semantics, browser tests). Backup-age banner + WhatsApp parser remain BLOCKED until the owner accepts Commit C.
+- **Review status**: P1 backup core ACCEPTED (post-F). Commit G delivered backup-age banner + v1-duplicate edge fix. Commit H (Arabic WhatsApp parser) in progress. Banner/parser remain the last unchecked P1 tasks until H passes.
 
 ## Quick commands
 ```bash

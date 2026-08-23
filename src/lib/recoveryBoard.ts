@@ -60,6 +60,14 @@ export function createRecoveryEntry(input: Pick<RecoveryEntry, 'createdAt' | 'sh
 }
 
 /** Defensive parse — localStorage may hold anything. */
+/** Normalize any timestamp to canonical UTC ISO; null when invalid. */
+function normalizeIso(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) return null;
+  return parsed.toISOString();
+}
+
 export function validateRecoveryEntries(raw: unknown): RecoveryEntry[] {
   if (!Array.isArray(raw)) return [];
   return raw.flatMap((item): RecoveryEntry[] => {
@@ -69,6 +77,10 @@ export function validateRecoveryEntries(raw: unknown): RecoveryEntry[] {
     const shipments = Number(row.shipments);
     const status = RECOVERY_STATUSES.includes(row.status as RecoveryStatus) ? row.status as RecoveryStatus : null;
     if (!date || !Number.isFinite(shipments) || shipments <= 0 || !status) return [];
+    // updatedAt MUST survive the read path — it drives backup conflict
+    // resolution (review contract F1). resolvedAt normalized too.
+    const updatedAt = normalizeIso(row.updatedAt);
+    const resolvedAt = normalizeIso(row.resolvedAt);
     return [{
       id: typeof row.id === 'string' ? row.id : `${date}-${Math.random().toString(36).slice(2, 8)}`,
       createdAt: date,
@@ -78,7 +90,8 @@ export function validateRecoveryEntries(raw: unknown): RecoveryEntry[] {
       customer: typeof row.customer === 'string' ? row.customer.slice(0, 80) : undefined,
       owner: typeof row.owner === 'string' ? row.owner.slice(0, 60) : '',
       note: typeof row.note === 'string' ? row.note.slice(0, 300) : undefined,
-      resolvedAt: typeof row.resolvedAt === 'string' ? row.resolvedAt : undefined,
+      resolvedAt: resolvedAt ?? undefined,
+      ...(updatedAt ? { updatedAt } : {}),
     }];
   });
 }

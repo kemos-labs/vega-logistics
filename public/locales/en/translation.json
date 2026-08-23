@@ -966,7 +966,12 @@
       "cardResults": "Delivery results",
       "cardPayments": "Payments (COD)",
       "cardContext": "Context & extra costs",
-      "cardNotes": "Notes & next-day focus"
+      "cardNotes": "Notes & next-day focus",
+      "bannerBodyNever": "Your recorded history has never been backed up. A one-tap backup keeps it safe on this device.",
+      "bannerBodyStale": "No backup for {{days}} days. Your daily records, recovery board and model inputs live only in this browser until you export.",
+      "bannerCta": "Back up now",
+      "bannerDismiss": "Dismiss",
+      "bannerBodyInvalid": "Your backup timestamp looks corrupted, so we cannot verify your last export. Creating a fresh backup is recommended."
     },
     "risks": {
       "title": "Risks",
@@ -1134,7 +1139,8 @@
       "partialFailMessage": "Restore finished in memory but NOT fully saved: {{keys}} failed to write. Free up storage and re-run the restore.",
       "legacyScopeBtn": "Restore legacy scope (model, days, scenarios only)",
       "scopedDoneMessage": "Legacy scope restored: model input plus {{days}} recorded day(s). Recovery entries and actions were preserved.",
-      "rollbackCriticalMessage": "CRITICAL: the restore failed AND could not fully roll back. Affected keys: {{keys}}. Export a fresh backup before closing this page."
+      "rollbackCriticalMessage": "CRITICAL: the restore failed AND could not fully roll back. Affected keys: {{keys}}. Export a fresh backup before closing this page.",
+      "corruptLegacyWarning": "This legacy file contains corrupt rows — scoped restore is blocked so corruption cannot overwrite your current data. Use Merge instead: only valid rows will be adopted."
     },
     "charts": {
       "customersTag": "Customer concentration",

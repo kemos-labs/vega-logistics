@@ -16,8 +16,10 @@ import {
 } from '@/lib/backup';
 import type { DailyRecord } from '@/lib/operationsReporting';
 import type { RecoveryEntry } from '@/lib/recoveryBoard';
+import { validateRecoveryEntries } from '@/lib/recoveryBoard';
 import type { Scenario } from '@/lib/scenarios';
 import { defaultFinancialInput } from '@/lib/mockData';
+import { memoryStorage } from './helpers/memoryStorage';
 
 const T0 = '2026-08-20T18:00:00.000Z';
 const T1 = '2026-08-21T09:00:00.000Z';
@@ -255,18 +257,6 @@ describe('corrupt data is rejected without deleting current data (contract C2)',
   });
 });
 
-function memoryStorage(seed: Record<string, string> = {}): Storage & { dump(): Record<string, string> } {
-  const map = new Map(Object.entries(seed));
-  return {
-    get length() { return map.size; },
-    key: (index: number) => [...map.keys()][index] ?? null,
-    clear: () => map.clear(),
-    getItem: (k: string) => (map.has(k) ? (map.get(k) as string) : null),
-    setItem: (k: string, v: string) => void map.set(k, v),
-    removeItem: (k: string) => void map.delete(k),
-    dump: () => Object.fromEntries(map),
-  } as Storage & { dump(): Record<string, string> };
-}
 
 describe('transactional persistence (contract E-4)', () => {
 
@@ -381,5 +371,186 @@ describe('v1 migration (backward compatibility)', () => {
     const v1 = { version: 1, exportedAt: T0, input: structuredClone(defaultFinancialInput), dailyRecords: [] };
     const parsed = parseBackup(JSON.stringify(v1));
     expect(parsed.ok).toBe(false);
+  });
+});
+
+describe('recovery updatedAt survives the full pipeline (contract F1)', () => {
+  it('RecoveryBoard write → validator/read path → export → parse → merge; newer entry wins', () => {
+    // 1. RecoveryBoard "write": row persisted with its edit stamp
+    const storedRow = {
+      id: 'rec-e2e', createdAt: '2026-08-19', shipments: 4, owner: 'Yaquob',
+      status: 'recovered', resolvedAt: '2026-08-21T12:00:00.000Z',
+      updatedAt: '2026-08-21T14:30:00.000Z',
+    };
+    // 2. read path through the app validator — updatedAt must SURVIVE
+    const validated = validateRecoveryEntries([storedRow]);
+    expect(validated[0].updatedAt).toBe('2026-08-21T14:30:00.000Z');
+    expect(validated[0].resolvedAt).toBe('2026-08-21T12:00:00.000Z'); // normalized form preserved
+
+    // 3. backup export → parse
+    const current: StateBundle = { ...fullBundle(), recoveryEntries: validated };
+    const parsed = parseBackup(JSON.stringify(buildBackup(current)));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.file.data.recoveryEntries[0].updatedAt).toBe('2026-08-21T14:30:00.000Z');
+
+    // 4. merge against an OLDER local copy → newer incoming wins via updatedAt
+    const olderLocal: StateBundle = { ...fullBundle(), recoveryEntries: [recovery('rec-e2e', { owner: 'Old', shipments: 1, status: 'pending', updatedAt: '2026-08-20T00:00:00.000Z' })] };
+    const result = applyBackupMerge(olderLocal, parsed.file);
+    const winner = result.next.recoveryEntries.find(e => e.id === 'rec-e2e');
+    expect(winner?.owner).toBe('Yaquob');
+    expect(winner?.status).toBe('recovered');
+    expect(winner?.updatedAt).toBe('2026-08-21T14:30:00.000Z');
+    expect(result.stats.updated).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('v1 metadata split: legacy scope vs corruption (contract F2)', () => {
+  const cleanV1 = () => ({
+    version: 1,
+    exportedAt: T0,
+    input: structuredClone(defaultFinancialInput),
+    dailyRecords: { '2026-06-30': record('2026-06-30', 30, 6) },
+    scenarios: [scenario('scn-old', '2026-06-01T00:00:00.000Z')],
+  });
+
+  it('clean v1: legacyScopeMissing=true but contentLoss=false', () => {
+    const parsed = parseBackup(JSON.stringify(cleanV1()));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.migratedFrom).toBe(1);
+    expect(parsed.legacyScopeMissing).toBe(true);
+    expect(parsed.contentLoss).toBe(false);
+  });
+
+  it('corrupt v1 day/scenario rows set contentLoss=true', () => {
+    const file = JSON.parse(JSON.stringify(cleanV1())) as { dailyRecords: Record<string, unknown>; scenarios: unknown[] };
+    file.dailyRecords['2026-07-01'] = { date: '2026-07-01', completedShipments: NaN };
+    file.scenarios.push({ id: 'bad' }); // shapeless scenario input
+    const parsed = parseBackup(JSON.stringify(file));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.contentLoss).toBe(true);
+    expect(parsed.dropped.days).toBe(1);
+    expect(parsed.dropped.scenarios).toBe(1);
+    expect(parsed.lossless).toBe(false);
+  });
+
+  it('shapeless v1 financial input still rejects the whole file', () => {
+    const file = JSON.parse(JSON.stringify(cleanV1())) as { input: unknown };
+    file.input = {};
+    expect(parseBackup(JSON.stringify(file)).ok).toBe(false);
+  });
+});
+
+describe('lossless-aware field validation (contract F3)', () => {
+  function parseWithDayMutator(mutate: (day: Record<string, unknown>) => void) {
+    const payload = buildBackup(fullBundle());
+    const raw = JSON.parse(JSON.stringify(payload)) as { data: { dailyRecords: Record<string, Record<string, unknown>> } };
+    mutate(raw.data.dailyRecords['2026-08-20']);
+    return parseBackup(JSON.stringify(raw));
+  }
+
+  it('warns on every non-string supplied text field without coercion', () => {
+    const parsed = parseWithDayMutator(day => {
+      day.notes = 42; day.tomorrowNote = true; day.driverName = 7;
+      day.carNumber = {}; day.plateNumber = [];
+    });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.contentLoss).toBe(true);
+    expect(parsed.warnings.filter(w => w.endsWith('-invalid')).length).toBeGreaterThanOrEqual(5);
+    // values were NOT silently coerced into strings
+    expect(parsed.file.data.dailyRecords['2026-08-20'].notes).toBe('');
+    expect(parsed.file.data.dailyRecords['2026-08-20'].driverName).toBeUndefined();
+  });
+
+  it('warns on non-object customerBreakdown children and non-object failureReasons container', () => {
+    const parsed = parseWithDayMutator(day => {
+      day.customerBreakdown = { bad: 'not-an-object' };
+      day.failureReasons = 'oops';
+    });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.contentLoss).toBe(true);
+    expect(parsed.warnings.some(w => w.includes('customerBreakdown'))).toBe(true);
+    expect(parsed.warnings.some(w => w.includes('failureReasons-container'))).toBe(true);
+    expect(parsed.file.data.dailyRecords['2026-08-20'].customerBreakdown).toBeUndefined();
+  });
+
+  it('warns on invalid recovery reasonKey/customer/note/owner types and keeps lossy flag', () => {
+    const bundle = fullBundle();
+    const rows = [
+      { ...bundle.recoveryEntries[1], reasonKey: 9, customer: 8, note: false },
+      { id: 'r-owner-type', createdAt: '2026-08-19', shipments: 2, owner: 123, status: 'pending' },
+    ];
+    const parsed = parseBackup(JSON.stringify(buildBackup({ ...bundle, recoveryEntries: rows as unknown as RecoveryEntry[] })));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.contentLoss).toBe(true);
+    expect(parsed.warnings.some(w => w.includes('reasonKey-type'))).toBe(true);
+    expect(parsed.warnings.some(w => w.includes('customer-type'))).toBe(true);
+    expect(parsed.warnings.some(w => w.includes('note-type'))).toBe(true);
+    expect(parsed.warnings.some(w => w.includes('owner-type'))).toBe(true);
+  });
+
+  it('warns on non-boolean action.done and non-string action.owner', () => {
+    const bundle = fullBundle();
+    const rows: FollowUpAction[] = [
+      { id: 1, text: 'x', owner: 'Ops', done: false },
+      // @ts-expect-error deliberately malformed supplied values
+      { id: 2, text: 'y', owner: 42, done: 'yes' },
+    ];
+    const parsed = parseBackup(JSON.stringify(buildBackup({ ...bundle, followUpActions: rows })));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.contentLoss).toBe(true);
+    expect(parsed.warnings.some(w => w.includes('done-type'))).toBe(true);
+    expect(parsed.warnings.some(w => w.includes('owner-type'))).toBe(true);
+    const second = parsed.file.data.followUpActions.find(a => a.id === 2);
+    expect(second?.done).toBe(false); // not silently coerced to truthy
+  });
+});
+
+describe('snapshot-read failure aborts before any write (contract F4)', () => {
+  it('persistedOk=false and storage untouched when getItem throws', () => {
+    const store = memoryStorage({ [STORAGE_KEYS.financialInput]: 'original' });
+    // memoryStorage defines getItem as an OWN property — override it there
+    let readCalls = 0;
+    const originalOwnGet = store.getItem.bind(store);
+    (store as { getItem: Storage['getItem'] }).getItem = (key: string) => {
+      readCalls += 1;
+      if (key === STORAGE_KEYS.dailyRecords) throw new Error('read locked');
+      return originalOwnGet(key);
+    };
+    const result = commitBundle(fullBundle(), 'ar', { storage: store });
+    expect(readCalls).toBeGreaterThan(0); // snapshot phase actually ran
+    expect(result.persistedOk).toBe(false); // aborted before ANY write
+    expect(result.rollbackFailedKeys).toEqual([]);
+    expect(store.getItem(STORAGE_KEYS.financialInput)).toBe('original');
+    expect(store.dump()[STORAGE_KEYS.dailyRecords]).toBeUndefined();
+  });
+});
+
+describe('v1 duplicate-id scope corruption (contract G1)', () => {
+  const v1WithDuplicateScenarios = () => {
+    const scn = { id: 'dup-1', name: 'Same id twice', savedAt: '2026-06-01T00:00:00.000Z', input: structuredClone(defaultFinancialInput) };
+    return {
+      version: 1,
+      exportedAt: T0,
+      input: structuredClone(defaultFinancialInput),
+      dailyRecords: {},
+      scenarios: [scn, { ...structuredClone(scn) }],
+    };
+  };
+
+  it('unit: duplicate v1 ids warn, set contentLoss=true and count as dropped', () => {
+    const parsed = parseBackup(JSON.stringify(v1WithDuplicateScenarios()));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.contentLoss).toBe(true);
+    expect(parsed.warnings.some(w => w.startsWith('duplicate-id'))).toBe(true);
+    expect(parsed.dropped.scenarios).toBe(1); // original 2 → deduped 1
+    expect(parsed.file.data.scenarios).toHaveLength(1);
   });
 });

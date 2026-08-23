@@ -111,6 +111,17 @@ export type ParsedBackup =
       dropped: { days: number; scenarios: number; recoveryEntries: number; followUpActions: number };
       /** false ⇒ destructive Replace must be disabled in the UI. */
       lossless: boolean;
+      /**
+       * Legacy v1 scope notice: the format never contained recovery entries,
+       * follow-up actions or language. EXPECTED — not corruption.
+       */
+      legacyScopeMissing?: boolean;
+      /**
+       * True when actual content was dropped or materially sanitized inside
+       * the file's own scope (corrupt days/scenarios/rows). Gates scoped
+       * restore for v1 and Replace for every format.
+       */
+      contentLoss?: boolean;
     }
   | { ok: false; error: string };
 
@@ -193,10 +204,13 @@ function sanitizeDailyRecord(rawDate: string, value: unknown, warn: (msg: string
     driversPresent: drivers,
     notes: str(value.notes, 2000),
     updatedAt: normalizeIso(value.updatedAt) ?? '',
+    // (non-string supplied notes warned explicitly right below)
   };
   if (record.updatedAt === '' && value.updatedAt !== undefined && value.updatedAt !== null && str(value.updatedAt, 40) !== '') stampWarn('updatedAt-invalid');
+  if (value.notes !== undefined && value.notes !== null && typeof value.notes !== 'string') stampWarn('notes-invalid');
 
   if (typeof value.tomorrowNote === 'string') record.tomorrowNote = value.tomorrowNote.slice(0, 2000);
+  else if (value.tomorrowNote !== undefined && value.tomorrowNote !== null) stampWarn('tomorrowNote-invalid');
   if (isRecord(value.failureReasons)) {
     const reasons: Record<string, number> = {};
     for (const [key, count] of Object.entries(value.failureReasons)) {
@@ -224,7 +238,10 @@ function sanitizeDailyRecord(rawDate: string, value: unknown, warn: (msg: string
   if (isRecord(value.customerBreakdown)) {
     const breakdown: Record<string, { delivered: number; missed: number }> = {};
     for (const [name, entry] of Object.entries(value.customerBreakdown)) {
-      if (!isRecord(entry)) continue;
+      if (!isRecord(entry)) {
+        warn(`day:${date}:customerBreakdown:${name.slice(0, 20)}`);
+        continue;
+      }
       const delivered = finite(entry.delivered);
       const missed = finite(entry.missed);
       if (delivered !== null && missed !== null) breakdown[name.slice(0, 80)] = { delivered, missed };
@@ -239,8 +256,11 @@ function sanitizeDailyRecord(rawDate: string, value: unknown, warn: (msg: string
   if (pod === 'complete' || pod === 'partial' || pod === 'none') record.podStatus = pod;
   else if (pod !== undefined && pod !== null) stampWarn('podStatus-invalid');
   if (typeof value.driverName === 'string') record.driverName = value.driverName.slice(0, 120);
+  else if (value.driverName !== undefined && value.driverName !== null) stampWarn('driverName-invalid');
   if (typeof value.carNumber === 'string') record.carNumber = value.carNumber.slice(0, 40);
+  else if (value.carNumber !== undefined && value.carNumber !== null) stampWarn('carNumber-invalid');
   if (typeof value.plateNumber === 'string') record.plateNumber = value.plateNumber.slice(0, 40);
+  else if (value.plateNumber !== undefined && value.plateNumber !== null) stampWarn('plateNumber-invalid');
   const cod = finite(value.codShipments);
   if (cod !== null) record.codShipments = cod;
   else if (value.codShipments !== undefined && value.codShipments !== null) stampWarn('codShipments-invalid');
@@ -346,8 +366,12 @@ function sanitizeRecoveryEntries(value: unknown[], warn: (msg: string) => void):
       status,
     };
     if (typeof raw.reasonKey === 'string') entry.reasonKey = str(raw.reasonKey, 40) as RecoveryEntry['reasonKey'];
+    else if (raw.reasonKey !== undefined && raw.reasonKey !== null) warn(`recovery:${entry.id}:reasonKey-type`);
     if (typeof raw.customer === 'string') entry.customer = raw.customer.slice(0, 120);
+    else if (raw.customer !== undefined && raw.customer !== null) warn(`recovery:${entry.id}:customer-type`);
     if (typeof raw.note === 'string') entry.note = raw.note.slice(0, 1000);
+    else if (raw.note !== undefined && raw.note !== null) warn(`recovery:${entry.id}:note-type`);
+    if (typeof raw.owner !== 'string') warn(`recovery:${entry.id}:owner-type`); // '' stays valid; wrong TYPE is lossy
     const resolvedAt = normalizeIso(raw.resolvedAt);
     if (resolvedAt) entry.resolvedAt = resolvedAt;
     else if (raw.resolvedAt !== undefined && raw.resolvedAt !== null && str(raw.resolvedAt, 40) !== '') warn(`recovery:${entry.id}:resolvedAt-invalid`);
@@ -374,6 +398,8 @@ function sanitizeFollowUpActions(value: unknown[], warn: (msg: string) => void):
       warn(`action:index-${index}:id-or-text`);
       continue;
     }
+    if (typeof raw.done !== 'boolean' && raw.done !== undefined && raw.done !== null) warn(`action:${id}:done-type`);
+    if (raw.owner !== undefined && raw.owner !== null && typeof raw.owner !== 'string') warn(`action:${id}:owner-type`);
     const action: FollowUpAction = { id, text, owner: str(raw.owner, 80), done: raw.done === true };
     const updatedAt = normalizeIso(raw.updatedAt);
     if (updatedAt) action.updatedAt = updatedAt;
@@ -433,20 +459,34 @@ export function parseBackup(raw: string): ParsedBackup {
       return { ok: false, error: 'v1-scenarios-invalid' };
     }
     const input = pruneUndefined(sanitizeFinancialInput(parsed.input));
+    const dailyRecordsV1 = sanitizeDailyMap(parsed.dailyRecords, warn);
+    const daysDroppedV1 = Object.keys(parsed.dailyRecords).length - Object.keys(dailyRecordsV1).length;
+    const rawScenariosV1 = Array.isArray(parsed.scenarios) ? sanitizeScenarios(parsed.scenarios, warn) : [];
+    // Deduplicate BEFORE computing contentLoss — duplicate v1 ids are real
+    // scope corruption and must warn + flip contentLoss (contract G1).
+    const dedupedScenariosV1 = dedupeById(rawScenariosV1, warn);
+    // measured against the ORIGINAL input length so both corrupt rows and
+    // duplicate-id collapses count as scope content loss
+    const scenariosInputCountV1 = Array.isArray(parsed.scenarios) ? parsed.scenarios.length : 0;
+    const scenariosDroppedV1 = scenariosInputCountV1 - dedupedScenariosV1.length;
+    const duplicateWarnings = warnings.filter(w => w.startsWith('duplicate-id')).length;
+    const contentLoss = daysDroppedV1 > 0 || scenariosDroppedV1 > 0 || duplicateWarnings > 0 || warnings.some(w => !w.startsWith('legacy-v1') && !w.startsWith('duplicate-id'));
     return {
       ok: true,
       migratedFrom: 1,
       warnings: [...warnings, 'legacy-v1:no-recovery-or-actions-stored'],
-      dropped: { days: 0, scenarios: 0, recoveryEntries: 0, followUpActions: 0 },
-      lossless: false, // v1 never contained recovery/actions/language
+      dropped: { days: daysDroppedV1, scenarios: scenariosDroppedV1, recoveryEntries: 0, followUpActions: 0 },
+      lossless: false, // full-fidelity Replace is impossible for v1 by definition
+      legacyScopeMissing: true,
+      contentLoss,
       file: {
         format: BACKUP_FORMAT,
         version: BACKUP_VERSION,
         exportedAt: normalizeIso(parsed.exportedAt) ?? '',
         data: {
           financialInput: input,
-          dailyRecords: sanitizeDailyMap(parsed.dailyRecords, warn),
-          scenarios: Array.isArray(parsed.scenarios) ? sanitizeScenarios(parsed.scenarios, warn) : [],
+          dailyRecords: dailyRecordsV1,
+          scenarios: dedupedScenariosV1.map(scn => ({ ...scn })),
           recoveryEntries: [],
           followUpActions: [],
         },
@@ -498,6 +538,7 @@ export function parseBackup(raw: string): ParsedBackup {
     dropped,
     // ANY warning means the file did not survive byte-perfect ⇒ lossy.
     lossless: warnings.length === 0,
+    contentLoss: warnings.length > 0,
     file: {
       format: BACKUP_FORMAT,
       version: BACKUP_VERSION,
@@ -689,9 +730,20 @@ export function commitBundle(
   }
   const present = allWrites.filter(([, v]) => v !== null) as Array<[string, string]>;
 
-  // 1. snapshot raw values of every destination we will touch
+  // 1. snapshot raw values of every destination we will touch.
+  // A failing read is treated like a failed write: abort BEFORE touching
+  // storage so neither disk nor React state can observe a half-restore.
   const snapshot = new Map<string, string | null>();
-  for (const [key] of present) snapshot.set(key, storage.getItem(key));
+  try {
+    for (const [key] of present) snapshot.set(key, storage.getItem(key));
+  } catch (readError) {
+    return {
+      persistedOk: false,
+      failedKeys: [readError instanceof Error && 'key' in readError ? String((readError as { key: unknown }).key) : 'snapshot-read'],
+      rollbackOk: true, // nothing was written, so nothing needs rolling back
+      rollbackFailedKeys: [],
+    };
+  }
 
   // 2. attempt every write, collecting failures
   const failedKeys: string[] = [];

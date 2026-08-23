@@ -64,7 +64,7 @@ Everything else serves that sentence.
 ### P0 — Hardening (DONE)
 Redesign · report engine v2 · recovery board · daily rebuild · native-Arabic rewrite · Cairo typography · PWA shell · deploy pipeline. Gates green.
 
-### P1 — Backup integrity *(core done — review contract C)*
+### P1 — Backup integrity *(core done — stabilization through contract F; acceptance marks this phase's core complete)*
 Nothing else matters if records die with the browser.
 - [x] Audit persisted keys → final inventory: five data keys + `language`; `vega-vehicles`/`vega-zones` were immutable seeds and their persistence was REMOVED (truthful-design option b).
 - [x] Strict versioned envelope v2 round-tripping FinancialInput, every DailyRecord field (incl. optionals), scenarios, recovery entries, follow-up actions, language pref. Missing/malformed collection ⇒ whole-file rejection; FinancialInput validated BEFORE sanitize (`{}` rejected); corrupt individual records ⇒ warnings + lossless=false.
@@ -75,10 +75,11 @@ Nothing else matters if records die with the browser.
 - [x] Legacy v1 gets a clearly-labelled **scoped restore**: adopts model/days/scenarios; recovery entries, actions and language are preserved untouched; Replace stays disabled.
 - [x] Lossless-aware validation: every material drop/sanitization (bad optionals, invalid timestamps, malformed breakdown entries, impossible calendar dates, non-positive shipments, fractional/negative ids, bad enums, duplicate dates/ids) warns and marks the file lossy; Scenario.input shape-gated before sanitize.
 - [x] Transactional persistence: snapshot → attempt all → rollback on any failure; React state moves only after full success; preview stays open on failure; distinct critical message when rollback itself fails.
-- [x] Tests: 30 backup total — 20 unit + 10 browser/component jsdom (incl. exported-Blob language proof, quota-rollback UI proof, v1 scoped-restore reload proof).
-- [ ] In-app backup-age banner after 7 days without export — **BLOCKED until owner accepts Commit E**.
-- [ ] Arabic WhatsApp paste-parser — same gate.
-**Accept:** export→import deep-equality tests; corrupt file rejected without touching current data; v1 migration test; merge-conflict determinism test; malformed-import-cannot-change-state integration proof. ✅ delivered (all tests passing: 130).
+- [x] Tests: 30 backup total — 20 unit + 10 browser/component jsdom (incl. exported-Blob language proof, quota-rollback UI proof, v1 scoped-restore reload proof). **Core ACCEPTED after Commit F review.**
+- [x] In-app backup-age banner after 7 days without export — pure clock-injected engine (`backupReminder.ts`), device key outside backup files, download-initiated stamp reset, day-scoped dismissal, EN/AR banner w/ CTA navigation+focus. **Complete after Commit G tests/live verification.**
+- [x] v1 duplicate-id scope corruption warns + blocks scoped restore (G1 regression tests).
+- [ ] Arabic WhatsApp paste-parser — Commit H.
+**Accept:** export→import deep-equality tests; corrupt file rejected without touching current data; v1 migration test; merge-conflict determinism test; malformed-import-cannot-change-state integration proof; recovery-updatedAt end-to-end survival; corrupt-v1 scoped-restore block; snapshot-read abort. ✅ delivered (all tests passing: 147).
 
 ### P2 — Compliance-lite data capture (~2 weeks)
 1. National Address + Short Address fields w/ `^[A-Za-z]{4}\d{4}$` **format** validator (labelled format-only).

@@ -86,8 +86,7 @@ function renderView(current: StateBundle, language = 'en') {
       setRecoveryEntries={spies.setRecoveryEntries}
       actions={current.followUpActions as FollowUpAction[]}
       setActions={spies.setActions}
-      applyFinancialInput={spies.applyFinancialInput}
-    />,
+      applyFinancialInput={spies.applyFinancialInput} onBackedUp={() => undefined} />,
   );
   void language;
   return { view, spies };
@@ -356,5 +355,48 @@ describe('v1 scoped restore through the UI (contract E-2)', () => {
     expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.recoveryEntries) ?? '[]')).toEqual(current.recoveryEntries);
     expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.followUpActions) ?? '[]')).toEqual(current.followUpActions);
     expect(localStorage.getItem(STORAGE_KEYS.language)).toBe('en');
+  });
+});
+
+describe('corrupt v1 blocks scoped restore (contract F2)', () => {
+  it('legacy button disabled + explicit corrupt-legacy warning; merge still available', async () => {
+    renderView(bundle());
+    const v1 = { version: 1, exportedAt: T0, input: structuredClone(defaultFinancialInput), dailyRecords: { '2026-07-01': { date: '2026-07-01', completedShipments: 'junk' } }, scenarios: [] };
+    chooseFile(new File([JSON.stringify(v1)], 'broken-legacy.json', { type: 'application/json' }));
+    await expectPreview();
+    expect(await screen.findByTestId('corrupt-legacy-warning')).toBeTruthy();
+    const legacyButton = await screen.findByTestId('import-legacy') as HTMLButtonElement;
+    expect(legacyButton.disabled).toBe(true);
+    expect((screen.getByTestId('import-merge') as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+describe('snapshot-read failure aborts restore in the UI (contract F4)', () => {
+  it('preview stays open, no setters run, honest failure message shown', async () => {
+    localStorage.setItem(STORAGE_KEYS.dailyRecords, '{"seed":true}');
+    renderView(bundle());
+    const incoming: StateBundle = { ...bundle(), dailyRecords: { '2026-08-31': record('2026-08-31', 10, 1) } };
+    const originalGetItem = Storage.prototype.getItem;
+    let readLockArmed = true; // fail only the FIRST dailyRecords read
+    Storage.prototype.getItem = function (this: Storage, key: string) {
+      if (readLockArmed && key === STORAGE_KEYS.dailyRecords) {
+        readLockArmed = false;
+        throw new Error('read locked');
+      }
+      return originalGetItem.call(this, key);
+    };
+    try {
+      chooseFile(new File([JSON.stringify(buildBackup(incoming))], 'f.json', { type: 'application/json' }));
+      await expectPreview();
+      fireEvent.click(screen.getByTestId('import-merge'));
+      // abort BEFORE any write/state change:
+      expect(lastSpies?.setDailyRecords).not.toHaveBeenCalled();
+      expect(localStorage.getItem(STORAGE_KEYS.dailyRecords)).toBe('{"seed":true}');
+      expect(screen.getByTestId('import-preview')).toBeTruthy();
+      expect(screen.queryByText(/mergeDoneMessage/)).toBeNull();
+      await screen.findByText(/partialFailMessage/);
+    } finally {
+      Storage.prototype.getItem = originalGetItem;
+    }
   });
 });
