@@ -672,3 +672,23 @@
 .bm-check span{display:grid;gap:2px;font-size:11.5px;color:var(--ink-soft)}
 .bm-check small{color:var(--faint);font:10px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
 @media(max-width:1000px){.bm-day-layout{grid-template-columns:1fr}}
+
+/* ═══ Arabic UI typography — Cairo (KSA gov-style geometric Arabic) ═══
+   Root fix: .bm-app hardcoded Archivo which has NO Arabic glyphs, so Arabic
+   fell back to the browser serif. Cairo is self-hosted via next/font.
+   Letter-spacing must be neutralised in Arabic — tracking breaks joining. */
+html[lang='ar'] .bm-app,
+html[dir='rtl'] .bm-app{
+  font-family:var(--font-cairo),'Archivo',sans-serif;
+}
+html[lang='ar'] .bm-app *,
+html[dir='rtl'] .bm-app *{letter-spacing:normal}
+html[lang='ar'] .bm-page-head h1,
+html[dir='rtl'] .bm-page-head h1{letter-spacing:0;line-height:1.4;font-weight:700}
+html[lang='ar'] .bm-brand strong{font-family:'Archivo',sans-serif;letter-spacing:.14em}
+html[lang='ar'] .bm-kpis strong,
+html[dir='rtl'] .bm-kpis strong,
+html[lang='ar'] .bm-facts dd,
+html[lang='ar'] .bm-cell-input.number{font-variant-numeric:tabular-nums}
+html[lang='ar'] .bm-app p,
+html[dir='rtl'] .bm-app p{line-height:1.8}
