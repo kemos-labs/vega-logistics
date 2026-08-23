@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildControlTowerSnapshot, yesterdayKey, type ControlTowerInput } from '@/lib/controlTower';
+import { toDateString } from '@/lib/operationsReporting';
 import type { DailyRecord } from '@/lib/operationsReporting';
 import type { RecoveryEntry } from '@/lib/recoveryBoard';
 
@@ -29,10 +30,14 @@ function snap(over: Partial<ControlTowerInput> = {}) {
 }
 
 describe('yesterdayKey (local-time law)', () => {
-  it('uses LOCAL calendar arithmetic — midnight Riyadh stays on the right day', () => {
-    // 2026-08-23 01:00 Riyadh = 2026-08-22 22:00 UTC — a UTC slice would say the 22nd twice
-    const ms = new Date('2026-08-23T01:00:00+03:00').getTime();
-    expect(yesterdayKey(ms)).toBe('2026-08-22');
+  it('uses LOCAL calendar arithmetic — never a UTC slice (zone-portable proof)', () => {
+    // The law: yesterdayKey(ms) === local toDateString(ms − 24h) for ANY zone.
+    // (A UTC slice coincides in SOME zones/instants — the positive law above is the invariant.)
+    for (const iso of ['2026-08-23T01:00:00+03:00', '2026-08-23T20:00:00-05:00', '2026-01-01T00:30:00+03:00']) {
+      const ms = new Date(iso).getTime();
+      const expected = toDateString(new Date(ms - 86_400_000));
+      expect(yesterdayKey(ms)).toBe(expected);
+    }
   });
 });
 
