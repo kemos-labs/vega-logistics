@@ -1,0 +1,21 @@
+{
+  "version": "delegate-fleet.v1",
+  "lanes": {
+    "ui-build": {
+      "implementer": "pi",
+      "model": "opencode/muse-spark-1.2",
+      "timeout": "2h"
+    },
+    "integrity-build": {
+      "implementer": "pi",
+      "model": "openrouter/stealth/ox-alpha",
+      "timeout": "2h"
+    },
+    "integrity-review": {
+      "implementer": "pi",
+      "model": "openrouter/stealth/ox-alpha",
+      "timeout": "1h",
+      "readOnly": true
+    }
+  }
+}
