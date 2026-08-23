@@ -1,0 +1,706 @@
+MUSE 1.2 / MUSE SPARK — INDEPENDENT VISUAL PRODUCT AUDIT AND NEXT-RELEASE BLUEPRINT
+VEGA Logistics OS
+
+IMPORTANT IDENTITY REQUIREMENT
+At the very top of your response, write exactly:
+AGENT: MUSE 1.2 (MUSE SPARK)
+TASK: VEGA VISUAL PRODUCT AUDIT + TODAY'S OPERATIONS REDESIGN BLUEPRINT
+
+At the end, repeat:
+REVIEW PACKET AUTHOR: MUSE 1.2 (MUSE SPARK)
+
+This is required so the lead reviewer can distinguish your findings from the separate Ox Alpha coding-worker report.
+
+======================================================================
+1. YOUR ROLE AND THE PARALLEL-WORK SPLIT
+======================================================================
+
+You are the independent visual/product-review agent. You have strong visual/browser capability and a large context window. Use those capabilities fully.
+
+A separate agent, Ox Alpha, is currently responsible for the bounded R4-C data-integrity correction. Its work includes recovery stopId retention, draft exclusion from definitive KPIs, exception arithmetic, operation-date selection, COD truth, validation, and persistence tests.
+
+DO NOT duplicate Ox Alpha's implementation work.
+DO NOT edit or commit code during this task.
+DO NOT rewrite R4-C.
+DO NOT claim that a defect is fixed merely because you recommend a fix.
+
+Your parallel assignment is:
+
+1. Independently inspect the live product as a real operator would.
+2. Explain why approximately 40 hours of engineering work appears to the owner as only two new tabs and an otherwise unchanged application.
+3. Audit the existing information architecture, Arabic-first UX, visual hierarchy, mobile usability, accessibility, and workflow coherence.
+4. Design an implementation-ready blueprint for the next highly visible release: a unified Arabic-first "Today's Operations" workspace.
+5. Give the lead reviewer precise evidence, priorities, suggested component/file boundaries, browser acceptance scenarios, and risks.
+
+Your output will be sent back to the lead reviewer. Be detailed enough that another coding agent can implement the release without guessing.
+
+======================================================================
+2. PROJECT AND PRODUCT CONTEXT
+======================================================================
+
+Project: VEGA Logistics OS
+Repository, if available in your environment:
+/data/Ai slop/vega-logistics
+
+Live deployment:
+https://kemos-labs.github.io/vega-logistics/
+
+Authoritative local development URL, if the server is available:
+http://vega.localhost:8080
+
+Do not use localhost:3002; it belongs to another project.
+
+Technology and deployment truth:
+
+- Next.js 16 static export on GitHub Pages.
+- Browser-local persistence; no real backend.
+- Arabic and English.
+- Arabic must be first-class, native, RTL-safe, and operationally clear.
+- Current system must not claim authentication, cloud sync, real-time GPS, official regulatory compliance, official address verification, or official transport documents.
+- Manual-first and local-first are deliberate current constraints.
+- No real operator interview has occurred yet; workflow assumptions remain hypotheses until owner validation.
+
+Intended user:
+
+- Saudi logistics owner/dispatcher.
+- Often operates from WhatsApp, spreadsheets, phone calls, and paper.
+- Needs a fast daily loop, not a complex enterprise control panel.
+- Must understand what needs attention in under 30 seconds.
+- Must be able to plan, dispatch, close, and report with minimal navigation.
+- Arabic wording and RTL behavior matter more than decorative novelty.
+- Mobile and small laptop usage are important.
+
+Current visible operational modules include:
+
+- Daily Control Tower.
+- Stop planning and stop import.
+- Driver/vehicle dispatch assignment.
+- Stop ordering.
+- Printable internal driver manifest.
+- Evening close interface, currently undergoing R4-C integrity correction.
+- Daily reports, fleet economics, customers, costs, risks, scenarios, recovery board, actions, backup/import/export.
+
+Current problem reported directly by the owner:
+
+"When I open the website I don't see much work. It is just two new tabs and everything is the same. What exactly was done in the last 40 hours?"
+
+Treat that observation as primary product evidence. Do not dismiss it because tests or deployment passed.
+
+======================================================================
+3. IMPORTANT REPOSITORY READING ORDER
+======================================================================
+
+If you have repository access, inspect before forming conclusions:
+
+1. AGENTS.md
+2. SESSION_MEMORY.md
+3. docs/MASTER_PLAN.md
+4. docs/PRODUCT_TRUTH_AUDIT.md
+5. docs/OPERATOR_WORKFLOW.md
+6. docs/KPI_DICTIONARY.md
+7. docs/DATA_MODEL.md
+8. src/components/rebuild/BusinessModelApp.tsx
+9. src/components/rebuild/ControlTower.tsx
+10. src/components/rebuild/StopPlanning.tsx
+11. src/components/rebuild/DispatchBoard.tsx
+12. src/components/rebuild/EveningClose.tsx
+13. src/app/business-model.css
+14. public/locales/ar/translation.json
+15. public/locales/en/translation.json
+
+Also inspect the rendered DOM, computed layout, console, local-storage behavior, and keyboard interaction. Code inspection is not a substitute for browser inspection.
+
+This is Next.js 16 with potentially changed conventions. If you propose implementation details, first read the relevant local Next.js guides under node_modules/next/dist/docs/. Do not rely on generic Next.js memory.
+
+For visual/accessibility audit rules, retrieve and use the current Web Interface Guidelines:
+https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/command.md
+
+======================================================================
+4. BROWSER AUDIT — REQUIRED, NOT OPTIONAL
+======================================================================
+
+Use a real interactive browser. Deployed JavaScript-chunk grep, SSR markup, HTTP 200, and jsdom are not interactive browser evidence.
+
+Audit at minimum:
+
+A. Desktop Arabic RTL — 1440 × 900
+B. Small laptop Arabic RTL — 1280 × 720
+C. Tablet Arabic RTL — 768 × 1024
+D. Mobile Arabic RTL — 375 × 812
+E. Desktop English LTR — 1440 × 900
+F. Mobile English LTR — 375 × 812
+
+Use non-sensitive fictional test data only. Do not enter real names, phone numbers, addresses, IDs, or customer data.
+
+Record for every viewport:
+
+- page/module tested;
+- screenshot name or screenshot reference;
+- first-screen content;
+- whether the primary next action is obvious;
+- horizontal overflow;
+- clipped content;
+- sticky/fixed navigation behavior;
+- tap target size;
+- keyboard/focus behavior;
+- RTL ordering and icon direction;
+- empty-state quality;
+- console errors or warnings;
+- time/click count for the operator task.
+
+If screenshot attachments are supported, include annotated screenshots. If not, describe each screenshot precisely enough for reproduction.
+
+Required operator scenarios:
+
+Scenario 1 — First visit
+- Open the application with empty/local default data.
+- State what the owner sees in the first 5 seconds.
+- State whether it explains what to do today.
+- Count visible navigation choices.
+- Identify any demo/simulated numbers that may look real.
+
+Scenario 2 — Plan five stops
+- Create or import five fictional stops.
+- Include one COD stop, one missing phone, and one missing address note.
+- Measure clicks and confusion points.
+- Verify save feedback and whether the next step is discoverable.
+
+Scenario 3 — Dispatch
+- Assign stops to at least two drivers/vehicles.
+- Reorder a run.
+- Attempt to print or preview the internal manifest.
+- Confirm that the correct run is selected.
+- Inspect Arabic and English manifest layout.
+- Do not claim actual print correctness unless browser print preview is inspected.
+
+Scenario 4 — Evening close
+- Review outcomes, mismatch, COD, draft/reconciled status, and date selection as currently deployed.
+- R4-C may still be under development, so report observed behavior without duplicating its code fix.
+- Identify whether the screen feels like a continuation of dispatch or an unrelated tab.
+
+Scenario 5 — Return tomorrow
+- Reload the application.
+- Explain whether the operator understands retained data and unfinished work.
+- Identify whether the application leads to the right next action.
+
+Scenario 6 — Keyboard and accessibility
+- Navigate the principal workflow without a mouse.
+- Verify visible focus.
+- Inspect accessible names and pressed/selected states.
+- Test zoom at 200% where possible.
+- Check reduced-motion behavior.
+- Check body-text contrast >= 4.5:1 and large-text/UI contrast >= 3:1.
+
+======================================================================
+5. DIAGNOSE WHY THE PRODUCT FEELS UNCHANGED
+======================================================================
+
+Do not give generic design opinions. Identify concrete causes with evidence.
+
+Audit at least:
+
+- Number and organization of navigation items.
+- Whether plan, dispatch, close, and report appear as one daily workflow.
+- Whether the Control Tower links directly to corrective actions.
+- Whether old economics/reporting screens dominate the new operational workflow.
+- Whether the first screen explains today, yesterday, cash, exceptions, and unfinished tasks.
+- Whether new modules reuse generic panel styles without a distinct workflow hierarchy.
+- Whether important changes are below the fold.
+- Whether empty states make modules look unfinished.
+- Whether demo/model data is visually distinguishable from recorded operational data.
+- Whether status, provenance, and next action are clear without reading documentation.
+- Whether the mobile navigation exposes too many choices.
+- Whether Arabic terminology sounds natural to a Saudi dispatcher.
+- Whether English-first component structure leaks into RTL layout.
+- Whether dense report/economics functionality competes with daily operator tasks.
+- Whether feedback is only transient text rather than persistent state/progress.
+
+For repository findings, use this exact format:
+file:line — severity — observed problem — user consequence — recommended direction
+
+For browser findings, use:
+viewport / module — severity — evidence — user consequence — recommended direction
+
+Severity levels:
+BLOCKER, HIGH, MEDIUM, POLISH
+
+Distinguish:
+
+- confirmed browser observation;
+- confirmed code observation;
+- likely issue requiring verification;
+- owner-validation question.
+
+======================================================================
+6. DESIGN THE NEXT VISIBLE RELEASE
+======================================================================
+
+Design an implementation-ready release called:
+
+R5-UX — Today's Operations / عمليات اليوم
+
+This replaces the immediate plan for a documentation-heavy compliance release. Compliance-lite will follow after the daily product is visibly coherent.
+
+PRODUCT OUTCOME
+
+A Saudi owner opens VEGA and immediately understands:
+
+1. What is planned today?
+2. What is not assigned?
+3. What is currently unresolved?
+4. Is COD reconciled?
+5. Is yesterday closed?
+6. What is the single most important next action?
+
+The owner should complete the core local workflow without hunting among many tabs:
+
+Plan → Dispatch → Close → Report
+
+AESTHETIC DIRECTION
+
+Propose a clear, restrained direction suitable for an operational logistics tool. Suggested starting position:
+
+"Saudi Operations Desk" — calm industrial clarity, warm paper-like surfaces, deep green/ink hierarchy, restrained amber/red exception accents, strong Arabic typography, dense enough for dispatch work but never visually noisy.
+
+This is not a marketing landing page. Use convention mode for forms, tables, status, and controls. Familiarity, hierarchy, speed, and legibility outrank decorative novelty.
+
+Avoid:
+
+- generic AI purple gradients;
+- excessive glassmorphism;
+- huge decorative hero sections;
+- fake maps;
+- fake real-time tracking;
+- animation that slows operations;
+- excessive rounded cards within rounded cards;
+- replacing text labels with ambiguous icons;
+- low-contrast beige-on-white;
+- English layouts merely mirrored for Arabic;
+- unsupported compliance badges or government-like seals.
+
+Typography:
+
+- Respect the existing Cairo Arabic choice unless a tested better Arabic family is available and legally/loadably practical.
+- Define a coherent type scale and numeral treatment.
+- Preserve legibility under dense operational data.
+
+Motion:
+
+- Minimal and functional.
+- State transitions, save confirmation, and expanded details only.
+- Include prefers-reduced-motion behavior.
+
+======================================================================
+7. REQUIRED INFORMATION ARCHITECTURE PROPOSAL
+======================================================================
+
+Provide an exact proposed navigation and page hierarchy.
+
+The proposal must reduce cognitive load. Consider, but do not blindly copy, this structure:
+
+PRIMARY NAVIGATION
+
+1. Today / اليوم
+2. Operations / التشغيل
+3. Reports / التقارير
+4. More / المزيد
+
+TODAY / عمليات اليوم
+
+- Date and local-device status.
+- Recorded-data versus model/demo-data indicator.
+- Four-step daily workflow:
+  1. Plan
+  2. Dispatch
+  3. Close
+  4. Report
+- Each step shows Not started / In progress / Blocked / Complete.
+- One primary next-action button.
+- Today summary: stops, assigned, delivered, exceptions, COD outstanding.
+- Yesterday-close warning when applicable.
+- Exceptions requiring action.
+- Backup warning only when relevant.
+
+OPERATIONS
+
+- Stops.
+- Dispatch runs.
+- Recovery.
+- Drivers/vehicles.
+
+REPORTS
+
+- Daily report.
+- Summary and analytics.
+- Exports.
+
+MORE
+
+- Customers/pricing.
+- Costs/economics.
+- Scenarios.
+- Risks.
+- Backup/restore.
+- Settings/language.
+
+You may propose a better structure, but explain why it is better.
+
+Specify desktop and mobile navigation separately. On mobile, avoid placing 12–14 destinations in a horizontal strip.
+
+======================================================================
+8. TODAY'S OPERATIONS SCREEN — DETAILED BLUEPRINT
+======================================================================
+
+Give a component-level blueprint including content, hierarchy, states, and actions.
+
+At minimum define:
+
+A. Operations masthead
+- Arabic-first page title.
+- Selected operation date.
+- local-only/device-only status.
+- last saved state.
+- language control placement.
+
+B. Primary next-action block
+- One action only.
+- Explain the rule selecting it.
+- Examples:
+  - Add today's stops.
+  - Assign 4 unassigned stops.
+  - Resolve 2 missing addresses.
+  - Close yesterday.
+  - Reconcile SAR 640 COD.
+  - Generate the daily report.
+
+C. Four-step workflow rail
+- Plan, Dispatch, Close, Report.
+- Exact completion rules based only on recorded data.
+- Blocked state and reason.
+- Keyboard and screen-reader semantics.
+- Mobile stacking behavior.
+
+D. Operational pulse
+- Planned/loaded stops.
+- Assigned/unassigned.
+- Delivered/returned/pending.
+- COD expected/collected/remitted/outstanding.
+- Every value labelled Recorded, Derived, Manual, or Missing where needed.
+- No invented values.
+
+E. Exceptions queue
+- Missing address.
+- Missing phone.
+- Unassigned stop.
+- Missing failure reason.
+- Shipment mismatch.
+- COD mismatch/credit.
+- Pending recovery.
+- Draft close.
+- Each item links directly to its resolution point.
+
+F. Runs preview
+- Driver/vehicle.
+- stop count.
+- COD total.
+- missing-data count.
+- print action.
+- no map unless coordinates and a truthful route provider exist.
+
+G. Empty state
+- Explain local-only operation.
+- One practical CTA.
+- Optional safe sample data must be explicitly labelled SAMPLE and removable in one action.
+- Never make simulated/model numbers look recorded.
+
+H. Completion state
+- Clear close confirmation.
+- Report/export action.
+- Tomorrow planning note.
+- Backup reminder if due.
+
+For each component provide:
+
+- Arabic label;
+- English label;
+- displayed data source;
+- primary interaction;
+- empty state;
+- loading state if applicable (usually none for local data);
+- error state;
+- accessibility semantics;
+- mobile behavior.
+
+======================================================================
+9. VISUAL SYSTEM SPECIFICATION
+======================================================================
+
+Provide implementation-ready design tokens and rationale, without editing files.
+
+Include:
+
+- background colors;
+- paper/panel colors;
+- primary ink;
+- muted ink;
+- line/border color;
+- action color and hover;
+- success, warning, danger, information;
+- focus ring;
+- shadow levels;
+- radii;
+- spacing scale;
+- max content width;
+- desktop sidebar width if retained;
+- mobile navigation height;
+- fluid type scale using clamp();
+- Arabic and English font stacks;
+- line heights;
+- tabular-number usage;
+- minimum hit area >=44px;
+- focus-visible state;
+- disabled state;
+- print color behavior;
+- dark mode recommendation: ship now or explicitly defer.
+
+Check body contrast >=4.5:1 and large/UI contrast >=3:1. Give computed contrast values for important color pairs where your tools allow it.
+
+Do not invent a completely unrelated brand. Preserve useful existing VEGA visual identity while making the operational hierarchy unmistakably stronger.
+
+======================================================================
+10. RESPONSIVE AND RTL SPECIFICATION
+======================================================================
+
+Give exact behavior for:
+
+- >=1280px;
+- 768–1279px;
+- 375–767px;
+- 320–374px as a resilience check.
+
+Define:
+
+- navigation transformation;
+- workflow rail stacking;
+- stats layout;
+- tables versus cards;
+- exception rows;
+- sticky actions;
+- overflow behavior;
+- modal/drawer behavior;
+- print behavior;
+- safe-area insets;
+- keyboard opening on mobile;
+- long Arabic labels;
+- Arabic numerals policy;
+- bidirectional content such as plate numbers, references, phone numbers, and dates.
+
+RTL is not just flex-direction: verify icon direction, chevrons, progress order, table alignment, mixed-script isolation, and focus/navigation order.
+
+======================================================================
+11. ACCESSIBILITY AND OPERATIONAL SAFETY
+======================================================================
+
+Audit and specify:
+
+- one H1 per screen;
+- semantic landmarks;
+- skip link;
+- keyboard order;
+- visible focus;
+- field labels and descriptions;
+- errors linked with aria-describedby;
+- role=status for non-blocking save confirmation;
+- role=alert for blocking mismatch;
+- no color-only state;
+- pressed/selected semantics;
+- dialog focus trapping and return;
+- reduced motion;
+- 200% zoom;
+- touch targets;
+- contrast;
+- print document language/direction;
+- destructive confirmations;
+- persistence failure behavior;
+- local-only/privacy wording.
+
+Operational safety rules:
+
+- Never auto-balance shipments or cash.
+- Never hide negative reconciliation differences.
+- Never call an address verified when only format-checked.
+- Never call the manifest official.
+- Never claim real-time status.
+- Never imply cloud backup.
+- Never use success styling for a draft close.
+- Never let demo/model values appear as recorded operations.
+
+======================================================================
+12. IMPLEMENTATION BLUEPRINT FOR THE CODING WORKER
+======================================================================
+
+Do not implement, but give an exact low-conflict implementation plan to begin only after Ox Alpha's R4-C commit is accepted.
+
+Prefer two bounded commits:
+
+Commit UX-A
+feat(ops-home): unify today's workflow and simplify navigation
+
+Commit UX-B
+feat(ops-home-ui): Arabic-first responsive polish and browser-verified states
+
+For each commit provide:
+
+- exact user outcome;
+- likely files to create;
+- likely files to modify;
+- components and pure selectors;
+- state ownership;
+- localization keys;
+- CSS strategy;
+- tests;
+- browser scenarios;
+- rollback risk;
+- files likely to conflict with R4-C.
+
+Minimize conflicts with R4-C. Flag any proposed edits to:
+
+- BusinessModelApp.tsx;
+- EveningClose.tsx;
+- operationsReporting.ts;
+- controlTower.ts;
+- reportEngine.ts;
+- locales;
+- business-model.css.
+
+Recommend whether to wait, cherry-pick, or apply after R4-C for each conflict.
+
+Do not introduce new dependencies unless there is a compelling measured reason. Do not rewrite the whole repository. Do not replace working persistence or domain logic with visual-state duplicates.
+
+Prefer pure selectors such as:
+
+- buildTodayWorkflowState
+- selectPrimaryNextAction
+- buildTodayExceptionQueue
+- buildWorkflowStepStatuses
+
+Names may differ, but state must derive from existing records/stops/recovery data rather than be separately persisted.
+
+======================================================================
+13. ACCEPTANCE CONTRACT FOR R5-UX
+======================================================================
+
+Write a measurable acceptance contract.
+
+It must include at least:
+
+1. Arabic first visit explains the next action within 5 seconds.
+2. Core flow Plan → Dispatch → Close → Report reachable from one workspace.
+3. No more than four primary navigation destinations.
+4. Every exception links to a resolution location.
+5. No draft row in definitive KPIs after R4-C.
+6. Recorded/model/manual/missing provenance visible where ambiguity exists.
+7. 375px and 320px have no page-level horizontal overflow.
+8. All principal controls have >=44px hit area.
+9. Full keyboard completion of the principal flow.
+10. Visible focus and correct RTL order.
+11. No console errors.
+12. Print manifest remains operational and explicitly unofficial.
+13. Refresh preserves state.
+14. Persistence failures are honest and non-destructive.
+15. Browser screenshots at all required viewports.
+16. Browser print-preview evidence, or an explicit unverified limitation.
+17. Arabic/English locale parity.
+18. TypeScript, Vitest, ESLint, build, Python, and whitespace gates.
+19. Live deployed SHA/HTTP evidence.
+20. Owner browser review remains a separate final acceptance step.
+
+Also define a practical usability budget:
+
+- From empty state to five saved stops.
+- From five stops to two assigned runs.
+- From completed outcomes to saved reconciled close.
+- From close to generated report.
+
+Give target clicks/time, but label them INTERNAL targets requiring owner validation rather than external benchmarks.
+
+======================================================================
+14. REQUIRED FINAL RESPONSE FORMAT
+======================================================================
+
+Your response must be detailed and use these exact top-level headings:
+
+1. Agent Identity
+2. Executive Verdict
+3. What the Owner Actually Sees
+4. Confirmed Browser Evidence
+5. Confirmed Code Evidence
+6. Why Forty Hours Looks Like Two Tabs
+7. Arabic and RTL Audit
+8. Mobile and Responsive Audit
+9. Accessibility Audit
+10. Information Architecture Problems
+11. R5-UX Product Outcome
+12. Proposed Navigation
+13. Today's Operations Screen Blueprint
+14. Component State Matrix
+15. Visual Design System
+16. Responsive and RTL Specification
+17. Exact Arabic/English Copy Recommendations
+18. Implementation Plan — UX-A
+19. Implementation Plan — UX-B
+20. Conflict Map with Ox Alpha R4-C
+21. Test Plan
+22. Browser Acceptance Plan
+23. Risks and Non-Goals
+24. Questions Requiring Owner Validation
+25. Final Prioritized Recommendation
+26. Machine-Readable Handoff
+
+Under "Machine-Readable Handoff", provide valid JSON in a fenced code block with this shape:
+
+{
+  "agent": "MUSE 1.2 (MUSE SPARK)",
+  "task": "VEGA visual product audit and Today's Operations redesign blueprint",
+  "liveSiteReviewed": true,
+  "interactiveBrowserUsed": true,
+  "viewports": [],
+  "blockers": [],
+  "highPriority": [],
+  "uxA": {
+    "filesCreate": [],
+    "filesModify": [],
+    "acceptance": []
+  },
+  "uxB": {
+    "filesCreate": [],
+    "filesModify": [],
+    "acceptance": []
+  },
+  "r4cConflicts": [],
+  "ownerQuestions": [],
+  "confidence": "high|medium|low"
+}
+
+If you cannot access the repository or interactive browser, set the relevant JSON booleans to false and clearly separate evidence from assumptions. Never fabricate screenshots, console results, timings, line numbers, or browser behavior.
+
+======================================================================
+15. FINAL QUALITY BAR
+======================================================================
+
+Before responding, verify that you have:
+
+- used the live interactive product, not only source/chunks;
+- tested Arabic RTL and English LTR;
+- tested desktop and mobile;
+- identified why the work lacks visible impact;
+- proposed a coherent daily workflow rather than more tabs;
+- preserved local-first/product-truth constraints;
+- avoided duplicating Ox Alpha's R4-C implementation;
+- provided exact file/component guidance;
+- included accessibility and browser acceptance;
+- labelled assumptions and owner-validation questions;
+- identified yourself as MUSE 1.2 (MUSE SPARK);
+- produced a detailed handoff packet and valid JSON.
+
+Do not say "done" merely because the report is long. The report is successful only if it gives the lead reviewer concrete browser evidence and an implementation-ready, low-conflict next release that makes VEGA visibly more useful.

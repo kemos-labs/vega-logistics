@@ -18,4 +18,4 @@
 - Code batch (same cycle): parser stale-preview clear, blank-date block, any-existing-record overwrite ack, greeting/chatter name filtering, conflicting-duplicate-term warnings, localized warnings EN/AR, reminder local-day dismissal baseline + dead-code removal, model-inputs-in-reminder-eligibility. Tests: 6 new (4 engine greeting/conflict + 2 UI stale/blank-date) → 193 total.
 
 ## Next release
-**R4 shipped** (R4-A `153bcfa` close domain+schema; R4-B EveningClose UI). R2-C/R3 ACCEPTED by owner. **Next: R5 compliance-lite** (Short Address format check, National Address flag, configurable-VAT receipt drafts, document-expiry reminders). Tests: 319 passing (30 files), exit 0, zero act() warnings.
+**R4-C stabilization shipped this cycle** (stopId refresh-idempotency, predicate enforced in every selector, exception accounting corrected, close-date selector, full COD panel incl. remittance date, strict validation, truthful skeleton). R4 NOT marked shipped — pending owner acceptance. **Next: R5 compliance-lite** (recheck SPL Short Address + ZATCA QR primary sources first). Tests: 325 passing (30 files), exit 0, zero act warnings.

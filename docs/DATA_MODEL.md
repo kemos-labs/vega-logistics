@@ -57,12 +57,12 @@ Shipped exactly as specified here (source of truth: `src/lib/stops.ts`). Additio
 
 ## 3b. Evening-close fields (R4, optional on DailyRecord — backward compatible)
 
-`loadedShipments?` · `returnedShipments?` · `pendingShipments?` · `codExpectedSar?` · `closeStatus?: 'draft'|'reconciled'` · `closedAt?` (reconciled only). RecoveryEntry += `stopId?`.
+`loadedShipments?` · `returnedShipments?` · `pendingShipments?` · `codExpectedSar?` · `closeStatus?: 'draft'|'reconciled'` · `closedAt?` (reconciled only) · `codRemittedOn?` (validated calendar date — day-granularity remittance lag) · `codAdjustmentNote?` (required for manual expected-COD). RecoveryEntry += `stopId?` (**preserved through validateRecoveryEntries** — linkage survives refresh; refresh idempotency regression-tested).
 **Vocabulary (authoritative):** Loaded = declared loaded for the date · Delivered = completed · Returned = to origin/provider, reason required · Pending = loaded still unresolved · **Failed attempt = metadata over a pending/returned outcome, never an extra bucket** · Unexplained difference = loaded − (delivered+returned+pending), sign preserved.
 **Invariant (reconciled):** `loaded = delivered + returned + pending`. Nothing auto-balances.
 **Draft KPI rule:** `isDefinitiveDailyRecord()` — draft=false, reconciled=true, missing closeStatus=true (legacy rows stay definitive).
 **Recovery idempotency:** one pending entry per non-delivered stop carrying a reason, linked by `stopId`; repeated saves create nothing; operator edits kept; delivered never erases history; returned stops sit on the board as write-off review.
-**COD:** expected = Σ delivered-stop COD unless manually adjusted (note required) · outstanding = max(0, collected−remitted) · uncollected = max(0, expected−collected) · overRemitted = max(0, remitted−collected) (credit visible, never hidden). Remittance timing is day-granularity (single remitted amount per record); per-event `codRemittances[]` deferred until multi-remittance days are observed.
+**COD:** expected = Σ delivered-with-COD stops unless manually adjusted (note required); codShipments counts delivered stops carrying COD only; failureReasons is derived from reviewed stop outcomes and its sum equals failedShipments (each exception counted exactly once — returned is never double-counted; persisted legacy `failed` status maps to pending arithmetic + reason metadata) · outstanding = max(0, collected−remitted) · uncollected = max(0, expected−collected) · overRemitted = max(0, remitted−collected) (credit visible, never hidden). Remittance timing is day-granularity (single remitted amount per record); per-event `codRemittances[]` deferred until multi-remittance days are observed.
 **Backup:** all new fields sanitized (malformed ⇒ warn + lossy); NO envelope version bump (structure unchanged).
 
 ## 4. Invariants enforced at save/close time

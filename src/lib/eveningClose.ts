@@ -63,14 +63,20 @@ export interface StopOutcomeSummary {
 export function summarizeStopOutcomes(stops: StopRecord[]): StopOutcomeSummary {
   const summary: StopOutcomeSummary = { delivered: 0, returned: 0, pending: 0, failedAttempts: 0, missingReason: [] };
   for (const stop of stops) {
-    if (stop.status === 'delivered') summary.delivered += 1;
-    else if (stop.status === 'returned') {
+    if (stop.status === 'delivered') { summary.delivered += 1; continue; }
+    if (stop.status === 'returned') {
+      // Returned counts ONCE — as the returned outcome. Its reason is
+      // required metadata, never a second arithmetic bucket.
       summary.returned += 1;
       if (!stop.failureReasonKey) summary.missingReason.push({ id: stop.id, reference: stop.reference });
-      else summary.failedAttempts += 1;
-    } else if (stop.status === 'pending' || stop.status === 'planned') {
+      continue;
+    }
+    // pending / planned / persisted legacy 'failed' ⇒ pending arithmetic;
+    // 'failed' carries reason metadata by the documented mapping.
+    if (stop.status === 'pending' || stop.status === 'planned' || stop.status === 'failed') {
       summary.pending += 1;
-      if (stop.failureReasonKey) summary.failedAttempts += 1;
+      if (stop.status === 'failed' && !stop.failureReasonKey) summary.missingReason.push({ id: stop.id, reference: stop.reference });
+      else if (stop.failureReasonKey) summary.failedAttempts += 1;
     }
   }
   return summary;
@@ -173,11 +179,13 @@ export interface CloseDraftInput {
   codRemittedSar: number;
   codExpectedManualSar?: number;
   codAdjustmentNote?: string;
+  /** Day the day's collection was remitted (day-granularity lag data). */
+  remittedOn?: string;
 }
 
 /** Build the close-shaped DailyRecord patch. Existing unrelated fields are
  *  preserved by the caller spreading; here we only compute close fields. */
-export function buildCloseDraft(existing: DailyRecord, stops: StopRecord[], input: CloseDraftInput): DailyRecord {
+export function buildCloseDraft(existing: DailyRecord, stops: StopRecord[], input: CloseDraftInput, nowIso: string): DailyRecord {
   const deliveredStops = stops.filter(stop => stop.status === 'delivered');
   const cod = calculateCodClose({
     deliveredStops,
@@ -187,25 +195,31 @@ export function buildCloseDraft(existing: DailyRecord, stops: StopRecord[], inpu
     adjustmentNote: input.codAdjustmentNote,
   });
   const outcomeSummary = summarizeStopOutcomes(stops);
+  // failureReasons derived from reviewed stop outcomes; the sum equals
+  // failedShipments because both count the same exception set exactly once.
   const failureReasons: Record<string, number> = {};
   for (const stop of stops) {
-    if ((stop.status === 'returned' || (stop.status === 'pending' && stop.failureReasonKey)) && stop.failureReasonKey) {
+    if (stop.status !== 'delivered' && stop.failureReasonKey) {
       failureReasons[stop.failureReasonKey] = (failureReasons[stop.failureReasonKey] ?? 0) + 1;
     }
   }
+  const exceptionTotal = outcomeSummary.returned + outcomeSummary.failedAttempts;
   return {
     ...existing,
     loadedShipments: input.loadedShipments,
     completedShipments: outcomeSummary.delivered,
-    failedShipments: outcomeSummary.returned + outcomeSummary.failedAttempts,
+    failedShipments: exceptionTotal,
     returnedShipments: outcomeSummary.returned,
     pendingShipments: outcomeSummary.pending,
-    codShipments: outcomeSummary.delivered,
+    codShipments: deliveredStops.filter(stop => stop.codAmountSar !== undefined).length,
     codExpectedSar: cod.expectedSar,
     cashCollectedSar: input.codCollectedSar,
     cashRemittedSar: input.codRemittedSar,
+    failureReasons,
     closeStatus: 'draft',
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso,
+    ...(input.remittedOn ? { codRemittedOn: input.remittedOn } : {}),
+    ...(input.codAdjustmentNote ? { codAdjustmentNote: input.codAdjustmentNote } : {}),
   };
 }
 
@@ -229,9 +243,16 @@ export function validateCloseDraft(record: DailyRecord, stops: StopRecord[]): Cl
   if (summary.missingReason.length > 0) blockers.push('missing-reasons');
   if (summary.delivered !== record.completedShipments
     || summary.returned !== (record.returnedShipments ?? 0)) blockers.push('outcome-totals-disagree');
-  for (const value of [record.loadedShipments, record.returnedShipments, record.pendingShipments, record.codExpectedSar, record.cashCollectedSar, record.cashRemittedSar]) {
-    if (value !== undefined && (!Number.isFinite(value) || value < 0 || !Number.isInteger(value) === false && !Number.isInteger(value))) blockers.push('invalid-number');
+  // Shipments: finite non-negative INTEGERS. Money: finite non-negative
+  // decimals. Stamps: real ISO. Fractions/negatives/exponent junk rejected.
+  for (const value of [record.loadedShipments, record.returnedShipments, record.pendingShipments]) {
+    if (value !== undefined && (!Number.isFinite(value) || value < 0 || !Number.isInteger(value))) blockers.push('invalid-number');
   }
+  for (const value of [record.codExpectedSar, record.cashCollectedSar, record.cashRemittedSar]) {
+    if (value !== undefined && (!Number.isFinite(value) || value < 0)) blockers.push('invalid-money');
+  }
+  if (record.closedAt !== undefined && Number.isNaN(Date.parse(record.closedAt))) blockers.push('invalid-number');
+  if (record.date && !/^(\d{4}-\d{2}-\d{2})$/.test(record.date)) blockers.push('invalid-number');
   return { ok: blockers.length === 0, blockers };
 }
 

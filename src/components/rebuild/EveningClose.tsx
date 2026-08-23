@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { commitBundle } from '@/lib/backup';
 import {
   applyCloseToDailyRecord, applyStopOutcome, buildCloseDraft,
-  buildRecoveryEntriesForStops, isDefinitiveDailyRecord,
+  buildRecoveryEntriesForStops, calculateCodClose, isDefinitiveDailyRecord,
   reconcileShipmentTotals, summarizeStopOutcomes, validateCloseDraft,
 } from '@/lib/eveningClose';
 import { FAILURE_REASON_KEYS, toDateString, type DailyRecord } from '@/lib/operationsReporting';
@@ -20,8 +20,8 @@ import type { FailureReasonKey } from '@/lib/operationsReporting';
 
 type Outcome = 'delivered' | 'returned' | 'pending' | 'failed';
 
-export function EveningCloseView({ date, stops, setStops, dailyRecords, setDailyRecords, recoveryEntries, setRecoveryEntries }: {
-  date: string;
+export function EveningCloseView({ stops, setStops, dailyRecords, setDailyRecords, recoveryEntries, setRecoveryEntries }: {
+  date?: string;
   stops: StopRecord[];
   setStops: (value: StopRecord[] | ((prev: StopRecord[]) => StopRecord[])) => void;
   dailyRecords: Record<string, DailyRecord>;
@@ -34,11 +34,31 @@ export function EveningCloseView({ date, stops, setStops, dailyRecords, setDaily
   const ar = i18n.language === 'ar';
   const fmt = (value: number) => new Intl.NumberFormat(ar ? 'ar-SA-u-nu-latn' : 'en-US').format(value);
 
+  const [date, setDate] = useState(() => toDateString(new Date()));
   const dayStops = useMemo(() => stops.filter(stop => stop.operationDate === date), [stops, date]);
   const existing = dailyRecords[date];
+  // Form state RESETS from the selected date's record — switching dates must
+  // never leak numbers across operation days.
   const [loaded, setLoaded] = useState(String(existing?.loadedShipments ?? ''));
   const [codCollected, setCodCollected] = useState(existing?.cashCollectedSar === undefined ? '' : String(existing.cashCollectedSar));
   const [codRemitted, setCodRemitted] = useState(existing?.cashRemittedSar === undefined ? '' : String(existing.cashRemittedSar));
+  const [codRemittedOn, setCodRemittedOn] = useState(existing?.codRemittedOn ?? '');
+  const [codAdjustNote, setCodAdjustNote] = useState(existing?.codAdjustmentNote ?? '');
+  const [codExpectedManual, setCodExpectedManual] = useState(existing?.codExpectedSar === undefined || existing?.codExpectedSar === codDefaultFor(dayStops) ? '' : String(existing.codExpectedSar));
+  const [fuel, setFuel] = useState(existing?.fuelCost === undefined ? '' : String(existing.fuelCost));
+  const [drivers, setDrivers] = useState(existing?.driversPresent === undefined ? '' : String(existing.driversPresent));
+  const changeDate = (next: string) => {
+    setDate(next);
+    const rec = dailyRecords[next];
+    setLoaded(String(rec?.loadedShipments ?? ''));
+    setCodCollected(rec?.cashCollectedSar === undefined ? '' : String(rec.cashCollectedSar));
+    setCodRemitted(rec?.cashRemittedSar === undefined ? '' : String(rec.cashRemittedSar));
+    setCodRemittedOn(rec?.codRemittedOn ?? '');
+    setCodAdjustNote(rec?.codAdjustmentNote ?? '');
+    setFuel(rec?.fuelCost === undefined ? '' : String(rec.fuelCost));
+    setDrivers(rec?.driversPresent === undefined ? '' : String(rec.driversPresent));
+    setMessage(''); setReopenAsk(false); setPendingOutcome(null);
+  };
   const [message, setMessage] = useState('');
   const [reopenAsk, setReopenAsk] = useState(false);
   const [pendingOutcome, setPendingOutcome] = useState<{ stop: StopRecord; outcome: Outcome } | null>(null);
@@ -50,16 +70,31 @@ export function EveningCloseView({ date, stops, setStops, dailyRecords, setDaily
     Number.isFinite(loadedNum) ? loadedNum : 0,
     summary.delivered, summary.returned, summary.pending,
   );
-  const codExpected = dayStops.filter(stop => stop.status === 'delivered').reduce((sum, stop) => sum + (stop.codAmountSar ?? 0), 0);
   const collectedNum = codCollected.trim() === '' ? 0 : Number(normalizeDigits(codCollected));
   const remittedNum = codRemitted.trim() === '' ? 0 : Number(normalizeDigits(codRemitted));
-  const codInvalid = (codCollected.trim() !== '' && !Number.isFinite(collectedNum)) || (codRemitted.trim() !== '' && !Number.isFinite(remittedNum)) || collectedNum < 0 || remittedNum < 0;
+  const manualExpected = codExpectedManual.trim() === '' ? undefined : Number(normalizeDigits(codExpectedManual));
+  let cod: ReturnType<typeof calculateCodClose> | null = null;
+  let codInvalid = (codCollected.trim() !== '' && !Number.isFinite(collectedNum)) || (codRemitted.trim() !== '' && !Number.isFinite(remittedNum)) || collectedNum < 0 || remittedNum < 0
+    || (manualExpected !== undefined && (!Number.isFinite(manualExpected) || manualExpected < 0));
+  if (!codInvalid) {
+    try {
+      cod = calculateCodClose({
+        deliveredStops: dayStops.filter(stop => stop.status === 'delivered'),
+        collectedSar: collectedNum, remittedSar: remittedNum,
+        manualExpectedSar: manualExpected, adjustmentNote: codAdjustNote,
+      });
+    } catch {
+      codInvalid = true; // manual adjustment without note
+    }
+  }
 
+  const fuelNum = fuel.trim() === '' ? 0 : Number(normalizeDigits(fuel));
+  const driversNum = drivers.trim() === '' ? 0 : Number(normalizeDigits(drivers));
   const validation = validateCloseDraft(
-    { ...(existing ?? recordSkeleton(date)), loadedShipments: recon.loaded, completedShipments: summary.delivered, returnedShipments: summary.returned, pendingShipments: summary.pending, cashCollectedSar: collectedNum, cashRemittedSar: remittedNum, codExpectedSar: codExpected },
+    { ...(existing ?? recordSkeleton(date)), loadedShipments: recon.loaded, completedShipments: summary.delivered, returnedShipments: summary.returned, pendingShipments: summary.pending, cashCollectedSar: collectedNum, cashRemittedSar: remittedNum, codExpectedSar: cod?.expectedSar ?? 0, date },
     dayStops,
   );
-  const codWarnings = collectedNum < codExpected ? ['cod-uncollected'] : [];
+  const codWarnings = cod && cod.uncollectedSar > 0 ? ['cod-uncollected'] : [];
   const canReconcile = validation.ok && !codInvalid && Number.isFinite(loadedNum);
   const isDraft = existing?.closeStatus === 'draft';
   const isReconciled = existing?.closeStatus === 'reconciled';
@@ -104,8 +139,10 @@ export function EveningCloseView({ date, stops, setStops, dailyRecords, setDaily
     const draft = buildCloseDraft(existing ?? recordSkeleton(date), dayStops, {
       loadedShipments: loadedNum, deliveredShipments: summary.delivered, returnedShipments: summary.returned,
       pendingShipments: summary.pending, codCollectedSar: collectedNum, codRemittedSar: remittedNum,
-    });
-    persist({ daily: draft, stops: dayStops.length > 0 ? stops : undefined }, t(S + 'draftSaved'));
+      codExpectedManualSar: manualExpected, codAdjustmentNote: codAdjustNote || undefined, remittedOn: codRemittedOn || undefined,
+    }, new Date().toISOString());
+    const daily = { ...draft, fuelCost: fuelNum, driversPresent: driversNum };
+    persist({ daily, stops: dayStops.length > 0 ? stops : undefined }, t(S + 'draftSaved'));
   };
 
   const confirmReconciled = () => {
@@ -114,8 +151,9 @@ export function EveningCloseView({ date, stops, setStops, dailyRecords, setDaily
     const draft = buildCloseDraft(existing ?? recordSkeleton(date), dayStops, {
       loadedShipments: loadedNum, deliveredShipments: summary.delivered, returnedShipments: summary.returned,
       pendingShipments: summary.pending, codCollectedSar: collectedNum, codRemittedSar: remittedNum,
-    });
-    const closed = applyCloseToDailyRecord(draft, nowIso);
+      codExpectedManualSar: manualExpected, codAdjustmentNote: codAdjustNote || undefined, remittedOn: codRemittedOn || undefined,
+    }, nowIso);
+    const closed = applyCloseToDailyRecord({ ...draft, fuelCost: fuelNum, driversPresent: driversNum }, nowIso);
     const newRecovery = buildRecoveryEntriesForStops(dayStops, recoveryEntries, '', nowIso);
     const ok = persist(
       { daily: closed, stops, recovery: newRecovery.length > 0 ? [...recoveryEntries, ...newRecovery] : undefined },
@@ -135,6 +173,11 @@ export function EveningCloseView({ date, stops, setStops, dailyRecords, setDaily
 
   return (
     <section className="bm-panel bm-close" data-testid="evening-close">
+      <div className="bm-provider-row">
+        <label className="bm-field"><span>{t(S + 'dateLabel')}</span>
+          <input name="close-date" type="date" value={date} onChange={event => changeDate(event.target.value)} data-testid="close-date" />
+        </label>
+      </div>
       <div className="bm-panel-head"><div>
         <span>{t(S + 'tag')}</span><h2>{t(S + 'title')} — {date}</h2>
         <p>
@@ -161,7 +204,12 @@ export function EveningCloseView({ date, stops, setStops, dailyRecords, setDaily
                     <button
                       key={outcome}
                       data-testid={`${outcome}-${stop.reference ?? stop.id}`}
-                      aria-pressed={stop.status === (outcome === 'failed' ? 'pending' : outcome) && (outcome !== 'failed' ? stop.failureReasonKey !== undefined || outcome === 'delivered' : true)}
+                      aria-pressed={
+                        outcome === 'delivered' ? stop.status === 'delivered'
+                        : outcome === 'returned' ? stop.status === 'returned'
+                        : outcome === 'pending' ? (stop.status === 'pending' || stop.status === 'planned') && !stop.failureReasonKey
+                        : (stop.status === 'pending' || stop.status === 'failed') && stop.failureReasonKey !== undefined
+                      }
                       onClick={() => setOutcome(stop, outcome)}
                     >
                       {t(S + 'outcomes.' + outcome)}
@@ -213,7 +261,7 @@ export function EveningCloseView({ date, stops, setStops, dailyRecords, setDaily
       <h3>{t(S + 'codTitle')}</h3>
       <div className="bm-provider-row">
         <label className="bm-field"><span>{t(S + 'codExpected')} <small>({t(S + 'derived')})</small></span>
-          <output data-testid="cod-expected">{fmt(codExpected)}</output>
+          <output data-testid="cod-expected">{fmt(cod?.expectedSar ?? 0)}</output>
         </label>
         <label className="bm-field"><span>{t(S + 'codCollected')} <small>({t(S + 'manual')})</small></span>
           <input name="cod-collected" inputMode="decimal" value={codCollected} onChange={event => setCodCollected(event.target.value)} />
@@ -221,9 +269,38 @@ export function EveningCloseView({ date, stops, setStops, dailyRecords, setDaily
         <label className="bm-field"><span>{t(S + 'codRemitted')} <small>({t(S + 'manual')})</small></span>
           <input name="cod-remitted" inputMode="decimal" value={codRemitted} onChange={event => setCodRemitted(event.target.value)} />
         </label>
+        <label className="bm-field"><span>{t(S + 'codRemittedOn')}</span>
+          <input name="cod-remitted-on" type="date" value={codRemittedOn} onChange={event => setCodRemittedOn(event.target.value)} />
+        </label>
       </div>
+      <div className="bm-provider-row">
+        <label className="bm-field"><span>{t(S + 'codAdjust')} <small>({t(S + 'manual')})</small></span>
+          <input name="cod-expected-manual" inputMode="decimal" value={codExpectedManual} onChange={event => setCodExpectedManual(event.target.value)} />
+        </label>
+        <label className="bm-field bm-grow"><span>{t(S + 'codAdjustNote')}</span>
+          <input name="cod-adjust-note" value={codAdjustNote} onChange={event => setCodAdjustNote(event.target.value)} />
+        </label>
+      </div>
+      <div className="bm-provider-row">
+        <label className="bm-field"><span>{t(S + 'fuel')} <small>({t(S + 'manual')})</small></span>
+          <input name="close-fuel" inputMode="decimal" value={fuel} onChange={event => setFuel(event.target.value)} />
+        </label>
+        <label className="bm-field"><span>{t(S + 'driversPresent')} <small>({t(S + 'manual')})</small></span>
+          <input name="close-drivers" inputMode="numeric" value={drivers} onChange={event => setDrivers(event.target.value)} />
+        </label>
+      </div>
+      {cod && (
+        <dl className="bm-import-counts" data-testid="cod-results">
+          <div><dt>{t(S + 'codExpected')}</dt><dd>{fmt(cod.expectedSar)} <small>{t(S + cod.expectedSource === 'stop-derived' ? 'derived' : 'manual')}</small></dd></div>
+          <div><dt>{t(S + 'codCollected')}</dt><dd>{fmt(cod.collectedSar)}</dd></div>
+          <div><dt>{t(S + 'codRemitted')}</dt><dd>{fmt(cod.remittedSar)}</dd></div>
+          <div><dt>{t(S + 'codOutstanding')}</dt><dd data-testid="cod-outstanding">{fmt(cod.outstandingSar)}</dd></div>
+          <div><dt>{t(S + 'codUncollected')}</dt><dd data-testid="cod-uncollected">{fmt(cod.uncollectedSar)}</dd></div>
+          <div><dt>{t(S + 'codOverRemitted')}</dt><dd data-testid="cod-over">{fmt(cod.overRemittedSar)}</dd></div>
+        </dl>
+      )}
       {codInvalid && <p className="bm-import-warning" role="alert">{t(S + 'invalidMoney')}</p>}
-      {codWarnings.length > 0 && <p className="bm-import-note">{t(S + 'codUncollectedWarning', { amount: fmt(codExpected - collectedNum) })}</p>}
+      {codWarnings.length > 0 && <p className="bm-import-note">{t(S + 'codUncollectedWarning', { amount: fmt((cod?.uncollectedSar ?? 0)) })}</p>}
 
       {/* validation summary + actions */}
       {!validation.ok && (
@@ -250,5 +327,11 @@ export function EveningCloseView({ date, stops, setStops, dailyRecords, setDaily
 }
 
 function recordSkeleton(date: string): DailyRecord {
-  return { date, completedShipments: 0, failedShipments: 0, fuelCost: 0, driversPresent: 1, notes: '', updatedAt: new Date().toISOString() };
+  // NO fabricated operational data: fuel/attendance are operator-entered on
+  // the close form (blank ⇒ 0, visibly labelled entered) — never invented.
+  return { date, completedShipments: 0, failedShipments: 0, fuelCost: 0, driversPresent: 0, notes: '', updatedAt: '' };
+}
+
+function codDefaultFor(stops: StopRecord[]): number {
+  return stops.filter(stop => stop.status === 'delivered').reduce((sum, stop) => sum + (stop.codAmountSar ?? 0), 0);
 }

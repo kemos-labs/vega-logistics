@@ -76,7 +76,7 @@ Requirements: EN/AR; 375px mobile no overflow; honest empty/local-only states; e
 - [x] Persistence through the existing stops key + v3 backups (assignments/sequence round-trip; no schema change, no version bump)
 **Accept:** dispatcher prints a practical day plan <1 min, zero network calls.
 
-### R4 — Evening close & exception loop *(shipped: R4-A `153bcfa`, R4-B this commit — owner live review pending)*
+### R4 — Evening close & exception loop *(R4-C stabilization this commit; owner review pending — NOT marked shipped until accepted)*
 - [x] Close domain (`eveningClose.ts`): invariant with signed difference, failed-attempt mapping (metadata over pending/returned), COD formulas incl. visible over-remittance credit, recovery idempotency by stopId, draft/definitive predicate
 - [x] DailyRecord close fields (optional, sanitized in backups, no version bump); RecoveryEntry.stopId
 - [x] EveningClose guided UI: outcome buttons w/ reason picker, live signed difference, blocker list (role=alert), draft/reconciled/reopen flows, COD warnings, transactional daily+stops+recovery commit

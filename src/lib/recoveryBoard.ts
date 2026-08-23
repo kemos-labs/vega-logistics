@@ -93,6 +93,7 @@ export function validateRecoveryEntries(raw: unknown): RecoveryEntry[] {
       owner: typeof row.owner === 'string' ? row.owner.slice(0, 60) : '',
       note: typeof row.note === 'string' ? row.note.slice(0, 300) : undefined,
       resolvedAt: resolvedAt ?? undefined,
+      stopId: typeof row.stopId === 'string' ? row.stopId.slice(0, 80) : undefined,
       ...(updatedAt ? { updatedAt } : {}),
     }];
   });

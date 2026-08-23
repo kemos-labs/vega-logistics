@@ -10,7 +10,7 @@ Legend: **R** = recorded data only · **D** = derived from model inputs + record
 **Loaded** — recorded (`loadedShipments`) or stop-derived. **Returned/Pending** — recorded close counters derived from reviewed stop outcomes. **Unexplained difference** — loaded − (delivered+returned+pending), sign preserved; reconciled requires 0.
 **COD expected** — Σ delivered-stop COD (source-labelled) or manual-adjusted w/ note. **Outstanding** = max(0, collected−remitted) · **Uncollected** = max(0, expected−collected) · **Over-remitted** = max(0, remitted−collected) — credit visible.
 **Remittance lag** — day-granularity (single remitted amount per record); event-level timing deferred.
-**Draft exclusion** — `closeStatus:'draft'` rows are excluded from ALL definitive KPIs via `isDefinitiveDailyRecord`; legacy rows (no closeStatus) remain definitive.
+**Draft exclusion** — `isDefinitiveDailyRecord()` (operationsReporting.ts) is applied inside buildMonthlyRollup, buildCustomerPerformance, buildProjection and the Control Tower snapshot; legacy rows (no closeStatus) remain definitive. Tower shows a 'finish draft close' action. **Remittance lag IS computable at day granularity** via `codRemittedOn` (validated calendar date on DailyRecord).
 
 ## Daily operations
 

@@ -8,8 +8,7 @@
 // Honest-data-states rule: planned values come from the model and are always
 // labelled planned; missing days are "no data", never zero-filled.
 
-import type { DailyRecord } from '@/lib/operationsReporting';
-import { toDateString } from '@/lib/operationsReporting';
+import { isDefinitiveDailyRecord, toDateString, type DailyRecord } from '@/lib/operationsReporting';
 import { RECOVERY_TARGETS, type RecoveryEntry } from '@/lib/recoveryBoard';
 import type { BackupReminderState } from '@/lib/backupReminder';
 
@@ -57,7 +56,10 @@ export function yesterdayKey(nowMs: number): string {
 }
 
 export function buildControlTowerSnapshot(inputSpec: ControlTowerInput): ControlTowerSnapshot {
-  const { records, recoveryEntries, plannedShipmentsPerDay, nowMs, backup } = inputSpec;
+  const { recoveryEntries, plannedShipmentsPerDay, nowMs, backup } = inputSpec;
+  // Draft closes are NEVER definitive: filter once, derive everything below.
+  const records = Object.fromEntries(Object.entries(inputSpec.records).filter(([, r]) => isDefinitiveDailyRecord(r)));
+  const draftCount = Object.values(inputSpec.records).filter(r => !isDefinitiveDailyRecord(r)).length;
 
   // ── EXACT yesterday only (local calendar). A day that was not recorded
   // is honest "no data", never substituted by an older recorded day.
@@ -116,6 +118,9 @@ export function buildControlTowerSnapshot(inputSpec: ControlTowerInput): Control
   }
   if (!yesterday) {
     actions.push({ id: 'record-yesterday', severity: 'medium', labelKey: 'recordYesterday', params: { date: yKey } });
+  }
+  if (draftCount > 0) {
+    actions.push({ id: 'draft-close', severity: 'medium', labelKey: 'draftClose', params: { count: draftCount } });
   }
 
   // Explicit stable ranking: high before medium, then fixed domain priority.

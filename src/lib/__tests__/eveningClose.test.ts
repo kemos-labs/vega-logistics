@@ -7,6 +7,8 @@ import {
   reconcileShipmentTotals, summarizeStopOutcomes, validateCloseDraft,
 } from '@/lib/eveningClose';
 import { createStopRecord, type StopRecord } from '@/lib/stops';
+import { buildControlTowerSnapshot } from '@/lib/controlTower';
+import { buildCustomerPerformance } from '@/lib/operationsReporting';
 import type { DailyRecord } from '@/lib/operationsReporting';
 import type { RecoveryEntry } from '@/lib/recoveryBoard';
 
@@ -17,7 +19,7 @@ function stop(over: Partial<StopRecord> = {}): StopRecord {
   tick += 1;
   return createStopRecord({
     operationDate: DATE, customerName: `C${tick}`, stopLabel: `L${tick}`,
-    codAmountSar: over.status === 'delivered' ? 10 : over.codAmountSar,
+    codAmountSar: 'codAmountSar' in over ? over.codAmountSar : (over.status === 'delivered' ? 10 : undefined),
     ...over,
   }, new Date(Date.parse(NOW) - 3600_000 + tick * 1000).toISOString());
 }
@@ -105,13 +107,13 @@ describe('buildCloseDraft + validateCloseDraft', () => {
     const draft = buildCloseDraft(existing, stops, {
       loadedShipments: 5, deliveredShipments: 1, returnedShipments: 1, pendingShipments: 3,
       codCollectedSar: 18, codRemittedSar: 0,
-    });
+    }, '2026-08-24T20:00:00.000Z');
     expect(draft).toMatchObject({
       fuelCost: 130, notes: 'keep me', podStatus: 'complete', safetyIncidents: 1, tomorrowNote: 'tomorrow',
       loadedShipments: 5, completedShipments: 1, returnedShipments: 1, pendingShipments: 3,
       codExpectedSar: 18, closeStatus: 'draft',
     });
-    expect(draft.updatedAt).not.toBe(existing.updatedAt);
+    expect(draft.updatedAt).toBe('2026-08-24T20:00:00.000Z'); // injected clock, not wall time
   });
 
   it('balanced + fully-reasoned + agreeing totals validate; mismatches block with stable codes', () => {
@@ -157,6 +159,90 @@ describe('recovery idempotency (stopId-linked)', () => {
     const afterDelivery = buildRecoveryEntriesForStops([{ ...failedStop, status: 'delivered' }], [edited], 'owner', NOW);
     expect(afterDelivery).toHaveLength(0);
     expect(edited.status).toBe('recovered');
+  });
+});
+
+const { validateRecoveryEntries } = await import('@/lib/recoveryBoard');
+const { buildMonthlyRollup, buildCustomerPerformance: bcp } = await import('@/lib/operationsReporting');
+const { defaultFinancialInput } = await import('@/lib/mockData');
+
+describe('R4-C — identity, KPI truth, strict validation', () => {
+
+  it('stopId SURVIVES the real read path: create → validate → rebuild recovery → no duplicate', () => {
+    const exceptionStop = stop({ reference: 'REF-1', status: 'returned', failureReasonKey: 'noDriver' });
+    const created = buildRecoveryEntriesForStops([exceptionStop], [], 'o', NOW);
+    // simulate the app boot path: persisted JSON → validateRecoveryEntries
+    const persisted = JSON.parse(JSON.stringify(created)) as RecoveryEntry[];
+    const validated = validateRecoveryEntries(persisted);
+    expect(validated[0]?.stopId).toBe(exceptionStop.id); // was dropped before R4-C
+    const again = buildRecoveryEntriesForStops([exceptionStop], validated, 'o', NOW);
+    expect(again).toHaveLength(0); // refresh idempotency holds
+  });
+
+  it('draft rows are excluded from EVERY definitive selector; reconciled+legacy included', () => {
+    const legacy = record({ date: '2026-08-20', completedShipments: 10, failedShipments: 2, fuelCost: 50 });
+    const reconciled = record({ date: '2026-08-21', completedShipments: 20, failedShipments: 1, closeStatus: 'reconciled' as never });
+    const draft = record({ date: '2026-08-22', completedShipments: 99, failedShipments: 99, cashCollectedSar: 999, closeStatus: 'draft' as never, customerBreakdown: { ghost: { delivered: 99, missed: 0 } } });
+    const records = Object.fromEntries([legacy, reconciled, draft].map(r => [r.date, r]));
+    const rollup = buildMonthlyRollup(records, { totalRevenue: 2600, totalCost: 1300, totalDailyShipments: 10, avgRevenuePerShipment: 10 } as never);
+    expect(rollup[0]?.completedShipments).toBe(30); // 10 + 20; draft's 99 invisible
+    const customers = bcp(records, { providers: [] } as never);
+    expect(customers.find(row => row.name === 'ghost')).toBeUndefined();
+    const tower = buildControlTowerSnapshot({ records, recoveryEntries: [], plannedShipmentsPerDay: 10, nowMs: Date.parse('2026-08-23T12:00:00Z'), backup: null });
+    expect(tower.codOutstandingSar).toBe(0); // draft's 999 collected invisible
+    expect(tower.actions.some(a => a.id === 'draft-close')).toBe(true); // tower PROMPTS to finish drafts
+  });
+
+  it('exception accounting: returned counted once; legacy failed maps to pending; failureReasons sum = failedShipments; codShipments = delivered-with-COD', () => {
+    const stopsList = [
+      stop({ reference: 'D', status: 'delivered', codAmountSar: 10 }),
+      stop({ reference: 'D2', status: 'delivered', codAmountSar: undefined }), // delivered WITHOUT COD — must not count in codShipments
+      stop({ reference: 'RET', status: 'returned', failureReasonKey: 'noDriver' }),
+      stop({ reference: 'ATT', status: 'pending', failureReasonKey: 'addressIssue' }),
+      stop({ reference: 'OLD', status: 'failed', failureReasonKey: 'vehicleBreakdown' }), // persisted legacy failed
+    ];
+    const existing = record({ fuelCost: 0 });
+    const draft = buildCloseDraft(existing, stopsList, {
+      loadedShipments: 5, deliveredShipments: 2, returnedShipments: 1, pendingShipments: 2,
+      codCollectedSar: 10, codRemittedSar: 0,
+    }, NOW);
+    expect(draft.failedShipments).toBe(3); // 1 returned + 2 exception-metadata
+    const reasonsSum = Object.values(draft.failureReasons ?? {}).reduce((a, b) => a + b, 0);
+    expect(reasonsSum).toBe(draft.failedShipments);
+    expect(draft.returnedShipments).toBe(1);
+    expect(draft.pendingShipments).toBe(2);
+    expect(draft.codShipments).toBe(1); // delivered WITH COD only
+    expect(draft.failureReasons).toMatchObject({ noDriver: 1, addressIssue: 1, vehicleBreakdown: 1 });
+  });
+
+  it('strict validation: fractional/negative shipments and bad money rejected; decimals allowed for money', () => {
+    const base = record({ loadedShipments: 5, completedShipments: 2, returnedShipments: 1, pendingShipments: 2 });
+    expect(validateCloseDraft({ ...base, loadedShipments: 4.5 }, []).blockers).toContain('invalid-number');
+    expect(validateCloseDraft({ ...base, loadedShipments: -1 }, []).blockers).toContain('invalid-number');
+    expect(validateCloseDraft({ ...base, cashCollectedSar: 10.5 }, []).blockers).not.toContain('invalid-money');
+    expect(validateCloseDraft({ ...base, cashCollectedSar: -2 }, []).blockers).toContain('invalid-money');
+  });
+
+  it('malformed close fields warn + lossy in backups; remittance date and note round-trip', async () => {
+    const { buildBackup: bb, parseBackup: pb } = await import('@/lib/backup');
+    const bad = record({ loadedShipments: 2.5, closeStatus: 'weird' as never, closedAt: 'not-a-date', codRemittedOn: '2026-02-30' });
+    const file = bb({ financialInput: structuredClone(defaultFinancialInput), dailyRecords: { [DATE]: bad }, scenarios: [], recoveryEntries: [{ id: 'r', createdAt: DATE, shipments: 1, owner: '', status: 'pending', stopId: 42 as unknown as string }], followUpActions: [], stops: [] });
+    const parsed = pb(JSON.stringify(file));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.lossless).toBe(false);
+    expect(parsed.warnings.some(w => w.includes('loadedShipments-invalid'))).toBe(true);
+    expect(parsed.warnings.some(w => w.includes('closeStatus-invalid'))).toBe(true);
+    expect(parsed.warnings.some(w => w.includes('closedAt-invalid'))).toBe(true);
+    expect(parsed.warnings.some(w => w.includes('codRemittedOn-invalid'))).toBe(true);
+    expect(parsed.warnings.some(w => w.includes('stopId-type'))).toBe(true);
+    // good values round-trip
+    const good = record({ codRemittedOn: '2026-08-26', codAdjustmentNote: 'verified' });
+    const parsedGood = pb(JSON.stringify(bb({ financialInput: structuredClone(defaultFinancialInput), dailyRecords: { [DATE]: good }, scenarios: [], recoveryEntries: [], followUpActions: [], stops: [] })));
+    expect(parsedGood.ok).toBe(true);
+    if (!parsedGood.ok) return;
+    expect(parsedGood.file.data.dailyRecords[DATE]?.codRemittedOn).toBe('2026-08-26');
+    expect(parsedGood.file.data.dailyRecords[DATE]?.codAdjustmentNote).toBe('verified');
   });
 });
 

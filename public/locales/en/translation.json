@@ -1417,7 +1417,8 @@
         "failedYesterday": "{{count}} failed delivery yesterday needs follow-up",
         "podGaps": "POD incomplete for {{count}} recent day(s)",
         "backupStale": "Backup is overdue — export a backup file",
-        "recordYesterday": "No record for yesterday ({{date}}) — close the day"
+        "recordYesterday": "No record for yesterday ({{date}}) — close the day",
+        "draftClose": "{{count}} draft close(s) need finishing"
       }
     },
     "stops": {

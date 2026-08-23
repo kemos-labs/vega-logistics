@@ -47,7 +47,9 @@ function record(over: Partial<DailyRecord> = {}): DailyRecord {
 
 function renderClose(stops: StopRecord[], daily: DailyRecord | undefined, recovery: RecoveryEntry[] = []) {
   const spies = { setStops: vi.fn(), setDailyRecords: vi.fn(), setRecoveryEntries: vi.fn() };
-  render(<EveningCloseView date={DATE} stops={stops} setStops={spies.setStops} dailyRecords={daily ? { [DATE]: daily } : {}} setDailyRecords={spies.setDailyRecords} recoveryEntries={recovery} setRecoveryEntries={spies.setRecoveryEntries} />);
+  render(<EveningCloseView stops={stops} setStops={spies.setStops} dailyRecords={daily ? { [DATE]: daily } : {}} setDailyRecords={spies.setDailyRecords} recoveryEntries={recovery} setRecoveryEntries={spies.setRecoveryEntries} />);
+  // the component owns its date state — pin it to the fixture date
+  fireEvent.change(screen.getByTestId('close-date'), { target: { value: DATE } });
   return spies;
 }
 
@@ -176,6 +178,25 @@ describe('EveningCloseView', () => {
     fireEvent.change(document.querySelector('[name="cod-collected"]') as HTMLInputElement, { target: { value: '10' } });
     expect(screen.queryByText('businessModel.close.invalidMoney')).toBeNull(); // cleared once valid
     expect(screen.getByTestId('cod-expected').textContent).toBe('40');
+  });
+
+  it('date selector isolates state: yesterday vs old reconciled date never leak numbers', () => {
+    const todayStop = stop(); // DATE = fixture date
+    renderClose([todayStop], undefined);
+    fireEvent.change(document.querySelector('[name="loaded-shipments"]') as HTMLInputElement, { target: { value: '7' } });
+    // switch to another date with a RECONCILED record
+    fireEvent.change(screen.getByTestId('close-date'), { target: { value: '2026-08-20' } });
+    const reconciled = record({ date: '2026-08-20', closeStatus: 'reconciled' as never, closedAt: NOW, loadedShipments: 4, cashCollectedSar: 50 });
+    // re-render with the record present for that date
+    cleanup();
+    const spies = { setStops: vi.fn(), setDailyRecords: vi.fn(), setRecoveryEntries: vi.fn() };
+    render(<EveningCloseView stops={[]} setStops={spies.setStops} dailyRecords={{ '2026-08-20': reconciled }} setDailyRecords={spies.setDailyRecords} recoveryEntries={[]} setRecoveryEntries={spies.setRecoveryEntries} />);
+    fireEvent.change(screen.getByTestId('close-date'), { target: { value: '2026-08-20' } });
+    expect((document.querySelector('[name="loaded-shipments"]') as HTMLInputElement).value).toBe('4'); // from THAT date's record
+    expect(screen.getByTestId('evening-close').textContent).toContain('status.reconciled');
+    // switching back resets away from the reconciled values
+    fireEvent.change(screen.getByTestId('close-date'), { target: { value: DATE } });
+    expect((document.querySelector('[name="loaded-shipments"]') as HTMLInputElement).value).toBe(''); // no leakage
   });
 
   it('draft rows are flagged as excluded from definitive KPIs', () => {

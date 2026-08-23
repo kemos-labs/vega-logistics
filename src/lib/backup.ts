@@ -299,7 +299,11 @@ function sanitizeDailyRecord(rawDate: string, value: unknown, warn: (msg: string
   else if (value.codExpectedSar !== undefined && value.codExpectedSar !== null) stampWarn('codExpectedSar-invalid');
   if (value.closeStatus === 'draft' || value.closeStatus === 'reconciled') record.closeStatus = value.closeStatus;
   else if (value.closeStatus !== undefined && value.closeStatus !== null) stampWarn('closeStatus-invalid');
-  const closedAt = normalizeIso(value.closedAt);
+  if (typeof value.codRemittedOn === 'string' && isValidCalendarDate(value.codRemittedOn)) record.codRemittedOn = value.codRemittedOn;
+  else if (value.codRemittedOn !== undefined && value.codRemittedOn !== null) stampWarn('codRemittedOn-invalid');
+  if (typeof value.codAdjustmentNote === 'string') record.codAdjustmentNote = value.codAdjustmentNote.slice(0, 500);
+  else if (value.codAdjustmentNote !== undefined && value.codAdjustmentNote !== null) stampWarn('codAdjustmentNote-invalid');
+    const closedAt = normalizeIso(value.closedAt);
   if (closedAt) record.closedAt = closedAt;
   else if (value.closedAt !== undefined && value.closedAt !== null && str(value.closedAt, 40) !== '') stampWarn('closedAt-invalid');
 

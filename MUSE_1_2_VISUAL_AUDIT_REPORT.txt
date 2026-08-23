@@ -1,0 +1,998 @@
+AGENT: MUSE 1.2 (MUSE SPARK)
+TASK: VEGA VISUAL PRODUCT AUDIT + TODAY'S OPERATIONS REDESIGN BLUEPRINT
+
+======================================================================
+MUSE 1.2 / MUSE SPARK — INDEPENDENT VISUAL PRODUCT AUDIT AND NEXT-RELEASE BLUEPRINT
+VEGA Logistics OS
+======================================================================
+
+1. Agent Identity
+-----------------
+AGENT: MUSE 1.2 (MUSE SPARK)
+TASK: VEGA VISUAL PRODUCT AUDIT + TODAY'S OPERATIONS REDESIGN BLUEPRINT
+Role: Independent visual/product-review agent (parallel to Ox Alpha R4-C). No code was edited, committed, or claimed fixed. Evidence is from static code inspection + live-site HTML fetch (curl https://kemos-labs.github.io/vega-logistics/ 200 OK, 2026-08-23) + CSS computed-layout inference. No interactive browser automation was available in this harness — viewport findings are confirmed code observation + inferred layout from CSS/media-queries, labelled as such (see §4).
+Repository: /data/Ai slop/vega-logistics @ e214380 (R4-B), branch clean.
+Live deployment reviewed: https://kemos-labs.github.io/vega-logistics/ — SSR shell contains <nav> with 13 destinations, Control Tower as default view, visibility:hidden hydration shell (i18n-managed).
+
+2. Executive Verdict
+-------------------
+VEGA is a credible local-first financial model with a capable domain engine, but it displays as a finance spreadsheet that grew four operational limbs without a body.
+
+The owner is right. ~40h of R1-R4 work is invisible because:
+
+1. Navigation inflation (13 items) buries new work. Plan (Stops), Dispatch, Close are three small tabs among nine legacy finance tabs. The eye lands on Summary / Fleet / Customers / Costs — the old product — not the daily loop.
+2. Control Tower is a yesterday scorecard, not a Today workspace. It answers "what happened yesterday?" with 1 line + 3 tiles + 3 non-actionable links. It does not answer "what must I do today?" and does not surface Plan → Dispatch → Close as a single workflow.
+3. New modules reuse the same bm-panel skin with no hierarchy. Stops / Dispatch / Close all look like generic forms with bm-panel-head + bm-import-note + bm-provider-row. There is no masthead, no step rail, no primary CTA. Visual weight is identical to Costs and Risks.
+4. Mobile exposes all 13 choices as an off-canvas drawer — no prioritization, no Today affordance.
+5. Empty states dominate and teach nothing. — and لم يتم حفظ تقارير يومية look like unfinished software, not an honest invitation with one CTA.
+
+R5-UX must not add a 14th tab. It must replace the first screen with a unified Today / عمليات اليوم workspace that owns the 30-second promise, collapses 13 destinations to 4, and makes every exception a link to its fix.
+
+Confidence: high for IA/visual diagnosis (code-confirmed); medium for tap-target/contrast measurements (no instrumentation, computed from CSS).
+
+3. What the Owner Actually Sees
+-------------------------------
+First 5 seconds (desktop 1440, empty data, English shell before hydration — confirmed server HTML)
+
+Top bar: [VEGA] Business model | [Search...] | العربية | Local model
+Sidebar (236px pine rail, 13 items, 12px type):
+  Control Tower (active)
+  Stops / Dispatch / Evening close   ← new, visually identical siblings
+  Summary / Cars & drivers / Customers & revenue / Company costs
+  Daily report / Risks (0) / Scenarios / Recovery board / Follow-up
+
+Main canvas (1180px max, 36px padding):
+  CONTROL TOWER — Today at a glance
+  "What happened yesterday, what needs attention now — from your recorded data only."
+  [yellow] No record for yesterday (2026-08-22) — close the day
+  ┌──────────────────────────┐
+  │ Yesterday has no recorded│  — / — / —
+  │ data yet                 │
+  ├──────────────────────────┤
+  │ COD cash outstanding  0 SAR │
+  │ Recovery items open   0   │
+  │ Days with POD gaps    None│
+  └──────────────────────────┘
+  [Open daily entry] [Open recovery board] [Backup & import]
+
+Owner's mental model: "This is still the cost model. One card says no data. Three zeros. Three buttons that go to old pages. Where is my today's stops?"
+
+After clicking Stops (2nd tab): Date picker + totals 0 وقفة · تحصيل 0 ريال + 7-field form + empty list + collapsed CSV textarea — looks like a database admin, not "today's plan."
+
+After clicking Dispatch: Two sections (قائمة الانتظار + per-run) with tiny ▲ ▼ buttons — no driver photos, no stop count badge, no map, no sense of progress.
+
+After clicking Evening close: Four outcome buttons per stop + loaded input + COD row — feels like a separate form, not the evening edge of the same day.
+
+Quantified: Owner needs 3 tab switches + 2 scrolls to understand one day. No single screen tells him planned / unassigned / exceptions / COD outstanding / is yesterday closed?
+
+4. Confirmed Browser Evidence
+-----------------------------
+Honesty note per §14 JSON: interactiveBrowserUsed: false. No Playwright/Chromium harness was available. Evidence below is confirmed HTML + CSS inspection (curl + business-model.css) plus React source, not live computed pixels. Viewport overflow, tap-target, and focus observations are confirmed code observation / high-confidence inference from fixed CSS values, not instrumented measurement. Each item is labelled.
+
+Scenario matrix (all viewports)
+
+# | Viewport/module | Severity | Evidence (source) | User consequence | Recommended direction
+S1 | 1440×900 / Tower | HIGH | ControlTower.tsx:18-64 renders only yesterday (1 date), 3 tiles, 3 static buttons. No today stops count (confirmed code). | Owner sees yesterday, not today. New ops work absent from landing. | R5 masthead + 4-step rail + exceptions queue must live on /
+S2 | 375×812 / Shell | HIGH | .bm-sidebar{width:236px; transform:translateX(-100%)} off-canvas with 13 <button> (confirm CSS:782, HTML). No bottom nav. | Mobile operator must open drawer, scan 13 labels, guess next. | Collapse to 4 primary nav + bottom bar on ≤700px
+S3 | 768×1024 / Stops | HIGH | StopPlanning.tsx date+search+totals in .bm-provider-row (flex) + 7-field grid .bm-stops-grid → grid-template-columns:1fr only ≤600px (CSS:756). At 768, 7 fields remain in 2-col? No explicit 768 rule — inferred cramped. | Tablet dispatcher sees cramped 2-col form with tiny inputs. | Redefine breakpoints: 1280+/768-1279/375-767 (see §16)
+S4 | 375 / Stops form | MEDIUM | input{min-height:34px} for table cells but form inputs height:40px (CSS 115, 140). Touch target <44px for ▲▼ in Dispatch (width:30?) — but dispatch ▲▼ are native <button> with no min-height. Inferred 32px. | One-handed thumb misses reorder. | Enforce min-height:44px; min-width:44px globally
+S5 | All / Empty states | HIGH | tower: "لا يوجد سجل مسجّل ليوم أمس" + stops.emptyDay + dispatch.unassignedEmpty are plain <p class="bm-import-note"> grey text (CSS: not emphasized). No illustration, no CTA. | Empty product looks broken, not "start here." | Designed empty state with 1 primary CTA (see §8G)
+S6 | All / RTL icon | MEDIUM | BusinessModelApp.tsx:129 uses lucide-react icons with no dir flip; chevron ▲▼ are not mirrored (irrelevant), but horizontal Route icon not mirrored. CSS has only 2 RTL overrides (line 385, 752). | Arabic dispatcher sees LTR-flavoured icons/progress order. | Audit all dir sensitive UI: chevrons, progress, table text-align:start (already used in manifest, good)
+S7 | 1440 / Typography | MEDIUM | bm-app{font-family:'Archivo'} globally; Cairo only via --font-cairo variable on .bm-manifest-print and rtl sheet (CSS:771, 585). Archivo must not host Arabic containers (R4 law) — but bm-app does. | Arabic letterforms rendered in Archivo → breaking joining, poor diacritics, wrong numerals. | Wrap Arabic surfaces in font-family:var(--font-cairo) with [dir=rtl] .bm-panel{font-family:var(--font-cairo)}
+S8 | Print preview | HIGH | .bm-manifest-print{display:none} → @media print{display:block !important} (CSS:765-780). Disclaimer mandatory (confirmed code). No @page margin for dispatch list page. | Owner cannot verify print without triggering browser print. | Add print harness page + keep disclaimer on every page (tfoot)
+S9 | Keyboard | MEDIUM | <a class="bm-skip" href="#bm-main"> exists (good), :focus-visible{outline:2px solid var(--brass)} (good). But StopPlanning assign <select defaultValue=""> has no focus management after doAssign; Dispatch move buttons lack roving tabindex. | Keyboard-only dispatcher tabs 13+ times to reach daily work. | R5 step rail must be <ol role="list"> with aria-current="step"; ensure visible focus on all 44px targets
+S10 | SSR hydration | POLISH | Server HTML has visibility:hidden until hydration + untranslated keys businessModel.a11y.skipToMain visible in SSR (curl). | Flash of untranslated UI on slow GH Pages. | Ensure translation namespace preload or skeleton
+
+First-screen content audit (confirmed HTML): Tower occupies ~420px height; no stop preview, no exception list, no next-action button. Below the fold: nothing. New work is not on first screen — it is two tabs away.
+
+Horizontal overflow risk: .bm-table{min-width:820px/900px} inside .bm-table-wrap{overflow-x:auto} is safe (scrolls), but .bm-report-kind-card{grid-template-columns:1fr auto} at 375 collapses poorly? CSS breakpoint only at 700 for that card → inferred overflow at 375-700 (MEDIUM).
+
+Tap target inference (no instrument): .bm-sidebar nav button{min-height:42px} (good), .bm-top height:68px (good), but .bm-stop-actions button has no min-height (likely 28-32px) → fails WCAG 2.5.8.
+
+Console / persistence (inferred): commitBundle writes transactional to localStorage; no console error expected. localStorage failure surfaces as role="status" message (good) per persist() helpers.
+
+5. Confirmed Code Evidence
+--------------------------
+Use exact format file:line — severity — observed problem — user consequence — recommended direction
+
+src/components/rebuild/BusinessModelApp.tsx:28 — HIGH — View union has 13 variants + NAV array has 13 entries with no grouping — dispatcher sees 13 equal-weight choices — collapse to 4 primary (Today/Operations/Reports/More)
+src/components/rebuild/BusinessModelApp.tsx:62 — HIGH — view state defaults to 'tower' but tower does not surface today's stops/dispatch/close progress — new work invisible on landing — make Today workspace own the step rail
+src/components/rebuild/BusinessModelApp.tsx:128-129 — HIGH — NAV order mixes operational (tower/stops/dispatch/close) with analytical (summary/fleet/customers/costs/daily) with no visual separator — owner cannot see daily loop — group and visually separate workflow vs analytics
+src/components/rebuild/ControlTower.tsx:18-64 — HIGH — Snapshot only renders yesterday + 3 aggregates; zero link to stops/dispatch board (onGoto only -> 'daily'|'recovery'|'scenarios') — Control Tower cannot navigate to where stops live — add onGoto for stops/dispatch/close + exception deep-links
+src/lib/controlTower.ts:59-118 — MEDIUM — buildControlTowerSnapshot computes COD globally and POD gaps but not today-planned / unassigned / missing-address counts — tower can't answer "what is not assigned?" — add selectors buildTodayWorkflowState / buildTodayExceptionQueue
+src/components/rebuild/StopPlanning.tsx:95-120 — HIGH — Toolbar uses generic .bm-provider-row + output .bm-stops-totals with no next-action — empty day shows grey note only — add primary CTA "أضف 5 وقفات / استورد CSV" inside empty state
+src/components/rebuild/DispatchBoard.tsx:105-150 — MEDIUM — Unassigned queue renders as plain list with <select defaultValue=""> per stop; no bulk assign, no count badge — 20 stops = 20 selects — add bulk bar + per-run header with count/COD badge
+src/components/rebuild/EveningClose.tsx:55-70 — MEDIUM — EveningCloseView takes date: string prop hard-coded to toDateString(new Date()) in BusinessModelApp (line 243) — internal clock vs selectable date diverge; no date picker — operator cannot close yesterday without code change — expose date selector bound to operationDate
+src/app/business-model.css:5-30 — MEDIUM — :root defines --pine/--brass/--red but body text --ink:#1b231e on --paper:#fbfaf4 = contrast ~15:1 (good) but --faint:#828b81 on --paper = ~4.0:1 (borderline <4.5:1) — small muted text fails body contrast — darken --faint to #6b756f or increase weight
+src/app/business-model.css:68-72 — POLISH — .bm-kpis article::after 22px decorative line positioned top-right (LTR only) — in RTL should mirror — add [dir=rtl] override
+src/app/business-model.css:366-380 — MEDIUM — .bm-sidebar nav button.active::before 3px brass rail at left:-12px; RTL override exists at line 385 but only for [dir=rtl] prefix — good, but [dir=rtl] not set on <html dir> until i18n hydrates (SSR shows dir="ltr") — flash of wrong rail — set dir synchronously via inline script
+src/components/rebuild/BusinessModelApp.tsx:233 — MEDIUM — <header class="bm-top"> shows NAV.find(...).label + t('businessModel.header.subtitle') but subtitle key missing in en (curl shows literal "businessModel.header.subtitle") — untranslated string ships — add locale keys or remove
+src/lib/stops.ts:1-120 (inferred) — MEDIUM — StopRecord uses operationDate field but validate + create use camel'd checks — no UI shows shortAddress field (R5 ready) — R5 compliance fields will need non-breaking addition — reserve column visually
+public/locales/ar/translation.json:778ff — POLISH — businessModel.nav.* labels are correct Saudi (غرفة العمليات/الوقفات/التوزيع/إغلاق اليوم) but tower tag is still "غرفة العمليات" (formal) vs brief recommends "عمليات اليوم" — consider renaming primary to عمليات اليوم for daily-task framing
+src/components/rebuild/ProReport.tsx:1-... — MEDIUM — ProReport renders A4 sheet with Cairo shaping but uses latin digits? R3 law requires ar-SA-u-nu-latn — verify Intl.NumberFormat locale passed (code uses ar ? 'ar-SA-u-nu-latn' : 'en-US' correctly in tower/stops/dispatch — good)
+
+6. Why Forty Hours Looks Like Two Tabs
+--------------------------------------
+Concrete causal chain (not opinion):
+
+1. IA dilution (13 tabs, flat list, one active state). R1 added Control Tower, R2 Stops, R3 Dispatch, R4 Evening close. Each was appended to NAV[] in source order (tower first, then stops/dispatch/close, then legacy). CSS renders them as identical 42px rows in a 236px pine rail with the same hover/active style. Gestalt: one new group cannot be perceived because no grouping, no divider, no section label, no icon-weight difference. The eye groups them as "more admin."
+
+2. First-screen primacy theft. The default view tower does not embed or preview the new workflow. A tower that says COD 0 / Recovery 0 / No data teaches the owner that the product is unused, not that new work exists two clicks away. Nielsen: first-screen content is the product. The new work is literally not on the first screen.
+
+3. Style camouflage. All four operational screens share the token bm-panel + bm-panel-head (same 22px padding, 10px radius, 1px #ddd7c4 border, same 10px IBM Plex Mono kicker). bm-kpis (summary) is visually heavier than bm-tower-grid despite being less operationally urgent. No workflow rail, no stepper, no progress bar differentiates "my daily checklist" from "fleet cost assumptions."
+
+4. Legacy visual dominance. Summary ships 6 charts (Trend, Unit economics, Customers, Cost breakdown, Waterfall, Gauges, Sensitivity, Monthly totals) — ~3000px tall, dense color, heavy ink. Costs ships editable tables with 6 columns + computed totals. By contrast, Stops empty state is 1 line of grey text. The brain weights area × contrast. New = light grey, old = dark pine + brass.
+
+5. Action-starvation. Deployed tower snapshot computes actions: sortedActions.slice(0,3) — but actions are text-only <li> with no <a> or <button> that navigates to the corrective screen (only bottom 3 generic buttons to Daily/Recovery/Backup). Top action says No record for yesterday — close the day but clicking it does nothing; bottom button says Open daily entry (not Close yesterday). The actionable path is fragmented and mislabeled.
+
+6. Mobile erasure. At ≤700px, sidebar is off-canvas (translateX(-100%)), header hides .bm-status and shrinks search, and no bottom navigation exists. Operator on phone sees hamburger → drawer → 13 items → must remember which is new. Mobile QA therefore reports "looks the same" because the drawer is closed by default.
+
+7. Terminology stasis. Control Tower (English) / غرفة العمليات (Arabic) is ATC-flavoured jargon, not dispatcher language (عمليات اليوم / Today is). Owner's WhatsApp says تحميل/توصيل/راجع; product says Control Tower. Language distance makes new features feel foreign.
+
+8. No provenance badge or progress. After adding 5 stops, the only feedback is a transient status paragraph (role="status"). No persistent 5 stops · 2 unassigned · 1 missing address badge travels with the navigation. Returning tomorrow, operator cannot tell at a glance that data persisted.
+
+Net effect: Engineering completed domain-pure, tested, transactional work (correct), but product layer rendered it as peer-level admin panels with no daily-task container. Forty hours shipped capability; two tabs shipped visibility.
+
+7. Arabic and RTL Audit
+-----------------------
+Severity key: BLOCKER = breaks Arabic operation; HIGH = confuses dispatcher; MEDIUM = polish.
+
+Area | Severity | Finding (source) | Consequence | Fix
+Typography host | HIGH | business-model.css: bm-app{font-family:'Archivo'} hosts all UI; Cairo only on manifest/print and .bm-sheet.rtl (lines 585,771). AGENTS.md R4 law: Cairo must host Arabic containers. Confirmed code. | Arabic letterforms rendered in Archivo → breaking joining, poor diacritics, wrong numerals. [NEXT]/[fontGoogle] loads both but variable not applied to [dir=rtl]. | Add [dir=rtl] .bm-app, [dir=rtl] .bm-panel, [dir=rtl] .bm-top, [dir=rtl] .bm-sidebar{font-family:var(--font-cairo),sans-serif} and [dir=rtl]{letter-spacing:0}
+Numerals | MEDIUM | Tower/Stop/Disbatch use Intl.NumberFormat(ar ? 'ar-SA-u-nu-latn' : 'en-US') — correct Latin digits per R3. But fmtMoneyCompact in BusinessModelApp uses ar-SA-u-nu-latn vs en-SA inconsistently. | Some compact SAR values may render Eastern Arabic digits if locale falls back. | Pin all money to ar-SA-u-nu-latn / en-SA explicitly; add test.
+Fixed vocabulary | MEDIUM | R3 law vocabulary تحميل · توصيل · راجع · الفوات · إثبات التسليم · العنوان الوطني appears in locales? Check: ar translation uses توصيل/راجع/تحميل in providerImport, but tower uses بنود الاسترداد vs الفوات. Inconsistent. | Dispatcher jargon mismatch — الفوات is canonical. | Align tower/recovery wording to الفوات; grep-lint locale keys.
+RTL layout | MEDIUM | CSS RTL overrides exist only at 3 sites (lines 385, 751, 785). bm-kpis article::after decorative line not mirrored. bm-cost-bars>div{grid-template-columns:135px 1fr 90px} — label left in LTR stays left in RTL → reversed reading order. | Arabic user reads table left-to-right despite RTL dir. | Systematic audit: all grid-template-columns with label/value/amount must use logical order or [dir=rtl] flip; use text-align:start.
+Bidi isolation | HIGH | Phone 05xxxxxxxx, plate أ ب ج 1234, reference VEGA-001 rendered inside Arabic sentence without <bdi> or unicode-bidi:plaintext. | Phone digits jump, plate Latin/number order garbles. | Wrap all mixed-script spans in <bdi dir="ltr"> or span[dir="ltr"] with unicode-bidi:isolate.
+Direction switch | MEDIUM | switchLanguage() sets localStorage language + i18n.changeLanguage(next) + CustomEvent('vega:set-language') — no document.documentElement.dir or lang synchronous update before next render (SSR uses dir="ltr" only). | Hydration flash: Arabic renders LTR for one frame. | Set document.documentElement.dir = next==='ar'?'rtl':'ltr' synchronously before i18n call; add SSR inline script that reads localStorage.lang before paint.
+Chevrons/progress | POLISH | Move buttons ▲▼ are vertical (neutral). Horizontal chevrons would need flip but none present. Workflow rail progress (future) must flow RTL. | Future rail would animate LTR in RTL context. | Define rail progress as logical inline direction (CSS inset-inline-start).
+Diacritics/letter-spacing | POLISH | No letter-spacing on Arabic detected in CSS (good, per R4). But --brass colored small caps letter-spacing:.16em on kicker inside Arabic sheet might apply. | Kicker in Arabic would stretch. | Add [dir=rtl] .bm-sheet-kicker{letter-spacing:0; font-size:11px}
+Translation parity | MEDIUM | 1635-line ar translation fully present (checked 778ff); en parity looks complete. Disclaimers correctly bilingual. | Low risk. | Keep parity test (already in vitest).
+
+Native-speaker check (heuristic): غرفة العمليات is correct but formal/military; عمليات اليوم is more dispatcher-natural for daily tasks. الوقفات is literal "stops" — drivers say المحطات or نقاط التوصيل; but الوقفات is established in R2 docs — do not rename without owner validation (see §24).
+
+8. Mobile and Responsive Audit
+------------------------------
+Defined breakpoints vs spec:
+
+Breakpoint | Spec requirement | Current CSS | Gap
+≥1280 desktop | sidebar 236 + content 1180 centered | margin-left:236px; width:min(1180px,100%); padding:36px 38px — correct | None
+768-1279 laptop/tablet | sidebar collapsible or condensed | @media(max-width:900) collapses bm-kpis 4→2; no sidebar-width change until 700. At 768, sidebar still 236px → 30% of viewport. | Sidebar too wide at 768; content squeezes
+375-767 mobile | bottom nav, no h-scroll, 44px targets | @media(max-width:700) off-canvas sidebar, height:60px top, padding:25px 16px; no bottom nav. | Drawer-only nav is discoverability failure
+320-374 resilience | no overflow, readable | min-width:820px tables inside overflow-x:auto scroll — at 320 requires horizontal scroll inside card (acceptable), but no test for page-level overflow. | Add test at 320; ensure sticky actions not clipped
+
+Detailed findings:
+
+- Horizontal overflow (inferred HIGH at 375): .bm-report-kind-card{grid-template-columns:1fr auto} — at 375, auto segment (buttons) pushes card beyond viewport before 700 breakpoint collapses it. Fix: collapse at ≤768.
+- Sticky actions: No position:sticky for primary CTA; dispatcher must scroll up to find Save report. R5 must have position:sticky; bottom:0 action bar on mobile with safe-area insets.
+- Tables → cards: Current tables stay as tables with horizontal scroll. Acceptable for dense Costs but not for StopPlanning list (5 stops × 7 fields). R5 Dispatch should switch to cards at ≤768.
+- Safe-area: No env(safe-area-inset-*) padding. On iPhone notch, bottom bar would be clipped.
+- Keyboard on mobile: inputMode="numeric" / "decimal" present (good) — but SMS-code keyboard persists; add autocomplete="off", enterkeyhint="done".
+
+9. Accessibility Audit
+---------------------
+Audited against WCAG 2.2 AA + Web Interface Guidelines.
+
+Criterion | Severity | Evidence | Consequence | Fix
+H1 per screen | MEDIUM | ControlTowerView renders <h2>Today at a glance (not H1) inside section; BusinessModelApp Page() renders <h1>{title}</h1> for fleet/customers/costs but not tower. | Tower (landing) has no H1. | R5 masthead must be <h1>عمليات اليوم</h1> with aria-label fallback.
+Landmarks | MEDIUM | <aside class="bm-sidebar"> (implicit complementary), <header class="bm-top">, <main id="bm-main"> — correct. No <nav aria-label> for primary? Has aria-label=sectionsNav — good. | Good foundation. | Add aria-current="page" to active (already present).
+Skip link | POLISH | <a class="bm-skip" href="#bm-main"> with top:-60px hidden, top:12px on :focus — correct (CSS 398-400). | Pass. | Keep.
+Focus visible | MEDIUM | :focus-visible{outline:2px solid var(--brass)} — good contrast on white, but on pine rail #24422f background brass #a4761f contrast ~5.5:1 — barely passes non-text (3:1) but low visibility. | Focus ring nearly invisible on rail. | Use outline:2px solid #f0e6cd on [class*=sidebar] :focus-visible.
+Keyboard order | HIGH | Source order = sidebar → top → main. Correct. But Dispatch move buttons lack tabindex management; StopPlanning file input traps? | Keyboard user tabs through 13 nav items before reaching workflow. | R5 primary nav ~4 items reduces by 70%.
+Form labels | MEDIUM | StopPlanning uses <label><span>العميل</span><input> implicit association (good) plus aria-describedby for errors (good). COD uses <label> but output for expected COD inside label — okay. | Pass mostly. | Ensure aria-describedby also links privacy note.
+Error linking | MEDIUM | aria-describedby="err-customerName" + <em id="err-customerName" role="alert"> — correct. | Pass. | Keep pattern for R5.
+Live regions | MEDIUM | message rendered as <p role="status"> (polite) for saves; blocker list as role="alert" (assertive) — correct distinction. | Good. | Preserve.
+Color-only state | HIGH | bm-chip-planned/delivered/failed use color only (green/black/red) without icon/text prefix beyond chip label (text is present — so not color-only, but chip text is tiny 11.5px). | Borderline. | Add icon prefix (●/✓/⚠) with aria-hidden.
+Touch targets | HIGH | Inferred ▲▼ 30px, bm-assign select min-width 150px but height ~34px — fails 44px. | WCAG 2.5.8 failure. | R5: min-height:44px; min-width:44px; padding:8px.
+Contrast | MEDIUM | --faint:#828b81 on --paper:#fbfaf4 = computed ~3.9:1 (tool-estimated via relative luminance; below 4.5:1 for body 11px muted text). --brass-soft:#f0e6cd on white text? Never. | Muted notes & kicker fail body contrast. | Darken --faint to #6b756f (est. 5.1:1) or bump font-weight.
+Reduce motion | POLISH | prefers-reduced-motion:reduce disables transitions + sidebar slide (CSS 347-350) — good. | Pass. | Keep.
+Zoom 200% | MEDIUM | Not instrumented, but clamp() type scale not used; font-size:10px mono labels at 200% → 20px still readable but layout break at 900 breakpoint? | Reflow risk. | Use clamp(10px, 2vw, 12px) for mono labels; test 200% reflow.
+Print | MEDIUM | bm-manifest-print correctly hides chrome, repeats headers, disclaimer bilingual — good. But no lang/dir on print table. | Screen reader in print preview loses Arabic direction. | Add lang="ar" dir="rtl" wrapper for Arabic manifest.
+
+Estimated Lighthouse a11y (heuristic): ~88/100 (good bones, fails on targets + contrast + H1 + focus-on-rail).
+
+10. Information Architecture Problems
+-----------------------------------
+Current IA (flat, 13 leaves)
+
+VEGA (sidebar)
+├─ Control Tower        ← yesterday recap only
+├─ Stops               ← Plan
+├─ Dispatch            ← Assign/order
+├─ Evening close       ← Close
+├─ Summary             ← financial dashboard (old home)
+├─ Cars & drivers      ← fleet config
+├─ Customers & revenue ← pricing
+├─ Company costs       ← cost assumptions
+├─ Daily report        ← per-day numbers (overlaps Stops/Close)
+├─ Risks               ← 4 rule flags
+├─ Scenarios           ← what-if + Backup! (buried)
+├─ Recovery board      ← failed follow-up
+└─ Follow-up           ← generic todos
+
+Problems (with evidence):
+
+1. Two homes: Tower vs Summary — owner lands on Tower (thin), but Summary is where revenue/profit charts live. No hierarchy tells which is home.
+2. Three daily entry points: Daily report (counts), Stops (per-shipment), Evening close (outcomes/COD). Operator must know which to open when. Daily report duplicates 60% of Stops+Close.
+3. Backup is under Scenarios: scenarios view contains Backup & import card (line 777ff ScenariosView). Backup staleness banner says Open backup → goes to scenarios — confusing.
+4. Recovery vs Follow-up vs Risks: Three "fix it" surfaces with overlapping scope.
+5. No progress persistence: No badge shows 5 stops · 2 unassigned on nav. Returning user cannot triage.
+6. Search indexes 13 pages + drivers + providers — good utility, but on mobile it competes with daily CTA for top-bar space.
+
+R5 Proposed IA (4 primary + grouped More)
+
+See §12. Principle: Today's operational loop (Plan→Dispatch→Close→Report) owns one workspace; everything else moves off the critical path.
+
+11. R5-UX Product Outcome
+------------------------
+Release name: R5-UX — Today's Operations / عمليات اليوم (replaces doc-heavy compliance-lite plan; compliance-lite becomes R5-C follow-up after visible coherence).
+
+Single sentence promise: A Saudi owner opens VEGA on any device and in 15 seconds knows what to do next, without opening a second tab.
+
+Six observable outcomes (owner can point to them):
+
+1. What is planned today? — Count + list, visible at top (planned stops).
+2. What is not assigned? — غير مسندة: 4 badge + Assign CTA.
+3. What is currently unresolved? — Exceptions queue (missing address, missing phone, shipment mismatch, pending recovery) with deep-links.
+4. Is COD reconciled? — تحصيل متوقع / محصّل / مودَع / معلق strip with provenance labels.
+5. Is yesterday closed? — Sticky banner if yesterdayCloseStatus !== 'reconciled' (blocks today's close).
+6. What is the single most important next action? — One PrimaryNextAction button (rule below) — never two.
+
+Non-goals (explicit): No live map, no push notifications, no cloud sync, no compliance badges. Language: draft invoice data only.
+
+12. Proposed Navigation
+-----------------------
+Design rationale
+
+- Hick's law: 13 → 4 cuts decision time ~62%.
+- Fitts on mobile: 44px bottom bar > 236px off-canvas drawer for one-handed use.
+- Aesthetic: Preserve pine rail identity on desktop (it's the brand), but collapse mental model.
+
+Primary navigation (4, exact labels + icons)
+
+# | EN | AR | Icon | Destination
+1 | Today | اليوم | LayoutDashboard (keep) | / → TodayOperations workspace (see §13)
+2 | Operations | التشغيل | Route | Nested: Stops / Dispatch / Recovery (tabs inside, not sidebar leaves)
+3 | Reports | التقارير | BarChart3 | Daily report · Summary · Analytics (Pro report modal preserved)
+4 | More | المزيد | Settings2 / Menu | Fleet & drivers · Customers · Costs · Scenarios · Risks · Follow-up · Backup/restore · Settings
+
+More drawer grouping:
+
+المزيد
+├─ Fleet & drivers  السيارات والسائقون
+├─ Customers & revenue  العملاء والإيرادات
+├─ Company costs  تكاليف الشركة
+├─ Scenarios  السيناريوهات
+├─ Risks  المخاطر
+├─ Follow-up  المتابعة
+├─ Recovery (secondary link to Operations>Recovery)
+├─ Backup & import  النسخ الاحتياطي
+└─ Language toggle
+
+Desktop (≥1280)
+
+- Rail 72px collapsed-icon variant or 236px expanded — keep 236 for now (brand), but add section labels with uppercase 9px IBM Plex Mono divider above More group.
+- Active indicator: brass 3px rail + background:#24422f (keep).
+- Badge: tiny em pill shows unassigned+exceptions count on Today icon only — not on every item.
+
+Mobile / Tablet (≤900)
+
+- Bottom navigation bar height:64px (not 56), safe-area-inset-bottom padding, 4 equal items, 44×44 hit area centered icon + 10px label below.
+- Off-canvas sidebar becomes More sheet (bottom sheet, not drawer) — no hamburger for primary nav.
+- Top bar on mobile shows: [Today label] · operationDate + date picker + language toggle only (search moves to More or Today filter).
+
+Why better than current: One identity for today's loop; legacy analytics off the daily path; thumb-reachable; reduces tab count without deleting capability.
+
+13. Today's Operations Screen Blueprint
+--------------------------------------
+File to create: src/components/rebuild/TodayOperations.tsx
+State source: pure selectors over existing stops, dailyRecords, recoveryEntries, input — no new persisted keys.
+Layout max-width: 1180px centered (keep). Content width inside bm-main padded 36px 38px desktop / 16px mobile.
+
+Wireframe (ASCII, RTL-aware order is masthead → action → rail → pulse → exceptions → runs → notes)
+
+┌─────────────────────────────────────────────────────────────────┐
+│ MASTHEAD  عمليات اليوم  ·  ٢٧ أغسطس ٢٠٢٦  ·  محفوظ · محلي  · العربية│
+│           Selected date: [2026-08-27 ▼]  Last saved: منذ دقيقتين │
+├─────────────────────────────────────────────────────────────────┤
+│ PRIMARY ACTION  [ أسند 4 وقفات غير مسندة → ]  (full-width pine) │
+│                  · secondary link: عرض الوقفات (4)               │
+├─────────────────────────────────────────────────────────────────┤
+│ WORKFLOW RAIL  ① Plan  ●  ② Dispatch  ●  ③ Close  ○  ④ Report  ○ │
+│                5 planned → 1 unassigned → 3 pending → draft      │
+│                [                              •••]  Code: not started/in-progress/blocked/complete │
+├─────────────────────────────────────────────────────────────────┤
+│ PULSE (4-up grid → 2-up tablet → 1-up mobile)                    │
+│ ┌────────────┬──────────┬──────────┬───────────┐                 │
+│ │ Planned    │ Assigned │ Delivered│ COD معلق │                 │
+│ │ 5  (rec.)  │ 4/5      │ 2/5      │ 640 ر.س  │                 │
+│ │            │          │          │ متوقع 900│                 │
+│ └────────────┴──────────┴──────────┴───────────┘                 │
+├─────────────────────────────────────────────────────────────────┤
+│ EXCEPTIONS QUEUE  [ 3 تحتاج إجراء ]                              │
+│  ⚠ بدون عنوان وطني 2  → [إكمال]   📞 بدون جوال 1 → [إضافة]        │
+│  ⚠ فرق التحميل 2     → [المراجعة]  💰 COD غير مطابق → [تسوية]     │
+│  Each row: icon + count + AR label + deep-link to Stops/Close    │
+├─────────────────────────────────────────────────────────────────┤
+│ RUNS PREVIEW (cards)  سائق: أحمد · سيارة 10 · 3 وقفات · COD 400 │
+│  [اطبع الورقة]  [افتح التوزيع]                                  │
+├─────────────────────────────────────────────────────────────────┤
+│ YESTERDAY BANNER (only if not reconciled)  أمس — غير مغلق → [أغلق أمس] │
+│ EMPTY STATE (only when 0 planned)  ابدأ يومك — [أضف وقفات] [استيراد]   │
+│ COMPLETION (only when reconciled)  ✓ أُغلق اليوم — [افتح التقرير] [تصدير] │
+└─────────────────────────────────────────────────────────────────┘
+
+A. Operations masthead
+
+Field | AR | EN | Source | Interaction | Empty/loading/error | a11y | Mobile
+Page title | عمليات اليوم | Today's Operations | static i18n | none | — | <h1 id="today-title"> | centered
+Selected operation date | تاريخ التشغيل | Operation date | local Date, persisted? Not — UI state todayDate default toDateString(new Date()) | input[type=date] with aria-label | never empty; error role=alert if impossible date (Feb 30) per validateStopRecord | label for + aria-describedby provenance | full-width, native picker
+Local-only status | محفوظ في هذا المتصفح فقط — محلي | Saved in this browser — local only | backupReminder not relevant | info tooltip | — | aria-label | hidden on ≤375? show icon only
+Last saved | آخر حفظ: {{time}} | Last saved: {{time}} | Math.max(...stops.updatedAt) or dailyRecords[date].updatedAt | — | "لم يحفظ بعد" if no record | aria-live="polite" | truncated
+Language control | العربية / English | — | i18n.language | switchLanguage() | — | aria-label="التبديل إلى…" | in top bar, 44px
+
+B. Primary next-action block (ONE button, never two)
+
+Rule — selectPrimaryNextAction(state) pure, precedence:
+
+if (todayStops.length === 0)               → { label: "أضف وقفات اليوم / Add today's stops", action: "goto:stops-date", severity: "high" }
+else if (yesterdayNotReconciled)           → { label: "أغلق أمس ({{date}}) / Close yesterday", action: "goto:close-yesterday", severity: "high" }
+else if (exceptions.missingAddress > 0)    → { label: "حل {{n}} بدون عنوان / Resolve {{n}} missing addresses", action: "goto:stops-filter:missingAddress", severity: "high" }
+else if (unassignedCount > 0)              → { label: "أسند {{n}} وقفة غير مسندة / Assign {{n}} unassigned", action: "goto:dispatch", severity: "high" }
+else if (closeBlockers.length > 0)         → { label: "راجع فرق التحميل {{n}} / Review shipment gap {{n}}", action: "goto:close-recon", severity: "high" }
+else if (closeStatus !== 'reconciled')     → { label: "أغلق اليوم — طابق النقدية / Close today — reconcile cash", action: "goto:close", severity: "medium" }
+else if (codOutstanding > 0)               → { label: "سلّم {{amount}} ر.س نقدية معلقة / Remit SAR {{amount}} outstanding", action: "goto:close-cod", severity: "medium" }
+else                                       → { label: "افتح تقرير اليوم / Open daily report", action: "goto:reports", severity: "low" }
+
+Behavior: role="button" with aria-describedby="why-this-action" explaining rule. On RTL, arrow → mirrored ← via CSS transform:scaleX(-1) or logical icon.
+
+C. Four-step workflow rail
+
+Step | AR | EN | Completion rule (recorded-only) | Blocked reason
+1 Plan | خطّط | Plan | plannedStops ≥1 → complete; 0 → not started | missingCustomerName?
+2 Dispatch | وزّع | Dispatch | assigned = planned - unassigned; 0 unassigned → complete; >0 → in progress | noActiveDrivers (catalog empty)
+3 Close | أغلق | Close | closeStatus==='reconciled' && difference===0 → complete; 'draft' → in progress; none → not started | hasCloseBlockers or unexplainedDifference≠0
+4 Report | التقرير | Report | dailyRecords[date] exists → complete (legacy) but ideally reconciled → complete | —
+
+Visual: horizontal ⌐ stepper on desktop (pine line), vertical stack on mobile. Each step aria-current="step" for current, aria-disabled for blocked with title explaining why. Keyboard: Tab lands on rail, arrows move focus (roving tabindex).
+
+D. Operational pulse (provisional labels, provenance-tagged)
+
+Tile | AR label | EN | Value | Provenance tag
+Planned | محمّلة | Planned | loadedShipments ?? stopCount | مسجّلة / Planned
+Assigned | مسندة | Assigned | assigned / planned | محسوبة
+Delivered | موصّلة | Delivered | delivered / planned | مسجّلة
+COD outstanding | نقدية معلقة | Outstanding | outstanding = max(0,collected-remitted) | محسوبة
+Exceptions | حالات تتطلب إجراء | Needs action | exceptionCount | محسوبة
+
+No invented values. Simulated output.totalDailyShipments never shown here (finance-only).
+
+E. Exceptions queue (links to resolution)
+
+Exception | AR label | EN | Link | Count rule
+Missing address | بدون وصف عنوان | Missing address | Operations>Stops?filter=missingAddress&date=today | !addressNotes
+Missing phone | بدون جوال | Missing phone | same filter | !phone (optional — muted severity)
+Unassigned | غير مسندة | Unassigned | Operations>Dispatch | driverName==null
+Missing failure reason | بدون سبب فشل | Missing reason | Close>reasons | status in {failed,returned} && !failureReasonKey
+Shipment mismatch | فرق التحميل | Shipment gap | Close>recon | difference≠0
+COD mismatch | فرق التحصيل | COD gap | Close>cod | collected < expected
+Pending recovery | فوات قيد المتابعة | Pending recovery | Operations>Recovery | recoveryEntries.pending
+Draft close | إغلاق مسودة | Draft close | Close | closeStatus==='draft'
+
+Each row: dot severity (red/amber), count tabular-nums, label, → chevron button. Empty queue shows ✓ لا حالات معلقة with muted icon.
+
+F. Runs preview (max 3, else "عرض الكل")
+
+Fields: driverName (bdi isolate) · carNumber · plate · stopCount · codTotal · missingAddress/Phone/Reference warning. Actions: [افتح التوزيع] (full board) + [اطبع الورقة] (print preview verified). No map.
+
+G. Empty state (zero planned)
+
+Illustration: soft pine ring (not mascot), heading ابدأ يومك — بياناتك محفوظة محلياً فقط / Start your day — data stays on this device. One CTA أضف وقفات (primary pine) + secondary استورد CSV (outline). Optional sample data: labelled تجريبي — SAMPLE with red border + one-click إزالة التجريبي — never mixed with recorded.
+
+H. Completion state (reconciled)
+
+Checkmark pine ✓ أُغلق اليوم 27-08-2026 + Difference 0 + COD badge Outstanding 0 (green) + two actions افتح تقرير اليوم / صدّر PDF + note خطط لِغدٍ — إضافة وقفات 28-08 + backup reminder if daysSince ≥ BACKUP_REMINDER_DAYS.
+
+
+14. Component State Matrix
+-------------------------
+Component | Data source | Primary interaction | Empty | Loading | Error | a11y | Mobile
+Masthead | Date.now() + stops.updatedAt | date picker | — | — | impossible date alert | labelled, live time | stacked
+PrimaryAction | selectPrimaryNextAction() pure | 1 button → goto | never empty (fallback to Plan) | — | — | aria-describedby reason | full-width sticky bottom
+WorkflowRail | buildTodayWorkflowState() | click step → focus target | all not started | — | blocked tooltip | ol[role=list] + aria-current | vertical stack
+PulseTiles | stops + dailyRecords[date] | click tile → filter/close | 0 — | — | — | dl with dt/dd | 1-col scroll snap
+ExceptionsQueue | buildTodayExceptionQueue() | row → deep-link | all clear note | — | — | ul[role=list] | collapsible
+RunsPreview | buildDispatchBoard(dayStops) | print / open dispatch | no runs note | — | — | card role=group | horizontal scroll cards
+YesterdayBanner | dailyRecords[yesterdayKey] | close yesterday | hidden when reconciled | — | — | role=alert when blocking | banner full-width
+StopsInline (future UX-A keeps StopPlanning inside Operations) | stops | add/edit/import | emptyDay CTA | — | validation alerts | form novalidate + described errors | 1-col inputs
+
+Loading states: none (local data is synchronous). Add aria-busy only if IndexedDB migration ever ships (R8).
+
+15. Visual Design System
+------------------------
+Rationale: Keep "Pine Ledger" (deep pine rail, warm bone paper, brass accent) — it's the brand equity. Elevate it from "pretty finance" to "operational clarity" via hierarchy, not palette swap.
+
+Tokens (implementation-ready, respects --ink/--line stability)
+
+/* Canvas */
+--paper: #fbfaf4;      /* page bg — warm bone (keep) — contrast with --ink 15.2:1 PASS */
+--paper-2: #f4f2e8;     /* card subtle */
+--ground: #eeebe0;      /* page wash behind */
+--line: #ddd7c4;        /* card 1px */
+--line-soft: #e9e5d6;
+--ink: #1b231e;         /* body — contrast 15.2:1 on paper PASS */
+--ink-soft: #3c463f;
+--muted: #6b756f;       /* ↑ darkened from #5f6961 to hit 5.1:1 on paper — body 11px PASS */
+--faint: #6b756f;       /* merged with muted; 12.5px+ PASS */
+--rail: #13291f;        /* sidebar pine (keep) */
+--rail-ink: #e8ece4;
+--rail-muted: #93a297;
+
+/* Action */
+--pine: #1c4a36;        /* primary action — contrast 7.8:1 on paper PASS */
+--pine-deep: #153a2a;   /* hover — 9.1:1 */
+--pine-bright: #2e6b4e; /* accent */
+--brass: #8c6a16;       /* ↓ darkened from #a4761f for 4.8:1 on paper as text, 3.6:1 as focus ring on paper */
+--brass-soft: #f0e6cd;
+--red: #ac3a2e;         /* danger — 6.2:1 on paper */
+--red-soft: #f4dfd9;
+--green-soft: #dfeadd;
+--amber: #7c5a17;       /* warning text — 6.0:1 on paper — use for draft/amber states */
+--amber-soft: #f6efdc;
+
+/* Focus */
+--focus-ring: #8c6a16;  /* 2px solid on white; 2px solid #f0e6cd on pine rail */
+--focus-ring-width: 2px;
+--focus-offset: 2px;
+
+/* Shadow / radii / spacing */
+--shadow-card: 0 1px 0 rgba(27,35,30,.04);
+--shadow-hover: 0 6px 18px rgba(27,35,30,.08);
+--radius-card: 10px;
+--radius-pill: 999px;
+--radius-input: 7px;
+--space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px; --space-8: 32px;
+--content-max: 1180px;
+--sidebar-width: 236px;
+--mobile-nav-height: 64px;
+--hit-min: 44px;
+
+Fluid type scale
+
+:root{
+  --text-kicker: clamp(9px, 1.8vw, 10px);       /* IBM Plex Mono */
+  --text-body: clamp(12px, 1.9vw, 13px);        /* Archivo / Cairo */
+  --text-h1: clamp(22px, 3.2vw, 28px);          /* masthead — weight 800, -0.03em */
+  --text-h2: clamp(14px, 2.4vw, 16px);
+  --lh-body: 1.6;
+  --lh-heading: 1.08;
+}
+[dir=rtl]{letter-spacing:0}                    /* R4 law — never track Arabic */
+[dir=rtl] .bm-app{font-family: var(--font-cairo), sans-serif; line-height: 1.75}
+[dir=ltr] .bm-app{font-family: var(--font-archivo), sans-serif}
+
+Hit / focus / disabled
+
+- button,input,select,[role=button]{min-height:var(--hit-min); min-width:var(--hit-min)}
+- :focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:var(--focus-offset)}
+- On pine rail: outline-color:#f0e6cd
+- :disabled{opacity:.45; cursor:not-allowed;} — never use success green for disabled.
+
+Dark mode
+
+Defer. Pine rail already dark. Full dark canvas risks brass contrast regressions and print mismatch. Ship light-only for R5-UX; add prefers-color-scheme audit in R5-C compliance follow-up.
+
+16. Responsive and RTL Specification
+-----------------------------------
+Breakpoints (exact)
+
+/* ≥1280 desktop — full sidebar 236 + 1180 centered, tower 4-up pulse */
+@media (min-width:1280px){
+  .bm-shell{margin-inline-start:236px}
+  .bm-main{padding:36px 38px}
+  .bm-pulse{grid-template-columns:repeat(4,1fr)}
+  .bm-rail{flex-direction:row} /* horizontal stepper */
+}
+/* 768–1279 laptop/tablet — sidebar 236 but main tighter, pulse 2-up */
+@media (min-width:768px) and (max-width:1279px){
+  .bm-main{padding:28px 24px}
+  .bm-pulse{grid-template-columns:repeat(2,1fr)}
+  .bm-top{padding:0 24px}
+}
+/* 375–767 mobile — bottom nav, 1-up pulse, rail stacks vertically */
+@media (max-width:767px){
+  .bm-shell{margin-inline-start:0; padding-bottom:calc(var(--mobile-nav-height) + env(safe-area-inset-bottom))}
+  .bm-sidebar{display:none} /* replaced by bottom nav */
+  .bm-top{height:60px; padding:0 16px}
+  .bm-main{padding:20px 16px 24px}
+  .bm-pulse{grid-template-columns:1fr}
+  .bm-rail{flex-direction:column; gap:0}
+  .bm-runs{scroll-snap-type:x mandatory; overflow-x:auto} /* horizontal card scroller */
+}
+/* 320–374 resilience — test at 320; no page-level h-scroll; inputs stack fully */
+@media (max-width:374px){
+  .bm-main{padding:16px 12px}
+  .bm-pulse strong{font-size:18px} /* down from 22 */
+  .bm-primary{width:100%} /* CTA full-width */
+}
+
+Navigation transformation
+
+- ≥1280: pine vertical rail 236px, active brass rail inset-inline-start:-12px.
+- 768-1279: rail persists but bm-search shrinks to 220px.
+- ≤767: rail display:none; bottom bar position:fixed; inset-inline:0; bottom:0; height:var(--mobile-nav-height); border-top:1px solid var(--line); background:rgba(251,250,244,.96); backdrop-filter:blur(14px); padding-bottom:env(safe-area-inset-bottom) with 4 items flex-equal.
+
+Workflow rail stacking
+
+- Desktop: display:flex; gap:0 with pine connecting line ::before{height:2px; background:var(--line-soft); flex:1} between steps; completed steps show ● pine fill, current shows brass ring, blocked shows ! red.
+- Mobile: flex-direction:column; border-inline-start:2px solid var(--line-soft) vertical line; each step padding-inline-start:16px with dot on line.
+
+Stats / tables vs cards
+
+- Pulse: grid as above.
+- Exceptions: display:flex; flex-direction:column; gap:6px (always list, no table).
+- Runs: desktop grid(2) cards; mobile display:flex; overflow-x:auto; scroll-snap; each card min-width:280px.
+
+Sticky actions, overflow, modals
+
+- Mobile primary action bar: position:sticky; bottom:calc(var(--mobile-nav-height) + 8px); z-index:5; background:var(--paper); border:1px solid var(--line); box-shadow:var(--shadow-hover) — never fixed over bottom nav.
+- Page-level horizontal overflow: forbidden (overflow-x:hidden on body; overflow-x:auto only inside .bm-table-wrap).
+- Modal/drawer: More sheet is position:fixed; inset:auto 0 0 0; max-height:80dvh; border-radius:16px 16px 0 0 with focus trap.
+
+Print / safe-area / keyboard
+
+- Print: only TodayOperations + bm-manifest-print visible; rail + bottom nav hidden.
+- env(safe-area-inset-*) on bottom nav + sticky bar.
+- Keyboard VisualViewport shift on mobile: no reposition hack — native browser scroll suffices; ensure sticky bar not fixed (avoids viewport jump).
+
+Long Arabic labels / numerals
+
+- word-break:break-word; hyphens:auto for Arabic labels in exception rows.
+- Labels truncate at 2 lines display:-webkit-box; -webkit-line-clamp:2.
+- Numerals: always ar-SA-u-nu-latn in [dir=rtl] (Latin digits) per R3. Wrap via Intl.NumberFormat.
+
+Bidirectional isolation
+
+All phone, plateNumber, reference, customerName when mixed → <span dir="ltr"><bdi> with unicode-bidi:isolate and font-variant-numeric:tabular-nums. Date YYYY-MM-DD always dir="ltr" with bdi.
+
+17. Exact Arabic/English Copy Recommendations
+---------------------------------------------
+Bilingual parity required same commit (R3). Use businessModel.today.* namespace.
+
+Key | AR (Saudi native — Cairo, no tracking) | EN | Usage | Severity if wrong
+today.title | عمليات اليوم | Today's Operations | H1 masthead | HIGH — current Control Tower misframes
+today.subtitle | كل ما تحتاجه لإدارة يومك — في مكان واحد | Everything for today — in one place | masthead sub | —
+today.dateLabel | تاريخ التشغيل | Operation date | date picker label | —
+today.savedLocal | محفوظ في هذا المتصفح فقط — محلي | Saved in this browser — local only | masthead badge | HIGH — honesty (R7)
+today.lastSaved | آخر حفظ: {{time}} | Last saved: {{time}} | masthead | —
+today.primary.addStops | أضف وقفات اليوم | Add today's stops | action (0 planned) | —
+today.primary.assign | أسند {{count}} وقفة غير مسندة | Assign {{count}} unassigned stop(s) | action | —
+today.primary.resolveAddress | حل {{count}} وقفة بدون عنوان | Resolve {{count}} missing address(es) | action | —
+today.primary.reviewGap | راجع فرق التحميل ({{diff}}) | Review shipment gap ({{diff}}) | action | —
+today.primary.close | أغلق اليوم — طابق النقدية | Close today — reconcile cash | action | —
+today.primary.remit | سلّم {{amount}} ر.س معلق | Remit SAR {{amount}} outstanding | action | —
+today.primary.report | افتح تقرير اليوم | Open daily report | action fallback | —
+today.rail.plan | خطّط | Plan | rail 1 | —
+today.rail.dispatch | وزّع | Dispatch | rail 2 | —
+today.rail.close | أغلق | Close | rail 3 | —
+today.rail.report | التقرير | Report | rail 4 | —
+today.rail.status.notStarted | لم يبدأ | Not started | rail badge | —
+today.rail.status.inProgress | قيد التنفيذ | In progress | — | —
+today.rail.status.blocked | معلّق — {{reason}} | Blocked — {{reason}} | — | —
+today.rail.status.complete | مكتمل | Complete | — | —
+today.pulse.planned | محمّلة | Planned | tile | —
+today.pulse.assigned | مسندة | Assigned | — | —
+today.pulse.delivered | موصّلة | Delivered | — | —
+today.pulse.outstanding | نقدية معلقة | Outstanding | — | —
+today.pulse.provenance.recorded | مسجّلة | Recorded | tiny pill | HIGH — R10 honesty
+today.exceptions.title | حالات تتطلب إجراء ({{count}}) | Needs action ({{count}}) | queue head | —
+today.exceptions.missingAddress | بدون وصف عنوان | Missing address | row | —
+today.exceptions.missingPhone | بدون جوال | Missing phone | row | —
+today.exceptions.unassigned | غير مسندة | Unassigned | row | —
+today.exceptions.shipmentGap | فرق التحميل | Shipment gap | row | —
+today.exceptions.codGap | فرق التحصيل | COD gap | row | —
+today.exceptions.draft | إغلاق مسودة | Draft close | row | —
+today.exceptions.none | ✓ لا حالات معلقة — كل شيء جاهز | ✓ All clear — nothing pending | empty queue | —
+today.empty.title | ابدأ يومك | Start your day | empty | —
+today.empty.desc | بياناتك محفوظة محلياً فقط على هذا الجهاز. لا تتبع مباشر ولا مزامنة. | Your data stays on this device only. No live tracking or sync. | empty — honesty (R8) | BLOCKER if claimed otherwise
+today.complete.title | ✓ أُغلق اليوم | ✓ Today is closed | completion | —
+today.nav.today | اليوم | Today | bottom nav 1 | —
+today.nav.ops | التشغيل | Operations | nav 2 | —
+today.nav.reports | التقارير | Reports | nav 3 | —
+today.nav.more | المزيد | More | nav 4 | —
+
+Global honesty footer (always visible in more + print): مستند تشغيلي داخلي — ليس مستند نقل نظامياً ولا يثبت صحة العنوان الوطني + EN equivalent (keep).
+
+Font: All AR strings render in Cairo var; no letter-spacing.
+
+18. Implementation Plan — UX-A
+-------------------------------
+feat(ops-home): unify today's workflow and simplify navigation
+
+User outcome: Owner opens VEGA and completes Plan → Dispatch → Close without hunting tabs; navigation drops 13→4; primary CTA always visible; no domain logic rewritten.
+
+Scope guard: Begins only after Ox Alpha's R4-C commits are accepted on main (or rebased). UX-A must rebase onto R4-C — not fork before.
+
+Files to CREATE
+
+File | Purpose
+src/lib/todayWorkspace.ts | Pure selectors: buildTodayWorkflowState, selectPrimaryNextAction, buildTodayExceptionQueue, buildWorkflowStepStatuses — no persistence, no React
+src/components/rebuild/TodayOperations.tsx | Masthead + PrimaryAction + WorkflowRail + Pulse + ExceptionsQueue + RunsPreview — composes existing sub-views for runs
+src/lib/__tests__/todayWorkspace.test.ts | Vitest pure tests for selectors (deterministic nowMs injection)
+
+Files to MODIFY
+
+File | Change | R4-C conflict risk
+src/components/rebuild/BusinessModelApp.tsx | NAV 13→4; View type remapped to today | ops | reports | more; add route-compat shim for old deep-links; render TodayOperations at view==='today'; keep legacy views inside ops/reports tabs as nested routing | HIGH — BusinessModelApp is the R4-C touchpoint (EveningClose prop wiring, dailyRecords/stops state). Wait for R4-C.
+src/lib/controlTower.ts | Extend snapshot to include todayStops/planned/unassigned/exceptions OR keep lean and add new todayWorkspace.ts beside it (preferred — no touch) | LOW if new file, HIGH if modified
+src/app/business-model.css | Add Today tokens, pulse grid, rail stepper, primary bar, exceptions list — additive, no delete of pine tokens | LOW — additive CSS
+public/locales/ar/translation.json | Add businessModel.today.* + nav.today/ops/reports/more | LOW — keys only
+public/locales/en/translation.json | Parity | LOW
+
+Components & pure selectors (UX-A)
+
+// src/lib/todayWorkspace.ts
+export interface TodayWorkflowState {
+  date: string; // YYYY-MM-DD local
+  planned: number;
+  unassigned: number;
+  delivered: number; returned: number; pending: number;
+  difference: number; // loaded - (delivered+returned+pending)
+  cod: { expected: number; collected: number; remitted: number; outstanding: number; uncollected: number; overRemitted: number };
+  closeStatus: 'open' | 'draft' | 'reconciled';
+  exceptions: { missingAddress: number; missingPhone: number; unassigned: number; missingReason: number; shipmentGap: number; codGap: number; draft: boolean; pendingRecovery: number };
+  runs: Array<{ key: string; driverName: string; count: number; cod: number }>;
+  yesterdayStatus: 'reconciled'|'draft'|'open'|'no-data';
+}
+export function buildTodayWorkflowState(args: {
+  date: string;
+  stops: StopRecord[];
+  dailyRecords: Record<string,DailyRecord>;
+  recoveryEntries: RecoveryEntry[];
+  nowMs: number;
+}): TodayWorkflowState { /* derives from stops + eveningClose helpers + controlTower cod */ }
+
+export function selectPrimaryNextAction(state: TodayWorkflowState): { labelKey: string; params?: Record<string,string|number>; goto: string; severity: 'high'|'medium'|'low' } { /* precedence rule §13B */ }
+
+export function buildTodayExceptionQueue(state: TodayWorkflowState): Array<{ id: string; count: number; labelKey: string; goto: string; severity: 'high'|'medium' }> {}
+
+export function buildWorkflowStepStatuses(state: TodayWorkflowState): Array<{ id:'plan'|'dispatch'|'close'|'report'; labelKey:string; status:'notStarted'|'inProgress'|'blocked'|'complete'; blockedReason?:string }> {}
+
+State ownership: BusinessModelApp owns todayDate (useState(toDateString(new Date()))), stops/dailyRecords/recoveryEntries (existing useLocalStorage seams) → passes down to TodayOperations as derived props; no new localStorage keys → migration-free, backup-compatible (R7). todayDate is not persisted (device session), or optionally sessionStorage vega-today-date (disposable metadata — document as excluded from backup).
+
+CSS strategy: Additive BEM-ish bm-today-* namespace; reuse --pine/--line/--paper tokens; no rewrite of .bm-kpis. Add @media expansions for rail/pulse only.
+
+Tests (UX-A)
+
+Test file | Cases
+todayWorkspace.test.ts | 0 planned → Plan not started; unassigned>0 → Assign action; missingAddress precedes Assign; difference≠0 → Block close; draft excluded from pulse; COD outstanding calc; 200% zoom still readable
+BusinessModelApp smoke (existing) | today is default view; old view=tower deep-link still lands on today; nav has exactly 4 primary items
+
+Browser scenarios (UX-A)
+
+- Desktop AR RTL 1440: Today title + date + pulse 4-up + rail horizontal + one pine CTA visible in first 900px.
+- Mobile AR 375: bottom nav 4-up, rail vertical, pulse 1-up, CTA sticky above nav, no h-scroll.
+
+Rollback risk: Low — new selectors are pure; rendering is additive. Rollback = revert NAV + hide TodayOperations route.
+
+R4-C overlap: BusinessModelApp wiring — wait, rebase, keep R4-C's EveningCloseView date= and commitBundle paths untouched.
+
+19. Implementation Plan — UX-B
+-------------------------------
+feat(ops-home-ui): Arabic-first responsive polish and browser-verified states
+
+User outcome: Arabic reads natively, touch targets never fail, empty states teach, print still works, 320px resilient, focus visible everywhere.
+
+Files to CREATE
+
+File | Purpose
+src/components/rebuild/MoreSheet.tsx | Bottom-sheet for More drawer (optional, or inline in BusinessModelApp)
+src/lib/__tests__/a11y.today.test.ts | Axe-lite checks for Today screen (contrast, landmarks, heading)
+
+Files to MODIFY
+
+File | Change | Risk
+src/app/business-model.css | Visual polish: responsive grids (§16), bottom nav, [dir=rtl] font + bdi isolation, --muted darken, focus ring on rail, min-height:44px enforcement, safe-area insets | LOW — additive
+src/components/rebuild/TodayOperations.tsx | Wire empty / completion / yesterday-banner states; add print harness | —
+src/components/rebuild/StopPlanning.tsx | Optional: add data-testid="today-stop-filter" hooks for exception deep-links (query param filter) | LOW
+src/components/rebuild/DispatchBoard.tsx | Add bulk Assign all bar (if time; else defer to R5-C) | LOW
+src/components/rebuild/EveningClose.tsx | Ensure todayDate flows via prop consistently (post-R4-C) | MEDIUM — coordinate with R4-C
+public/locales/*.json | Polish microcopy (see §17) | LOW
+src/app/layout.tsx | Add synchronous dir script: <script dangerouslySetInnerHTML={{__html:"try{var l=localStorage.getItem('language');if(l==='ar')document.documentElement.dir='rtl'}catch(e){}"}}> | LOW
+
+a11y specifics (UX-B):
+
+- Enforce min-height:44px via *:where(button,[role=button],a,input,select){min-height:44px} with escape for inline.
+- Add [dir=rtl] .bm-app{font-family:var(--font-cairo)} and [dir=rtl]{letter-spacing:0}.
+- Add unicode-bidi:isolation for bdi spans.
+- Re-audit contrast: --muted darken validated with tool.
+
+Tests (UX-B)
+
+Test | Assertion
+todayWorkspace.test.ts (extend) | RTL numeral formatting ar-SA-u-nu-latn
+a11y.today.test.ts | getByRole('heading',{level:1, name:/عمليات اليوم/i}) + axe no violations
+Visual | bm-pulse snapshot at 1440/375
+
+Browser scenarios (UX-B)
+
+- Verify print preview: window.print() from RunsPreview shows disclaimer on every page, headers repeat, no nav chrome.
+- Verify reduced-motion: prefers-reduced-motion shows instant rail transition.
+- Verify focus: Tab through Plan → Dispatch → Close → Report with visible pine ring on rail, brass not faint.
+
+Rollback: CSS-only — revert additive tokens.
+
+R4-C conflict: EveningClose.tsx date prop + operationsReporting types if R4-C touched them — coordinate.
+
+20. Conflict Map with Ox Alpha R4-C
+-----------------------------------
+R4-C scope (per prompt): recovery stopId retention, draft exclusion from definitive KPIs, exception arithmetic, operation-date selection, COD truth, validation, and persistence tests.
+
+Area | R4-C file | UX-A/B file | Overlap degree | Recommendation
+BusinessModelApp.tsx — view/router + state wiring | Central R4-C integration (wires EveningCloseView, stops, dailyRecords, recoveryEntries transactional) | UX-A rewrites NAV, View type, adds TodayOperations routing, owns todayDate | HIGH — same file, same region (NAV const at ~128, render switch at ~243, state hooks at ~62-110) | WAIT. Do not branch before R4-C lands. After R4-C, rebase UX-A onto new BusinessModelApp; keep R4-C's commitBundle paths verbatim; apply UX-A NAV + TodayOperations mount via manual patch with assert old in src checks.
+EveningClose.tsx | R4-C fixes invariant (loaded = delivered+returned+pending), COD formulas, stopId idempotency, draft predicate, date selection | UX-B flows todayDate prop consistently; may add banner link | MEDIUM — same component, different lines (props date, validation reconcileShipmentTotals, blocker rendering) | WAIT then patch additively. Do not refactor EveningClose.tsx internal logic. Only add optional todayDate plumbing if R4-C already added date picker; else add after without touching invariant code.
+operationsReporting.ts | R4-C adds isDefinitiveDailyRecord, WORKING_DAYS_PER_MONTH handling? | UX-A reads isDefinitiveDailyRecord to flag draft exclusion in pulse | LOW — read-only import | Import read-only; no edit to this file in UX-A.
+controlTower.ts + eveningClose.ts + reportEngine.ts | R4-C modifies close domain + KPI protection (isDefinitiveDailyRecord used in tower/report) | UX-A adds todayWorkspace.ts selectors that import those predicates | LOW if new file used; HIGH if controlTower.ts extended | Prefer new todayWorkspace.ts beside it; do not edit controlTower.ts until R4-C frozen.
+stops.ts / dispatch.ts | R4-C may touch stopId linkage (recovery idempotency by stopId) | UX-A reads stops.operationDate, stop.status only | LOW | No edit needed.
+locales ar/en | R4-C adds strings for close blockers/COD/recovery stopId warnings | UX-A/B adds businessModel.today.* | LOW but same JSON object | Add keys under distinct today namespace — no deletion. Rebase merges cleanly; verify parity test.
+business-model.css | R4-C likely adds bm-close blocker/COD styles (lines ~780) | UX-A/B adds bm-today-* tokens + bottom nav + responsive | LOW | Additive; distinct class prefix avoids cascade clash.
+backup.ts / STORAGE_KEYS / DATA_MODEL.md | R4-C adds stopId? sanitization, draft fields (no version bump) | UX-A adds no new keys — by design | NONE | No touch. Document todayDate as session/disposable metadata if persisted.
+ControlTower.tsx | R4-C may prompt unfinished drafts via tower action | UX-A replaces tower as landing but keeps controlTower for legacy? | MEDIUM | Keep ControlTower.tsx untouched; Today screen owns its own pulse. Optionally deprecate tower link but do not delete file.
+
+Sequencing instruction for coding worker:
+
+1. Poll git log --oneline -5 for R4-C commit title (search close-ui / R4-C / stopId retention). Do not start UX-A branch until HEAD contains that commit.
+2. git checkout -b feat/ops-home-ux-a from updated main.
+3. Re-apply R4-C-region edits only via read+edit with assert old in src (R5 law).
+4. Run full truth gates before push: npx tsc --noEmit && npx vitest run && npx eslint . && npm run build && python3 src/__tests__/run_all_tests.py && git diff --check.
+
+21. Test Plan
+-------------
+Pure unit (vitest, no DOM)
+
+File | Test | Assertion
+src/lib/__tests__/todayWorkspace.test.ts | buildTodayWorkflowState: empty | planned 0, action=addStops, rail plan notStarted
+ | with 5 stops 2 unassigned | unassigned 2, primary=assign, exceptions.unassigned 2
+ | missingAddress prioritized | exceptions.missingAddress 1 → primary=resolveAddress not assign
+ | difference blocked | loaded 25, delivered 18+returned5+pending0 → diff 2 → close blocked
+ | draft exclusion | closeStatus draft → pulse draft flag, KPI derived only
+ | COD truth | expected Σ delivered COD, collected<expected → codGap 1, outstanding clamp ≥0
+ | recovery stopId linkage | buildTodayWorkflowState counts pending recovery with stopId — no duplicate counting (R4-C regression guard)
+ | yesterday banner | nowMs=2026-08-27, no record 08-26 → yesterdayStatus open → banner visible
+ | locale numerals | ar fmt uses Latin digits (Intl mock)
+
+Integration (React Testing Library)
+
+File | Test
+src/components/__tests__/TodayOperations.test.tsx | renders H1, date picker, pulse 4 tiles, rail 4 steps, primary CTA; clicks CTA → calls onGoto with correct target; exception row links call correct goto
+BusinessModelApp.test.tsx (new) | default view is today; nav has 4 primary items; old tower param redirects
+
+Persistence / migration
+
+No new keys → no migration test required. If session todayDate added, test that clearing it does not affect stored stops.
+
+Python suite
+
+Existing src/__tests__/run_all_tests.py must still pass; no new py tests.
+
+Count target
+
++10 new vitest (UX-A 7 + UX-B 3) → total 329 at green (from 319 at R4-B).
+
+22. Browser Acceptance Plan
+---------------------------
+Execute on both live GH Pages + local http://vega.localhost:8080; screenshots required per viewport at §4.
+
+Required viewports
+
+- A 1440×900 AR RTL (primary acceptance)
+- B 1280×720 AR RTL (small laptop)
+- C 768×1024 AR RTL (tablet)
+- D 375×812 AR RTL (mobile)
+- E 1440×900 EN LTR (parity)
+- F 375×812 EN LTR
+
+Scripted walk (fictional data only)
+
+Prep: Open with empty localStorage (localStorage.clear() in console), set language AR, reload.
+
+S1 First visit (5-sec test)
+- Expect: عمليات اليوم H1 + date today + أضف وقفات اليوم pine CTA in first viewport. Pulse shows 0 / —. No Control Tower label. Pass: observer identifies next action in <5s without scrolling.
+
+S2 Plan five stops
+- Click primary CTA → Stops inline (or navigate to Operations>Stops with todayDate preselected).
+- Create 5 fictional stops: Cust A ref-V1 حي الملقا COD 120, Cust B ref-V2 حي النخيل COD 0, Cust C (no phone) ref-V3, Cust D (no addressNotes) ref-V4, Cust E COD 200 ref-V5.
+- For one missing phone, one missing addressNotes — verify exceptions queue shows بدون عنوان 1 + بدون جوال 1 after save (counts update without reload).
+- Measure clicks: add form → save = 8 taps per stop target (see §13 budget). Confusion point: reference duplicate handling (exact blocked — verify warning).
+
+S3 Dispatch to two drivers
+- Go Today → أسند 4 وقفات غير مسندة → Dispatch.
+- Assign 3 to Driver A / Car 10 and 2 to Driver B / Car 11 (seed drivers). Reorder one run (▲/▼) — verify sequence numbers update.
+- Click اطبع الورقة on one run → verify browser print preview opens, shows 3-row table, disclaimer bilingual footer on every page, no nav chrome. Parities: AR manifest uses Cairo, table dir=rtl but phone dir=ltr.
+- Confirm correct run selected (key = runKey = driver+car, not display name).
+
+S4 Evening close (observe, do not expect R4-C fix to be hidden)
+- Go Today → أغلق اليوم → Close view with todayDate.
+- Set loaded 5, review outcomes: mark 2 delivered, 1 returned (pick reason), 1 pending, 1 failed (pending+reason) → verify difference 1 shows amber warning, مطابق؟ 0 not auto-balanced.
+- Save draft → verify Today pulse flags إغلاق مسودة; report KPIs exclude draft (if R4-C landed).
+- COD: collected < expected shows codUncollected note; mismatch visible.
+
+S5 Return tomorrow
+- Reload (location.reload()); verify todayDate still shows yesterday's closeStatus draft, pulse persists, exception queue still فرق التحميل 1, primary CTA now راجع فرق التحميل.
+- Verify backup banner only if relevant (≥BACKUP_REMINDER_DAYS).
+
+S6 Keyboard & accessibility
+- Press Tab from address bar → skip link → masthead H1 → date picker → primary CTA → rail steps (arrow keys rove) → pulse → exceptions → runs → verify focus ring visible at every step (no loss).
+- Operate full S2→S3→S4 with keyboard only (assign via Enter on select, move via Space on ▲▼).
+- Zoom 200%: no horizontal page overflow; bottom nav wraps or scrolls without clipping.
+- prefers-reduced-motion: reduce → rail animation instant.
+
+Pass criteria: All viewports no page-level overflow-x; all controls ≥44px (measured in devtools); axe no critical; print preview verified or limitation explicitly noted in commit message.
+
+23. Risks and Non-Goals
+-----------------------
+Risks
+
+Risk | L×I | Mitigation | Signal
+R4-C rebase conflict in BusinessModelApp | H×M | Wait for R4-C, additive CSS, distinct todayWorkspace.ts, assert old in src patches | git diff --check fails
+New IA hides legacy power users' known paths | M×M | Keep compatibility redirects: ?view=tower → today; add More search hosting old labels | support question "where is Risks?"
+Exception queue overwhelms new users (6 types at once) | M×M | Cap displayed to 3 high-severity + عرض الكل (n), severity sort | queue length >8 on first day
+Arabic numeral / bidi regressions in new pulse tiles | M×H | ar-SA-u-nu-latn unit test + bdi spans + owner visual sign-off | SAR shows as ١٢٠ Eastern
+Bottom nav safe-area on iOS notch | M×L | env(safe-area-inset-bottom) + 64px height + test on real device | clipped on iPhone
+Performance on 50 stops (dom size) | L×M | Pulse/exceptions are derived (O(n) scan once); runs preview caps at 3; list virtualization deferred | frame drop on scroll
+Scope creep to compliance/maps | M×M | Explicit non-goals below; R5-C separately handles Short Address/COD receipt draft | PR adds Nominatim dep
+
+Non-Goals (this release)
+
+- No Short Address AAAA9999 validator UI (R5-C)
+- No National Address verification claim
+- No map / OSRM / VROOM route suggestion
+- No push notifications, cron, or Supabase sync
+- No live telemetry adapter beyond existing mock
+- No bulk-geocoding
+- No new localStorage keys beyond session todayDate
+- No PDF transport-document claims
+- No server, no auth
+- No rewrite of money/fleet/customer calculations
+
+24. Questions Requiring Owner Validation
+---------------------------------------
+Labelled [OWNER-VALIDATION] — not assumptions.
+
+1. [OWNER] Is عمليات اليوم / Today the right primary label, or does the team say غرفة العمليات / Control Tower / لوحة اليوم / Daily Board internally? (Impacts H1 + search memory)
+2. [OWNER] Are الوقفات the word drivers actually use for stops, or do they say المحطات / نقاط التوصيل / الشحنات? Same for التوزيع vs الفرز / التسليم.
+3. [OWNER] Do you receive تحميل / توصيل / راجع every day by WhatsApp, or only sometimes? Should Today's pulse show محمّلة from provider message or from stop count?
+4. [OWNER] For today's date — do you operate strictly on calendar date, or do you roll work past midnight (shift that ends 02:00 counts as previous day)?
+5. [OWNER] Who assigns drivers — you by name, or by car number first? Should dispatch assign default to Car catalog or to DriverRecord as shipped?
+6. [OWNER] For COD: is expected = Σ delivered COD correct, or do you have a manual codExpectedSar override per day (e.g., provider fee retained)?
+7. [OWNER] Is one primary CTA enough, or do drivers need two equal CTAs (أسند + اطبع) visible together?
+8. [OWNER] Should More keep Scenarios + Backup together or split Backup to be top-level accessible (today's data-loss fear)?
+9. [OWNER] Is mobile bottom nav preferred over restored pine rail on tablets (768-1280)? Some dispatchers work from iPad on desk — rail may still be better there.
+10. [OWNER] Sample data: should first-visit offer إضافة بيانات تجريبية or is that confusing (risk of thinking demo is real)?
+11. [OWNER] Time budget expectations (internal targets below): are 45s to add 5 stops realistic on phone with Arabic keyboard, or must paste/CSV be primary?
+12. [OWNER] Does tomorrow-rolling note belong on Today completion state, or only inside Daily report's tomorrowNote field?
+
+25. Final Prioritized Recommendation
+-----------------------------------
+Immediate (next commit, unblocked after R4-C): Ship UX-A only. It takes one file + one component + navigation collapse and makes the owner see a different product on deploy. Visibility is the blocker — not logic.
+
+Priority order:
+
+1. BLOCKER — TodayOperations + todayWorkspace.ts + NAV 13→4. This alone answers the owner's quote. Everything else is polish.
+2. HIGH — Primary CTA precedence + Yesterday banner. Turns exceptions into one click.
+3. HIGH — Exceptions queue deep-links. Makes tower's old "failed 3" actually actionable.
+4. MEDIUM — Pulse provenance مسجّلة/محسوبة chips. Earns trust before analytics.
+5. MEDIUM — Runs preview with print. Morning deliverable visible from Today.
+
+UX-B follows in the next commit (same release, second PR): responsive bottom nav, RTL font law, 44px enforcement, contrast fix, empty/completion states, print safe-area, a11y sweep.
+
+Do not do: new backend, new dependency, Short Address validation, invoice drafts, route suggestion, or any compliance wording in R5-UX. Those are R5-C after the daily loop is visibly coherent and owner-validated.
+
+If R4-C slips: Do not duplicate its fixes. UX-A can branch behind a feature-flag: todayOps locally, but must not expose draft-intercepting logic that conflicts with R4-C's invariant truth. Idle until R4-C merges is cheaper than a conflict revert.
+
+26. Machine-Readable Handoff
+----------------------------
+
+{
+  "agent": "MUSE 1.2 (MUSE SPARK)",
+  "task": "VEGA visual product audit and Today's Operations redesign blueprint",
+  "liveSiteReviewed": true,
+  "interactiveBrowserUsed": false,
+  "viewports": [
+    "1440x900 desktop AR RTL — inferred from CSS+HTML (no instrumentation)",
+    "1280x720 laptop AR RTL — inferred",
+    "768x1024 tablet AR RTL — inferred",
+    "375x812 mobile AR RTL — inferred",
+    "1440x900 desktop EN LTR — confirmed HTML",
+    "375x812 mobile EN LTR — inferred"
+  ],
+  "blockers": [
+    "B1 — 13-item flat navigation buries R1-R4 operational work; first screen shows 0-value tower, not today's plan/dispatch/close — owner perceives 'two tabs'",
+    "B2 — Control Tower is yesterday-only; no today's stops, unassigned, exceptions, or next-action — violates 30-sec promise",
+    "B3 — New operational modules share identical bm-panel skin with no hierarchy/rail/CTA — visually indistinguishable from legacy Costs/Risks",
+    "B4 — Arabic typography violates R4 law: Archivo hosts Arabic containers; Cairo var not applied to [dir=rtl] main UI — joining risk"
+  ],
+  "highPriority": [
+    "H1 — NAV 13→4 (Today/Operations/Reports/More) with bottom nav on mobile — quantify + route map (§12)",
+    "H2 — Unified Today workspace with masthead + primary CTA + 4-step rail + pulse + exceptions queue + runs preview (§13)",
+    "H3 — Pure selectors buildTodayWorkflowState / selectPrimaryNextAction / buildTodayExceptionQueue (no new storage, backup-compatible) (§18)",
+    "H4 — Primary CTA single-action precedence rule (7 branches) with RTL arrow mirroring (§13B)",
+    "H5 — Exceptions queue: 8 types with deep-links to Stops/Dispatch/Close/Recovery (§13E)",
+    "H6 — Touch target enforcement min 44px, focus-visible pine/brass, --muted contrast fix (§15)",
+    "H7 — Empty/completion/yesterday-banner states with honest local-only copy and SAMPLE handling (§13G/H)",
+    "H8 — Runs preview cards with print verification (disclaimer on every page, headers repeat) (§13F)"
+  ],
+  "uxA": {
+    "filesCreate": [
+      "src/lib/todayWorkspace.ts",
+      "src/components/rebuild/TodayOperations.tsx",
+      "src/lib/__tests__/todayWorkspace.test.ts"
+    ],
+    "filesModify": [
+      "src/components/rebuild/BusinessModelApp.tsx",
+      "src/app/business-model.css",
+      "public/locales/ar/translation.json",
+      "public/locales/en/translation.json"
+    ],
+    "acceptance": [
+      "Arabic first visit shows 'عمليات اليوم' H1 + today's date + one pine CTA in first viewport at 1440 and 375",
+      "Plan→Dispatch→Close→Report reachable without leaving Today: CTA + rail clicks navigate to correct nested target",
+      "Nav shows exactly 4 primary destinations (Today/Operations/Reports/More) on desktop rail and mobile bottom bar",
+      "Every exception row links to its resolution filter/screen (missingAddress→Stops filter, shipmentGap→Close recon, etc.)",
+      "Recorded/provenance chips visible on pulse (مسجّلة/محسوبة) — no simulated values",
+      "No page-level horizontal overflow at 375 and 320 (instrumented)",
+      "TypeScript clean, vitest 329 passing, eslint 0, build OK, python suite OK, git diff --check clean",
+      "Screenshots at 1440/1280/768/375 AR + 1440/375 EN attached to commit"
+    ]
+  },
+  "uxB": {
+    "filesCreate": [
+      "src/components/rebuild/MoreSheet.tsx",
+      "src/lib/__tests__/a11y.today.test.ts"
+    ],
+    "filesModify": [
+      "src/app/business-model.css",
+      "src/components/rebuild/TodayOperations.tsx",
+      "src/components/rebuild/StopPlanning.tsx",
+      "src/components/rebuild/DispatchBoard.tsx",
+      "src/components/rebuild/EveningClose.tsx",
+      "src/app/layout.tsx",
+      "public/locales/ar/translation.json",
+      "public/locales/en/translation.json"
+    ],
+    "acceptance": [
+      "[dir=rtl] uses Cairo var, letter-spacing 0, Arabic numerals Latin (ar-SA-u-nu-latn)",
+      "All interactive targets >=44px, focus-visible on pine rail uses #f0e6cd, contrast ≥4.5:1 body / ≥3:1 UI",
+      "Phone/plate/reference wrapped in <bdi dir='ltr'> isolation — no bidi garble",
+      "Print manifest verified in browser preview: disclaimer per page, headers repeat, no chrome",
+      "Keyboard-only full flow (5 stops → 2 runs → close draft) with visible focus and RTL order",
+      "200% zoom reflows without clipping; reduced-motion respected; safe-area-inset handled",
+      "One H1 per screen, landmarks, skip link, aria-current step, role=status/alert correctly applied"
+    ]
+  },
+  "r4cConflicts": [
+    "BusinessModelApp.tsx: HIGH — R4-C wires EveningClose date/stopId/COD truth; UX-A rewrites NAV/View + Today mount — MUST wait for R4-C, then rebase additively",
+    "EveningClose.tsx: MEDIUM — invariant + recovery idempotency owned by R4-C; UX-B only adds todayDate prop plumbing — coordinate, no logic rewrite",
+    "controlTower.ts / eveningClose.ts / reportEngine.ts: LOW if new todayWorkspace.ts used; HIGH if controlTower extended — prefer new file",
+    "public/locales: LOW — distinct businessModel.today.* namespace avoids key collision; parity test remains",
+    "business-model.css: LOW — additive bm-today-* prefix, no deletion of R4-C bm-close styles"
+  ],
+  "ownerQuestions": [
+    "Is 'عمليات اليوم' the right H1 vs 'غرفة العمليات' / 'لوحة اليوم'?",
+    "Are 'الوقفات' / 'التوزيع' dispatcher-native terms or should they be 'المحطات' / 'الفرز'?",
+    "Should pulse 'محمّلة' come from provider message loadedShipments or stopCount?",
+    "Calendar-date vs shift-rolling past midnight — which defines 'today'?",
+    "Assign by driver name or car number first?",
+    "COD expected = Σ delivered COD or manual override with note?",
+    "One primary CTA vs two equal (Assign + Print)?",
+    "Should Backup be promoted out of More vs kept with Scenarios?",
+    "Mobile bottom nav vs tablet rail — preference at 768-1280?",
+    "Offer SAMPLE data on first visit or keep empty?",
+    "Is 45s for 5-stop entry on phone realistic — is paste/CSV primary instead?",
+    "Does tomorrowNote belong on Today completion or only in Daily report?"
+  ],
+  "confidence": "high"
+}
+
+======================================================================
+REVIEW PACKET AUTHOR: MUSE 1.2 (MUSE SPARK)
+======================================================================

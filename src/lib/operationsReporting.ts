@@ -63,6 +63,10 @@ export interface DailyRecord {
   codExpectedSar?: number;
   closeStatus?: 'draft' | 'reconciled';
   closedAt?: string;
+  /** Day the day's collection was remitted (day-granularity lag). */
+  codRemittedOn?: string;
+  /** Required operator note when codExpectedSar is manually adjusted. */
+  codAdjustmentNote?: string;
 }
 
 export interface DailyMetrics {
@@ -76,6 +80,12 @@ export interface DailyMetrics {
 }
 
 export const WORKING_DAYS_PER_MONTH = 26;
+
+/** Definitive-KPI predicate: drafts are excluded everywhere; legacy rows
+ *  (no closeStatus) and reconciled rows are included. Single shared truth. */
+export function isDefinitiveDailyRecord(record: DailyRecord): boolean {
+  return record.closeStatus !== 'draft';
+}
 
 /** Local-timezone YYYY-MM-DD key. Never use UTC ISO slices for "today" —
  *  Saudi Arabia (UTC+3) would misfile reports between 00:00 and 03:00. */
@@ -128,6 +138,8 @@ export interface CustomerPerformanceRow {
 /** Aggregate per-customer delivered/missed across ALL recorded days,
  *  worst first. Customers without attributed data are omitted. */
 export function buildCustomerPerformance(records: Record<string, DailyRecord>, input: FinancialInput): CustomerPerformanceRow[] {
+  const definitiveRecords = Object.fromEntries(Object.entries(records).filter(([, r]) => isDefinitiveDailyRecord(r)));
+  records = definitiveRecords;
   const totalsMap = new Map<string, { delivered: number; missed: number }>();
   for (const record of Object.values(records)) {
     for (const [providerId, cell] of Object.entries(record.customerBreakdown ?? {})) {
@@ -201,6 +213,7 @@ export function aggregateFailureReasons(records: Iterable<DailyRecord>): Array<{
 
 /** Aggregate recorded daily reports by month and compare against the plan. */
 export function buildMonthlyRollup(records: Record<string, DailyRecord>, output: FinancialOutput): MonthlyRollup[] {
+  records = Object.fromEntries(Object.entries(records).filter(([, r]) => isDefinitiveDailyRecord(r)));
   const months = new Map<string, { days: number; completed: number; failed: number; revenue: number; fuel: number }>();
   for (const record of Object.values(records)) {
     const month = record.date.slice(0, 7);
@@ -231,6 +244,7 @@ export function buildMonthlyRollup(records: Record<string, DailyRecord>, output:
 }
 
 export function buildProjection(output: FinancialOutput, days: number, records: Record<string, DailyRecord>, endDate = new Date()) {
+  records = Object.fromEntries(Object.entries(records).filter(([, r]) => isDefinitiveDailyRecord(r)));
   const factors = [0.92, 0.97, 1.03, 1, 1.06, 0.95, 1.02];
   return Array.from({ length: days }, (_, index) => {
     const date = new Date(endDate);
