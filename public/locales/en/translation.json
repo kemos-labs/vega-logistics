@@ -1616,7 +1616,13 @@
         "shipment-mismatch": "Loaded ≠ delivered + returned + pending — resolve the difference",
         "missing-reasons": "Some returned/failed stops have no reason",
         "outcome-totals-disagree": "Entered totals disagree with the reviewed stop outcomes",
-        "invalid-number": "A number is invalid"
+        "invalid-number": "A number is invalid",
+        "invalid-date": "Enter a real calendar date (day must exist).",
+        "invalid-timestamp": "Timestamps must be complete ISO date-time values.",
+        "unexpected-closed-at": "A draft close cannot carry a close timestamp.",
+        "remittance-date-required": "Record the remittance date when a positive remitted amount is entered.",
+        "fuel-required": "Enter reviewed fuel cash for this day before saving.",
+        "drivers-required": "Enter reviewed driver attendance for this day before saving."
       },
       "saveDraft": "Save draft",
       "confirmClose": "Confirm reconciled close",
@@ -1630,7 +1636,16 @@
       "reopened": "Close reopened as draft. Recovery entries kept.",
       "persistFailed": "Saving failed ({{keys}}) — nothing was changed. Try again.",
       "rollbackCritical": "CRITICAL: partial write and rollback failure on {{keys}} — export a backup now.",
-      "fixNumbers": "Fix the highlighted numbers first."
+      "fixNumbers": "Fix the highlighted numbers first.",
+      "dateLabel": "Operation date",
+      "codRemittedOn": "Remitted on",
+      "codAdjust": "Expected COD (manual)",
+      "codAdjustNote": "Adjustment note (required for manual expected)",
+      "fuel": "Fuel cash (SAR)",
+      "driversPresent": "Drivers present",
+      "codOutstanding": "Outstanding with crew",
+      "codUncollected": "Not yet collected",
+      "codOverRemitted": "Over-remitted credit"
     }
   }
 }

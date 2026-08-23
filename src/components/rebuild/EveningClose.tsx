@@ -10,18 +10,19 @@ import { commitBundle } from '@/lib/backup';
 import {
   applyCloseToDailyRecord, applyStopOutcome, buildCloseDraft,
   buildRecoveryEntriesForStops, calculateCodClose, isDefinitiveDailyRecord,
+  parseLocalizedDecimal, parseLocalizedInteger,
   reconcileShipmentTotals, summarizeStopOutcomes, validateCloseDraft,
 } from '@/lib/eveningClose';
 import { FAILURE_REASON_KEYS, toDateString, type DailyRecord } from '@/lib/operationsReporting';
 import type { RecoveryEntry } from '@/lib/recoveryBoard';
-import { normalizeDigits } from '@/lib/providerMessageParser';
 import type { StopRecord } from '@/lib/stops';
 import type { FailureReasonKey } from '@/lib/operationsReporting';
 
 type Outcome = 'delivered' | 'returned' | 'pending' | 'failed';
 
-export function EveningCloseView({ stops, setStops, dailyRecords, setDailyRecords, recoveryEntries, setRecoveryEntries }: {
-  date?: string;
+export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, setDailyRecords, recoveryEntries, setRecoveryEntries }: {
+  /** Optional starting operation date; defaults to today (local law). */
+  initialDate?: string;
   stops: StopRecord[];
   setStops: (value: StopRecord[] | ((prev: StopRecord[]) => StopRecord[])) => void;
   dailyRecords: Record<string, DailyRecord>;
@@ -34,53 +35,80 @@ export function EveningCloseView({ stops, setStops, dailyRecords, setDailyRecord
   const ar = i18n.language === 'ar';
   const fmt = (value: number) => new Intl.NumberFormat(ar ? 'ar-SA-u-nu-latn' : 'en-US').format(value);
 
-  const [date, setDate] = useState(() => toDateString(new Date()));
+  const [date, setDate] = useState(() => initialDate ?? toDateString(new Date()));
+  // EVERY date-scoped form state lives here and is reset ONLY through this
+  // one helper — switching dates can never leak values in either direction.
+  function formStateFor(nextDate: string): {
+    loaded: string; codCollected: string; codRemitted: string; codRemittedOn: string;
+    codAdjustNote: string; codExpectedManual: string; fuel: string; drivers: string;
+    message: string; reopenAsk: boolean; pendingOutcome: null; reasonFor: string;
+  } {
+    const rec = dailyRecords[nextDate];
+    const destDefault = codDefaultFor(stops.filter(stop => stop.operationDate === nextDate));
+    return {
+      loaded: rec?.loadedShipments === undefined ? '' : String(rec.loadedShipments),
+      codCollected: rec?.cashCollectedSar === undefined ? '' : String(rec.cashCollectedSar),
+      codRemitted: rec?.cashRemittedSar === undefined ? '' : String(rec.cashRemittedSar),
+      codRemittedOn: rec?.codRemittedOn ?? '',
+      codAdjustNote: rec?.codAdjustmentNote ?? '',
+      codExpectedManual: rec?.codExpectedSar === undefined || rec?.codExpectedSar === destDefault ? '' : String(rec.codExpectedSar),
+      fuel: rec?.fuelCost === undefined ? '' : String(rec.fuelCost),
+      drivers: rec?.driversPresent === undefined ? '' : String(rec.driversPresent),
+      message: '', reopenAsk: false, pendingOutcome: null, reasonFor: '',
+    };
+  }
+  const initial = formStateFor(date);
   const dayStops = useMemo(() => stops.filter(stop => stop.operationDate === date), [stops, date]);
   const existing = dailyRecords[date];
-  // Form state RESETS from the selected date's record — switching dates must
-  // never leak numbers across operation days.
-  const [loaded, setLoaded] = useState(String(existing?.loadedShipments ?? ''));
-  const [codCollected, setCodCollected] = useState(existing?.cashCollectedSar === undefined ? '' : String(existing.cashCollectedSar));
-  const [codRemitted, setCodRemitted] = useState(existing?.cashRemittedSar === undefined ? '' : String(existing.cashRemittedSar));
-  const [codRemittedOn, setCodRemittedOn] = useState(existing?.codRemittedOn ?? '');
-  const [codAdjustNote, setCodAdjustNote] = useState(existing?.codAdjustmentNote ?? '');
-  const [codExpectedManual, setCodExpectedManual] = useState(existing?.codExpectedSar === undefined || existing?.codExpectedSar === codDefaultFor(dayStops) ? '' : String(existing.codExpectedSar));
-  const [fuel, setFuel] = useState(existing?.fuelCost === undefined ? '' : String(existing.fuelCost));
-  const [drivers, setDrivers] = useState(existing?.driversPresent === undefined ? '' : String(existing.driversPresent));
+  const [loaded, setLoaded] = useState(initial.loaded);
+  const [codCollected, setCodCollected] = useState(initial.codCollected);
+  const [codRemitted, setCodRemitted] = useState(initial.codRemitted);
+  const [codRemittedOn, setCodRemittedOn] = useState(initial.codRemittedOn);
+  const [codAdjustNote, setCodAdjustNote] = useState(initial.codAdjustNote);
+  const [codExpectedManual, setCodExpectedManual] = useState(initial.codExpectedManual);
+  const [fuel, setFuel] = useState(initial.fuel);
+  const [drivers, setDrivers] = useState(initial.drivers);
+  const [message, setMessage] = useState(initial.message);
+  const [reopenAsk, setReopenAsk] = useState(initial.reopenAsk);
+  const [pendingOutcome, setPendingOutcome] = useState<{ stop: StopRecord; outcome: Outcome } | null>(initial.pendingOutcome);
+  const [reasonFor, setReasonFor] = useState(initial.reasonFor);
   const changeDate = (next: string) => {
+    if (next === date || next === '') return;
+    const nextForm = formStateFor(next);
     setDate(next);
-    const rec = dailyRecords[next];
-    setLoaded(String(rec?.loadedShipments ?? ''));
-    setCodCollected(rec?.cashCollectedSar === undefined ? '' : String(rec.cashCollectedSar));
-    setCodRemitted(rec?.cashRemittedSar === undefined ? '' : String(rec.cashRemittedSar));
-    setCodRemittedOn(rec?.codRemittedOn ?? '');
-    setCodAdjustNote(rec?.codAdjustmentNote ?? '');
-    setFuel(rec?.fuelCost === undefined ? '' : String(rec.fuelCost));
-    setDrivers(rec?.driversPresent === undefined ? '' : String(rec.driversPresent));
-    setMessage(''); setReopenAsk(false); setPendingOutcome(null);
+    setLoaded(nextForm.loaded);
+    setCodCollected(nextForm.codCollected);
+    setCodRemitted(nextForm.codRemitted);
+    setCodRemittedOn(nextForm.codRemittedOn);
+    setCodAdjustNote(nextForm.codAdjustNote);
+    setCodExpectedManual(nextForm.codExpectedManual);
+    setFuel(nextForm.fuel);
+    setDrivers(nextForm.drivers);
+    setMessage(nextForm.message); setReopenAsk(nextForm.reopenAsk);
+    setPendingOutcome(nextForm.pendingOutcome); setReasonFor(nextForm.reasonFor);
   };
-  const [message, setMessage] = useState('');
-  const [reopenAsk, setReopenAsk] = useState(false);
-  const [pendingOutcome, setPendingOutcome] = useState<{ stop: StopRecord; outcome: Outcome } | null>(null);
-  const [reasonFor, setReasonFor] = useState<string>('');
 
   const summary = useMemo(() => summarizeStopOutcomes(dayStops), [dayStops]);
-  const loadedNum = loaded.trim() === '' ? Number.NaN : Number(normalizeDigits(loaded));
+  // Strict localized parsing only: exponent/hex/sign junk parses to null.
+  const loadedNum = parseLocalizedInteger(loaded);
+  const loadedValue = loadedNum ?? Number.NaN;
   const recon = reconcileShipmentTotals(
-    Number.isFinite(loadedNum) ? loadedNum : 0,
+    Number.isFinite(loadedValue) ? loadedValue : 0,
     summary.delivered, summary.returned, summary.pending,
   );
-  const collectedNum = codCollected.trim() === '' ? 0 : Number(normalizeDigits(codCollected));
-  const remittedNum = codRemitted.trim() === '' ? 0 : Number(normalizeDigits(codRemitted));
-  const manualExpected = codExpectedManual.trim() === '' ? undefined : Number(normalizeDigits(codExpectedManual));
+  const collectedNum = codCollected.trim() === '' ? 0 : parseLocalizedDecimal(codCollected);
+  const remittedNum = codRemitted.trim() === '' ? 0 : parseLocalizedDecimal(codRemitted);
+  const parsedManual = parseLocalizedDecimal(codExpectedManual);
+  const manualExpected = codExpectedManual.trim() === '' ? undefined : (parsedManual ?? Number.NaN);
   let cod: ReturnType<typeof calculateCodClose> | null = null;
-  let codInvalid = (codCollected.trim() !== '' && !Number.isFinite(collectedNum)) || (codRemitted.trim() !== '' && !Number.isFinite(remittedNum)) || collectedNum < 0 || remittedNum < 0
+  let codInvalid = (collectedNum !== null && collectedNum < 0 ? true : collectedNum === null && codCollected.trim() !== '')
+    || (remittedNum !== null && remittedNum < 0 ? true : remittedNum === null && codRemitted.trim() !== '')
     || (manualExpected !== undefined && (!Number.isFinite(manualExpected) || manualExpected < 0));
   if (!codInvalid) {
     try {
       cod = calculateCodClose({
         deliveredStops: dayStops.filter(stop => stop.status === 'delivered'),
-        collectedSar: collectedNum, remittedSar: remittedNum,
+        collectedSar: collectedNum as number, remittedSar: remittedNum as number,
         manualExpectedSar: manualExpected, adjustmentNote: codAdjustNote,
       });
     } catch {
@@ -88,14 +116,27 @@ export function EveningCloseView({ stops, setStops, dailyRecords, setDailyRecord
     }
   }
 
-  const fuelNum = fuel.trim() === '' ? 0 : Number(normalizeDigits(fuel));
-  const driversNum = drivers.trim() === '' ? 0 : Number(normalizeDigits(drivers));
+  // Fuel cash & attendance are OPERATOR-REVIEWED facts: blank is not zero.
+  // A brand-new close requires both to be entered before anything persists;
+  // an existing record's stored values initialize the fields and are kept
+  // when the operator leaves them untouched. Junk (negative/fractional/
+  // exponent) blocks either way. Explicit 0 is accepted.
+  const parsedFuel = parseLocalizedDecimal(fuel);
+  const parsedDrivers = parseLocalizedInteger(drivers);
+  const fuelEffective = fuel.trim() === '' ? existing?.fuelCost ?? null : parsedFuel;
+  const driversEffective = drivers.trim() === '' ? existing?.driversPresent ?? null : parsedDrivers;
+  const localBlockers: string[] = [];
+  if (fuelEffective === null) localBlockers.push(existing?.fuelCost === undefined ? 'fuel-required' : 'invalid-money');
+  if (driversEffective === null) localBlockers.push(existing?.driversPresent === undefined ? 'drivers-required' : 'invalid-number');
+  // Reviewed LIVE inputs override stored fields so clearing a stale
+  // adjustment note / remittance date is validated as it will be saved.
   const validation = validateCloseDraft(
-    { ...(existing ?? recordSkeleton(date)), loadedShipments: recon.loaded, completedShipments: summary.delivered, returnedShipments: summary.returned, pendingShipments: summary.pending, cashCollectedSar: collectedNum, cashRemittedSar: remittedNum, codExpectedSar: cod?.expectedSar ?? 0, date },
+    { ...(existing ?? recordSkeleton(date)), loadedShipments: recon.loaded, completedShipments: summary.delivered, returnedShipments: summary.returned, pendingShipments: summary.pending, cashCollectedSar: collectedNum as number, cashRemittedSar: remittedNum as number, codExpectedSar: cod?.expectedSar ?? 0, date, codRemittedOn: codRemittedOn || undefined, codAdjustmentNote: codAdjustNote || undefined },
     dayStops,
   );
+  const allBlockers = [...new Set([...validation.blockers, ...localBlockers])];
   const codWarnings = cod && cod.uncollectedSar > 0 ? ['cod-uncollected'] : [];
-  const canReconcile = validation.ok && !codInvalid && Number.isFinite(loadedNum);
+  const canReconcile = allBlockers.length === 0 && !codInvalid && loadedNum !== null;
   const isDraft = existing?.closeStatus === 'draft';
   const isReconciled = existing?.closeStatus === 'reconciled';
 
@@ -134,14 +175,17 @@ export function EveningCloseView({ stops, setStops, dailyRecords, setDailyRecord
     } catch { setMessage(t(S + 'pickReason')); }
   }
 
+  // Drafts tolerate business disagreement (mismatch / missing reasons /
+  // outcome disagreement) but NEVER structural invalidity.
+  const STRUCTURAL_BLOCKERS = ['invalid-number', 'invalid-money', 'invalid-date', 'invalid-timestamp', 'unexpected-closed-at', 'remittance-date-required', 'fuel-required', 'drivers-required'];
   const saveDraft = () => {
-    if (!Number.isFinite(loadedNum) || codInvalid) { setMessage(t(S + 'fixNumbers')); return; }
+    if (loadedNum === null || codInvalid || allBlockers.some(code => STRUCTURAL_BLOCKERS.includes(code))) { setMessage(t(S + 'fixNumbers')); return; }
     const draft = buildCloseDraft(existing ?? recordSkeleton(date), dayStops, {
       loadedShipments: loadedNum, deliveredShipments: summary.delivered, returnedShipments: summary.returned,
-      pendingShipments: summary.pending, codCollectedSar: collectedNum, codRemittedSar: remittedNum,
+      pendingShipments: summary.pending, codCollectedSar: collectedNum as number, codRemittedSar: remittedNum as number,
       codExpectedManualSar: manualExpected, codAdjustmentNote: codAdjustNote || undefined, remittedOn: codRemittedOn || undefined,
     }, new Date().toISOString());
-    const daily = { ...draft, fuelCost: fuelNum, driversPresent: driversNum };
+    const daily = { ...draft, fuelCost: fuelEffective as number, driversPresent: driversEffective as number };
     persist({ daily, stops: dayStops.length > 0 ? stops : undefined }, t(S + 'draftSaved'));
   };
 
@@ -150,10 +194,10 @@ export function EveningCloseView({ stops, setStops, dailyRecords, setDailyRecord
     const nowIso = new Date().toISOString();
     const draft = buildCloseDraft(existing ?? recordSkeleton(date), dayStops, {
       loadedShipments: loadedNum, deliveredShipments: summary.delivered, returnedShipments: summary.returned,
-      pendingShipments: summary.pending, codCollectedSar: collectedNum, codRemittedSar: remittedNum,
+      pendingShipments: summary.pending, codCollectedSar: collectedNum as number, codRemittedSar: remittedNum as number,
       codExpectedManualSar: manualExpected, codAdjustmentNote: codAdjustNote || undefined, remittedOn: codRemittedOn || undefined,
     }, nowIso);
-    const closed = applyCloseToDailyRecord({ ...draft, fuelCost: fuelNum, driversPresent: driversNum }, nowIso);
+    const closed = applyCloseToDailyRecord({ ...draft, fuelCost: fuelEffective as number, driversPresent: driversEffective as number }, nowIso);
     const newRecovery = buildRecoveryEntriesForStops(dayStops, recoveryEntries, '', nowIso);
     const ok = persist(
       { daily: closed, stops, recovery: newRecovery.length > 0 ? [...recoveryEntries, ...newRecovery] : undefined },
@@ -169,7 +213,7 @@ export function EveningCloseView({ stops, setStops, dailyRecords, setDailyRecord
     setReopenAsk(false);
   };
 
-  const blockerTexts = validation.blockers.map(code => t(S + 'blockers.' + code));
+  const blockerTexts = allBlockers.map(code => t(S + 'blockers.' + code));
 
   return (
     <section className="bm-panel bm-close" data-testid="evening-close">
@@ -303,7 +347,7 @@ export function EveningCloseView({ stops, setStops, dailyRecords, setDailyRecord
       {codWarnings.length > 0 && <p className="bm-import-note">{t(S + 'codUncollectedWarning', { amount: fmt((cod?.uncollectedSar ?? 0)) })}</p>}
 
       {/* validation summary + actions */}
-      {!validation.ok && (
+      {allBlockers.length > 0 && (
         <ul className="bm-import-warning" role="alert" data-testid="close-blockers">
           {blockerTexts.map(text => <li key={text}>{text}</li>)}
         </ul>
@@ -327,8 +371,9 @@ export function EveningCloseView({ stops, setStops, dailyRecords, setDailyRecord
 }
 
 function recordSkeleton(date: string): DailyRecord {
-  // NO fabricated operational data: fuel/attendance are operator-entered on
-  // the close form (blank ⇒ 0, visibly labelled entered) — never invented.
+  // Validation-base only — NEVER persisted directly. Fuel/attendance are
+  // operator-entered on the close form; a new close cannot persist until
+  // both are explicitly reviewed (fuel-required / drivers-required gates).
   return { date, completedShipments: 0, failedShipments: 0, fuelCost: 0, driversPresent: 0, notes: '', updatedAt: '' };
 }
 

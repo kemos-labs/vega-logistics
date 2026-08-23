@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildDeliverySeries, buildNarrativeFacts, buildReportModel, deriveInsights, fmtInt, fmtSar, type DeliveryPoint, type NarrativeKey, type ReportTotals } from '@/lib/reportEngine';
+import { buildCostPerStopSeries, buildDeliverySeries, buildNarrativeFacts, buildReportModel, deriveInsights, fmtInt, fmtSar, type DeliveryPoint, type NarrativeKey, type ReportTotals } from '@/lib/reportEngine';
 import { buildCustomerPerformance } from '@/lib/operationsReporting';
 import { calculateFinancials } from '@/lib/calculations';
 import { aggregateFailureReasons, type DailyMetrics } from '@/lib/operationsReporting';
@@ -327,5 +327,48 @@ describe('report engine — COD remittance', () => {
     const model = buildReportModel({ kind: 'pro', locale: 'en', record: records[dates[2]], records, input, output, focusDate: FOCUS, windowDays: 3 });
     expect(model.totals.cashCollectedSar).toBe(1850);
     expect(model.totals.cashOutstandingSar).toBe(750);
+  });
+});
+
+function byDate(series: Array<{ date: string }>, date: string): { date: string; recorded?: boolean; delivered?: number } {
+  const point = series.find(p => p.date === date);
+  if (!point) throw new Error(`missing series point ${date}`);
+  return point;
+}
+
+describe('R4-D — drafts are invisible to EVERY definitive report path', () => {
+  const DRAFT = {
+    date: '2026-08-20', completedShipments: 90, failedShipments: 90, fuelCost: 999,
+    driversPresent: 9, notes: '', updatedAt: '2026-08-20T12:00:00Z', closeStatus: 'draft' as const,
+    cashCollectedSar: 999, customerBreakdown: { ghost: { delivered: 90, missed: 0 } },
+    codShipments: 90,
+  };
+  const LEGACY = { date: '2026-08-19', completedShipments: 10, failedShipments: 2, fuelCost: 50, driversPresent: 2, notes: '', updatedAt: '2026-08-19T12:00:00Z' };
+  const RECONCILED = { ...LEGACY, date: '2026-08-18', completedShipments: 20, failedShipments: 1, closeStatus: 'reconciled' as const, closedAt: '2026-08-18T20:00:00.000Z' };
+  const records = Object.fromEntries([DRAFT, LEGACY, RECONCILED].map(r => [r.date, r]));
+
+  it('buildDeliverySeries treats a draft day as UNRECORDED; legacy+reconciled stay', () => {
+    const focus = new Date('2026-08-20T12:00:00');
+    const series = buildDeliverySeries(records, output, focus, 3); // 18..20
+    expect(byDate(series, '2026-08-20').recorded).toBe(false);
+    expect(byDate(series, '2026-08-20').delivered).toBe(0);
+    expect(byDate(series, '2026-08-19').recorded).toBe(true);
+    expect(byDate(series, '2026-08-18').delivered).toBe(20);
+  });
+
+  it('buildCostPerStopSeries excludes drafts entirely', () => {
+    const series = buildCostPerStopSeries(records, output);
+    expect(series.map(p => p.date)).toEqual(['2026-08-18', '2026-08-19']);
+  });
+
+  it('buildReportModel aggregates (totals/monthly/customers/hasHistory) never see the draft', () => {
+    const model = buildReportModel({ kind: 'pro', locale: 'en', record: LEGACY, records, input: input, output, focusDate: new Date('2026-08-19T12:00:00') });
+    expect(model.totals.delivered).toBe(30); // 10 + 20; draft's 90 invisible
+    expect(model.hasHistory).toBe(true);
+    expect(model.customerPerformance.find(row => row.name === 'ghost')).toBeUndefined();
+    const modelDraftOnly = buildReportModel({ kind: 'daily', locale: 'en', record: DRAFT, records: { '2026-08-20': DRAFT }, input, output });
+    expect(modelDraftOnly.hasHistory).toBe(false); // a lone draft is NOT history
+    expect(modelDraftOnly.totals.days).toBe(0);
+    expect(modelDraftOnly.monthly).toEqual([]);
   });
 });

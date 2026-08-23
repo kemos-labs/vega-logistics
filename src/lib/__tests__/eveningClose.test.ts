@@ -166,6 +166,83 @@ const { validateRecoveryEntries } = await import('@/lib/recoveryBoard');
 const { buildMonthlyRollup, buildCustomerPerformance: bcp } = await import('@/lib/operationsReporting');
 const { defaultFinancialInput } = await import('@/lib/mockData');
 
+describe('R4-D review corrections — parsers, real dates, clearing semantics', () => {
+  it('strict localized parsers: Latin/Arabic-Indic/Persian accepted; exponent/hex/sign/fraction junk rejected', async () => {
+    const { parseLocalizedInteger: pi, parseLocalizedDecimal: pd } = await import('@/lib/eveningClose');
+    // valid integers across scripts
+    expect(pi('7')).toBe(7);
+    expect(pi('٧')).toBe(7); // Arabic-Indic
+    expect(pi('۷')).toBe(7); // Persian
+    expect(pi('0012')).toBe(12);
+    // valid decimals
+    expect(pd('10.5')).toBe(10.5);
+    expect(pd('١٠٫٥')).toBe(10.5); // Arabic-Indic with Arabic decimal separator
+    expect(pd('۱۰.۵')).toBe(10.5); // Persian digits
+    expect(pd('0')).toBe(0);
+    // junk → null
+    for (const junk of ['1e3', '0x10', 'abc', '-1', '-1.5', '+5', '1 000', '', '1.', '.5', 'NaN', 'Infinity']) {
+      expect(pi(junk)).toBeNull();
+      expect(pd(junk)).toBeNull();
+    }
+    expect(pi('1.5')).toBeNull(); // fraction is NOT an integer
+    expect(pd('1e3')).toBeNull();
+    expect(pd('-0.5')).toBeNull();
+  });
+
+  it('validateCloseDraft: impossible dates, date-only stamps, lifecycle rules', () => {
+    const legacy = record(); // zero counters, no closeStatus — pure structural base
+    // real-calendar enforcement (V8 rollover must not leak)
+    expect(validateCloseDraft({ ...legacy, date: '2026-02-30' }, []).blockers).toContain('invalid-date');
+    expect(validateCloseDraft({ ...legacy, codRemittedOn: '2026-02-30' }, []).blockers).toContain('invalid-date');
+    expect(validateCloseDraft({ ...legacy, date: DATE }, []).blockers).not.toContain('invalid-date');
+    // closedAt must be a TRUE ISO timestamp — date-only strings rejected
+    expect(validateCloseDraft({ ...legacy, closeStatus: 'reconciled' as never, closedAt: NOW }, []).ok).toBe(true);
+    expect(validateCloseDraft({ ...legacy, closeStatus: 'reconciled' as never, closedAt: '2026-08-24' }, []).blockers).toContain('invalid-timestamp');
+    expect(validateCloseDraft({ ...legacy, closeStatus: 'reconciled' as never, closedAt: 'garbage' }, []).blockers).toContain('invalid-timestamp');
+    expect(validateCloseDraft({ ...legacy, closeStatus: 'reconciled' as never }, []).blockers).toContain('invalid-timestamp'); // reconciled REQUIRES stamp
+    expect(validateCloseDraft({ ...legacy, closeStatus: 'draft' as never, closedAt: NOW }, []).blockers).toContain('unexpected-closed-at');
+    // legacy rows without closeStatus stay backward compatible
+    expect(validateCloseDraft(legacy, []).ok).toBe(true);
+  });
+
+  it('positive remitted amount requires its remittance day; zero remitted tolerates a supplied date', () => {
+    const base = record();
+    expect(validateCloseDraft({ ...base, cashRemittedSar: 30 }, []).blockers).toContain('remittance-date-required');
+    expect(validateCloseDraft({ ...base, cashRemittedSar: 30, codRemittedOn: '2026-08-25' }, []).ok).toBe(true);
+    // defined behavior: a date supplied with ZERO remitted is preserved harmlessly
+    const withZero = { ...base, cashRemittedSar: 0, codRemittedOn: '2026-08-25' };
+    expect(validateCloseDraft(withZero, []).ok).toBe(true);
+  });
+
+  it('buildCloseDraft explicitly CLEARS stale codRemittedOn / codAdjustmentNote; trims note', () => {
+    const existing = record({ codRemittedOn: '2026-08-20', codAdjustmentNote: '  old note  ' });
+    const stopsList = [stop({ reference: 'D', status: 'delivered', codAmountSar: 10 })];
+    const cleared = buildCloseDraft(existing, stopsList, {
+      loadedShipments: 1, deliveredShipments: 1, returnedShipments: 0, pendingShipments: 0,
+      codCollectedSar: 10, codRemittedSar: 0,
+      remittedOn: undefined, codAdjustmentNote: undefined,
+    }, NOW);
+    expect(cleared.codRemittedOn).toBeUndefined(); // cleared, not stale
+    expect(cleared.codAdjustmentNote).toBeUndefined();
+    const setTrimmed = buildCloseDraft(existing, stopsList, {
+      loadedShipments: 1, deliveredShipments: 1, returnedShipments: 0, pendingShipments: 0,
+      codCollectedSar: 10, codRemittedSar: 10, remittedOn: '2026-08-26',
+      codAdjustmentNote: '  counted at door  ', codExpectedManualSar: 9,
+    }, NOW);
+    expect(setTrimmed.codAdjustmentNote).toBe('counted at door'); // trimmed
+    expect(setTrimmed.codRemittedOn).toBe('2026-08-26');
+  });
+
+  it('filterDefinitiveRecords is exported and shared; eveningClose re-exports ONE predicate implementation', async () => {
+    const reporting = await import('@/lib/operationsReporting');
+    const close = await import('@/lib/eveningClose');
+    expect(close.isDefinitiveDailyRecord).toBe(reporting.isDefinitiveDailyRecord);
+    const draftRow = record({ closeStatus: 'draft' as never });
+    const filtered = reporting.filterDefinitiveRecords({ [DATE]: draftRow, keep: record() });
+    expect(Object.keys(filtered)).toEqual(['keep']);
+  });
+});
+
 describe('R4-C — identity, KPI truth, strict validation', () => {
 
   it('stopId SURVIVES the real read path: create → validate → rebuild recovery → no duplicate', () => {

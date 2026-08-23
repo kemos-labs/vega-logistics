@@ -19,16 +19,36 @@
 // max(0, collected − remitted); uncollected = max(0, expected − collected);
 // overRemitted = max(0, remitted − collected) — credit is visible, not hidden.
 
-import type { DailyRecord, FailureReasonKey } from '@/lib/operationsReporting';
+import {
+  filterDefinitiveRecords, isDefinitiveDailyRecord, isValidCalendarDate,
+  isValidIsoTimestamp, type DailyRecord, type FailureReasonKey,
+} from '@/lib/operationsReporting';
+import { normalizeDigits } from '@/lib/providerMessageParser';
 import { updateStopRecord, type StopRecord, type StopStatus } from '@/lib/stops';
 import type { RecoveryEntry } from '@/lib/recoveryBoard';
 
-// ── Draft KPI predicate (§K) ──────────────────────────────────
+// ── Draft KPI predicate (§K) — SINGLE shared implementation; re-exported so
+//    existing importers keep working without a forked copy. ───────────────
+export { isDefinitiveDailyRecord } from '@/lib/operationsReporting';
 
-/** Draft rows are excluded from definitive KPIs; legacy rows are definitive. */
-export function isDefinitiveDailyRecord(record: DailyRecord): boolean {
-  return record.closeStatus !== 'draft';
+// ── Strict localized numeric parsers ─────────────────────────
+// Accept ordinary Latin, Arabic-Indic (٠-٩) and Persian (۰-۹) digits.
+// Reject exponent (1e3), hex (0x10), signs, Infinity/NaN, separators junk,
+// and any mixed input. Blank ⇒ null (callers decide blank semantics).
+
+export function parseLocalizedInteger(input: string): number | null {
+  const normalized = normalizeDigits(input.trim());
+  if (!/^\d+$/.test(normalized)) return null;
+  return Number(normalized);
 }
+
+export function parseLocalizedDecimal(input: string): number | null {
+  const normalized = normalizeDigits(input.trim()).replace('٫', '.');
+  if (!/^\d+(\.\d+)?$/.test(normalized)) return null;
+  return Number(normalized);
+}
+
+export { filterDefinitiveRecords };
 
 // ── Stop outcomes ─────────────────────────────────────────────
 
@@ -179,7 +199,8 @@ export interface CloseDraftInput {
   codRemittedSar: number;
   codExpectedManualSar?: number;
   codAdjustmentNote?: string;
-  /** Day the day's collection was remitted (day-granularity lag data). */
+  /** Day the day's collection was remitted (day-granularity lag data).
+   *  Absent/invalid ⇒ the stored field is CLEARED (never stale). */
   remittedOn?: string;
 }
 
@@ -204,7 +225,7 @@ export function buildCloseDraft(existing: DailyRecord, stops: StopRecord[], inpu
     }
   }
   const exceptionTotal = outcomeSummary.returned + outcomeSummary.failedAttempts;
-  return {
+  const next: DailyRecord = {
     ...existing,
     loadedShipments: input.loadedShipments,
     completedShipments: outcomeSummary.delivered,
@@ -218,9 +239,15 @@ export function buildCloseDraft(existing: DailyRecord, stops: StopRecord[], inpu
     failureReasons,
     closeStatus: 'draft',
     updatedAt: nowIso,
-    ...(input.remittedOn ? { codRemittedOn: input.remittedOn } : {}),
-    ...(input.codAdjustmentNote ? { codAdjustmentNote: input.codAdjustmentNote } : {}),
   };
+  // Explicit set-or-clear: a cleared reviewed input must never leave a stale
+  // value behind from the previous save of this date.
+  if (input.remittedOn && isValidCalendarDate(input.remittedOn)) next.codRemittedOn = input.remittedOn;
+  else delete next.codRemittedOn;
+  const note = input.codAdjustmentNote?.trim();
+  if (note) next.codAdjustmentNote = note;
+  else delete next.codAdjustmentNote;
+  return next;
 }
 
 export interface CloseValidation {
@@ -243,16 +270,26 @@ export function validateCloseDraft(record: DailyRecord, stops: StopRecord[]): Cl
   if (summary.missingReason.length > 0) blockers.push('missing-reasons');
   if (summary.delivered !== record.completedShipments
     || summary.returned !== (record.returnedShipments ?? 0)) blockers.push('outcome-totals-disagree');
-  // Shipments: finite non-negative INTEGERS. Money: finite non-negative
-  // decimals. Stamps: real ISO. Fractions/negatives/exponent junk rejected.
+  // Structural integrity: shipments = finite non-negative INTEGERS; money =
+  // finite non-negative decimals; dates = REAL calendar days (2026-02-30 is
+  // rejected, no V8 rollover); stamps = true ISO timestamps per the existing
+  // contract. Fractions/negatives/exponent/hex/sign junk never validates.
   for (const value of [record.loadedShipments, record.returnedShipments, record.pendingShipments]) {
     if (value !== undefined && (!Number.isFinite(value) || value < 0 || !Number.isInteger(value))) blockers.push('invalid-number');
   }
-  for (const value of [record.codExpectedSar, record.cashCollectedSar, record.cashRemittedSar]) {
+  for (const value of [record.codExpectedSar, record.cashCollectedSar, record.cashRemittedSar, record.fuelCost]) {
     if (value !== undefined && (!Number.isFinite(value) || value < 0)) blockers.push('invalid-money');
   }
-  if (record.closedAt !== undefined && Number.isNaN(Date.parse(record.closedAt))) blockers.push('invalid-number');
-  if (record.date && !/^(\d{4}-\d{2}-\d{2})$/.test(record.date)) blockers.push('invalid-number');
+  if (record.driversPresent !== undefined && (!Number.isFinite(record.driversPresent) || record.driversPresent < 0 || !Number.isInteger(record.driversPresent))) blockers.push('invalid-number');
+  if (record.date !== undefined && !isValidCalendarDate(record.date)) blockers.push('invalid-date');
+  if (record.codRemittedOn !== undefined && !isValidCalendarDate(record.codRemittedOn)) blockers.push('invalid-date');
+  if (record.closedAt !== undefined && !isValidIsoTimestamp(record.closedAt)) blockers.push('invalid-timestamp');
+  // Lifecycle rules: drafts carry NO close stamp; reconciled REQUIRES one.
+  // Legacy rows (no closeStatus) stay backward compatible either way.
+  if (record.closeStatus === 'draft' && record.closedAt !== undefined) blockers.push('unexpected-closed-at');
+  if (record.closeStatus === 'reconciled' && (record.closedAt === undefined || !isValidIsoTimestamp(record.closedAt))) blockers.push('invalid-timestamp');
+  // Remittance lag must stay computable: positive remittance needs its day.
+  if ((record.cashRemittedSar ?? 0) > 0 && (record.codRemittedOn === undefined || !isValidCalendarDate(record.codRemittedOn))) blockers.push('remittance-date-required');
   return { ok: blockers.length === 0, blockers };
 }
 

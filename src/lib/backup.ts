@@ -38,6 +38,7 @@
 //     trustworthy timestamps exist); a differing input counts as exactly
 //     one visible conflict and Replace is the explicit adoption path.
 
+import { isValidCalendarDate as isValidCalendarDateShared } from '@/lib/operationsReporting';
 import { sanitizeFinancialInput } from '@/lib/calculations';
 import type { FinancialInput } from '@/lib/types';
 import type { DailyRecord } from '@/lib/operationsReporting';
@@ -152,10 +153,10 @@ function str(value: unknown, max = 4000): string {
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** True only for REAL calendar dates ('2026-02-30' fails). */
+// Canonical real-calendar check lives in operationsReporting — one truth,
+// no drifting copies between backup and close code.
 function isValidCalendarDate(value: string): boolean {
-  if (!DATE_RE.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  return isValidCalendarDateShared(value);
 }
 
 /**

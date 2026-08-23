@@ -132,3 +132,31 @@ describe('buildControlTowerSnapshot', () => {
     expect(s.recoveryOpen).toBe(0);
   });
 });
+
+
+describe('tower action PRIORITY — draft-close pinned, never accidental', () => {
+  it('medium actions sort failed-yesterday → pod-gaps → record-yesterday → draft-close; draft numbers stay invisible', () => {
+    const draft = record({ date: '2026-08-20', completedShipments: 99, failedShipments: 99, cashCollectedSar: 999, closeStatus: 'draft' });
+    const yesterday = record({ date: '2026-08-22', completedShipments: 5, failedShipments: 2 });
+    const s = snap({
+      records: {
+        // no definitive yesterday → record-yesterday fires alongside the rest
+        '2026-08-20': draft,
+      },
+    });
+    expect(s.yesterday).toBeNull();
+    const ids = s.actions.map(a => a.id);
+    expect(ids).toContain('record-yesterday');
+    expect(s.codOutstandingSar).toBe(0); // draft cash NEVER moves tower COD
+  });
+
+  it('full medium set sorts by the pinned PRIORITY list (slice(0,3) after sort)', () => {
+    // yesterday missing → record-yesterday; pod gaps from a DEFINITIVE older day
+    const podDay = record({ date: '2026-08-19', completedShipments: 3, failedShipments: 0, podStatus: 'partial' });
+    const draft = record({ date: '2026-08-20', completedShipments: 99, failedShipments: 99, closeStatus: 'draft' });
+    const s = snap({ records: { '2026-08-19': podDay, '2026-08-20': draft } });
+    const ids = s.actions.map(a => a.id);
+    expect(ids).toEqual(['pod-gaps', 'record-yesterday', 'draft-close']); // exact pinned order among media
+    expect(ids).not.toContain('failed-yesterday'); // no definitive yesterday data
+  });
+});

@@ -82,9 +82,35 @@ export interface DailyMetrics {
 export const WORKING_DAYS_PER_MONTH = 26;
 
 /** Definitive-KPI predicate: drafts are excluded everywhere; legacy rows
- *  (no closeStatus) and reconciled rows are included. Single shared truth. */
+ *  (no closeStatus) and reconciled rows are included. Single shared truth —
+ *  the ONLY implementation in the codebase (eveningClose re-exports it). */
 export function isDefinitiveDailyRecord(record: DailyRecord): boolean {
   return record.closeStatus !== 'draft';
+}
+
+/** Return only the definitive records, preserving keys. Use this instead of
+ *  reassigning parameters so every selector filters identically. */
+export function filterDefinitiveRecords(records: Record<string, DailyRecord>): Record<string, DailyRecord> {
+  return Object.fromEntries(Object.entries(records).filter(([, record]) => isDefinitiveDailyRecord(record)));
+}
+
+const CALENDAR_DATE_RE = /^(\d{4}-\d{2}-\d{2})$/;
+
+/** Real-calendar YYYY-MM-DD check (rejects 2026-02-30 and other rollovers).
+ *  Canonical implementation — backup.ts delegates here; do not fork copies. */
+export function isValidCalendarDate(value: string): boolean {
+  if (!CALENDAR_DATE_RE.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+/** Existing timestamp contract: a string that parses to a real instant AND
+ *  carries an explicit time part (`YYYY-MM-DDT…`). Date-only strings are NOT
+ *  timestamps. Matches backup.normalizeIso's canonicalizable inputs. */
+export function isValidIsoTimestamp(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}T/.test(value)) return false;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime());
 }
 
 /** Local-timezone YYYY-MM-DD key. Never use UTC ISO slices for "today" —
@@ -138,8 +164,7 @@ export interface CustomerPerformanceRow {
 /** Aggregate per-customer delivered/missed across ALL recorded days,
  *  worst first. Customers without attributed data are omitted. */
 export function buildCustomerPerformance(records: Record<string, DailyRecord>, input: FinancialInput): CustomerPerformanceRow[] {
-  const definitiveRecords = Object.fromEntries(Object.entries(records).filter(([, r]) => isDefinitiveDailyRecord(r)));
-  records = definitiveRecords;
+  records = filterDefinitiveRecords(records);
   const totalsMap = new Map<string, { delivered: number; missed: number }>();
   for (const record of Object.values(records)) {
     for (const [providerId, cell] of Object.entries(record.customerBreakdown ?? {})) {
@@ -213,7 +238,7 @@ export function aggregateFailureReasons(records: Iterable<DailyRecord>): Array<{
 
 /** Aggregate recorded daily reports by month and compare against the plan. */
 export function buildMonthlyRollup(records: Record<string, DailyRecord>, output: FinancialOutput): MonthlyRollup[] {
-  records = Object.fromEntries(Object.entries(records).filter(([, r]) => isDefinitiveDailyRecord(r)));
+  records = filterDefinitiveRecords(records);
   const months = new Map<string, { days: number; completed: number; failed: number; revenue: number; fuel: number }>();
   for (const record of Object.values(records)) {
     const month = record.date.slice(0, 7);
@@ -244,7 +269,7 @@ export function buildMonthlyRollup(records: Record<string, DailyRecord>, output:
 }
 
 export function buildProjection(output: FinancialOutput, days: number, records: Record<string, DailyRecord>, endDate = new Date()) {
-  records = Object.fromEntries(Object.entries(records).filter(([, r]) => isDefinitiveDailyRecord(r)));
+  records = filterDefinitiveRecords(records);
   const factors = [0.92, 0.97, 1.03, 1, 1.06, 0.95, 1.02];
   return Array.from({ length: days }, (_, index) => {
     const date = new Date(endDate);

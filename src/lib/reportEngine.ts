@@ -4,6 +4,8 @@ import {
   buildMonthlyRollup,
   buildCustomerPerformance,
   calculateDailyMetrics,
+  filterDefinitiveRecords,
+  isDefinitiveDailyRecord,
   toDateString,
   WORKING_DAYS_PER_MONTH,
   type DailyMetrics,
@@ -119,7 +121,7 @@ export interface ReportModel {
 /** Fully-loaded daily cost per completed stop: allocation + fuel cash + extras.
  *  Research method: include retries/claims overhead, divide by COMPLETED stops. */
 export function buildCostPerStopSeries(records: Record<string, DailyRecord>, output: FinancialOutput): Array<{ date: string; label: string; value: number; completed: number }> {
-  return Object.values(records)
+  return Object.values(filterDefinitiveRecords(records))
     .filter(record => record.completedShipments > 0)
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(record => ({
@@ -147,13 +149,14 @@ export function buildDeliverySeries(records: Record<string, DailyRecord>, output
     const date = shift(focusDate, index - (days - 1));
     const key = toDateString(date);
     const record = records[key];
+    const definitive = record && isDefinitiveDailyRecord(record);
     return {
       date: key,
       label: key.slice(5),
       target: Math.round(dailyPlan),
-      delivered: record ? record.completedShipments : 0,
-      missed: record ? record.failedShipments : 0,
-      recorded: Boolean(record),
+      delivered: record && definitive ? record.completedShipments : 0,
+      missed: record && definitive ? record.failedShipments : 0,
+      recorded: Boolean(record && definitive),
     };
   });
 }
@@ -290,15 +293,20 @@ export function buildReportModel(options: {
   focusDate?: Date;
   windowDays?: number;
 }): ReportModel {
-  const { kind, locale, record, records, input, output } = options;
+  const { kind, locale, record, input, output } = options;
+  // ONE filtered source for every definitive aggregate: a draft close can
+  // never move report revenue, delivery/failure totals, cost-per-stop,
+  // customer scorecard or history presence. The focus day itself still
+  // renders (the operator opened it) but contributes nothing below.
+  const definitiveRecords = filterDefinitiveRecords(options.records);
   const focusDate = options.focusDate ?? new Date(`${record.date}T12:00:00`);
   const windowDays = options.windowDays ?? (kind === 'pro' ? 14 : 7);
-  const series = buildDeliverySeries(records, output, focusDate, windowDays);
-  const totals = buildTotals(series, records, output);
+  const series = buildDeliverySeries(definitiveRecords, output, focusDate, windowDays);
+  const totals = buildTotals(series, definitiveRecords, output);
   // Focus-day fuel cost attaches to totals so single-day reports carry it too.
   totals.fuelCost = record.fuelCost;
   const metrics = calculateDailyMetrics(record, input, output);
-  const performance = buildCustomerPerformance(records, input);
+  const performance = buildCustomerPerformance(definitiveRecords, input);
   const base = { series, totals, metrics, record };
   return {
     kind,
@@ -308,11 +316,11 @@ export function buildReportModel(options: {
     metrics,
     series,
     totals,
-    monthly: buildMonthlyRollup(records, output),
+    monthly: buildMonthlyRollup(definitiveRecords, output),
     customerPerformance: performance,
-    costPerStopSeries: buildCostPerStopSeries(records, output),
+    costPerStopSeries: buildCostPerStopSeries(definitiveRecords, output),
     insights: deriveInsights(base, input, output, performance),
-    hasHistory: Object.keys(records).length > 0,
+    hasHistory: Object.keys(definitiveRecords).length > 0,
     expectedDailyFuel: output.fuelMonthlyCost / WORKING_DAYS_PER_MONTH,
     driversTotal: input.companyDriverCount,
   };

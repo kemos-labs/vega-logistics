@@ -56,6 +56,15 @@ function renderClose(stops: StopRecord[], daily: DailyRecord | undefined, recove
 beforeEach(() => { commitBundleSpy.mockClear(); commitBundleSpy.mockImplementation(() => ({ persistedOk: true, failedKeys: [], rollbackOk: true, rollbackFailedKeys: [] })); });
 afterEach(() => cleanup());
 
+function setField(name: string, value: string) {
+  fireEvent.change(document.querySelector(`[name="${name}"]`) as HTMLInputElement, { target: { value } });
+}
+/** New closes require explicitly reviewed fuel + attendance before any save. */
+function reviewCrew(fuel = '80', drivers = '2') {
+  setField('close-fuel', fuel);
+  setField('close-drivers', drivers);
+}
+
 function setOutcome(reference: string, outcome: string) {
   fireEvent.click(screen.getByTestId(`${outcome}-${reference}`));
 }
@@ -64,6 +73,7 @@ describe('EveningCloseView', () => {
   it('balanced outcomes enable confirmation; mismatch blocks with visible reason', () => {
     const stops = [stop({ status: 'delivered' }), stop({ status: 'returned', failureReasonKey: 'noDriver' }), stop()];
     renderClose(stops, undefined);
+    reviewCrew();
     // loaded = 3 via manual entry
     fireEvent.change(document.querySelector('[name="loaded-shipments"]') as HTMLInputElement, { target: { value: '3' } });
     expect((screen.getByTestId('confirm-close') as HTMLButtonElement).disabled).toBe(false);
@@ -88,6 +98,7 @@ describe('EveningCloseView', () => {
     setOutcome(stops[1].reference ?? '', 'returned');
     fireEvent.change(screen.getByTestId('reason-picker').querySelector('select') as HTMLSelectElement, { target: { value: 'addressIssue' } });
     fireEvent.click(screen.getByText('businessModel.close.applyReason'));
+    reviewCrew();
     fireEvent.change(document.querySelector('[name="loaded-shipments"]') as HTMLInputElement, { target: { value: '2' } });
     expect((screen.getByTestId('confirm-close') as HTMLButtonElement).disabled).toBe(false);
   });
@@ -104,6 +115,7 @@ describe('EveningCloseView', () => {
   it('draft save succeeds with mismatch and says the day is NOT closed', () => {
     const stops = [stop({ status: 'delivered' }), stop()];
     renderClose(stops, undefined);
+    reviewCrew();
     fireEvent.change(document.querySelector('[name="loaded-shipments"]') as HTMLInputElement, { target: { value: '5' } });
     fireEvent.click(screen.getByTestId('save-draft'));
     const bundle = (commitBundleSpy.mock.calls[0] as unknown[])[0] as { dailyRecords: Record<string, DailyRecord> };
@@ -116,6 +128,7 @@ describe('EveningCloseView', () => {
     const delivered = stop({ status: 'delivered' });
     const returned = stop({ status: 'returned', failureReasonKey: 'addressIssue' });
     renderClose([failed, delivered, returned], undefined);
+    reviewCrew();
     fireEvent.change(document.querySelector('[name="loaded-shipments"]') as HTMLInputElement, { target: { value: '3' } });
     fireEvent.click(screen.getByTestId('confirm-close'));
     const bundle = (commitBundleSpy.mock.calls[0] as unknown[])[0] as { dailyRecords: Record<string, DailyRecord>; recoveryEntries: RecoveryEntry[]; stops: StopRecord[] };
@@ -135,6 +148,7 @@ describe('EveningCloseView', () => {
     const failed = stop({ status: 'pending', failureReasonKey: 'noDriver' });
     const existing: RecoveryEntry[] = [{ id: 'rec-stop-' + failed.id, createdAt: DATE, shipments: 1, owner: 'o', status: 'pending', stopId: failed.id }];
     renderClose([failed], undefined, existing);
+    reviewCrew();
     fireEvent.change(document.querySelector('[name="loaded-shipments"]') as HTMLInputElement, { target: { value: '1' } });
     fireEvent.click(screen.getByTestId('confirm-close'));
     const bundle = (commitBundleSpy.mock.calls[0] as unknown[])[0] as { recoveryEntries?: RecoveryEntry[] };
@@ -144,6 +158,7 @@ describe('EveningCloseView', () => {
   it('combined persistence failure changes no state; retry remains possible', () => {
     commitBundleSpy.mockImplementation(() => ({ persistedOk: false, failedKeys: ['vega-stops-v1', 'vega-daily-reports-v2'], rollbackOk: true, rollbackFailedKeys: [] }));
     const spies = renderClose([stop({ status: 'delivered' })], undefined);
+    reviewCrew();
     fireEvent.change(document.querySelector('[name="loaded-shipments"]') as HTMLInputElement, { target: { value: '1' } });
     fireEvent.click(screen.getByTestId('confirm-close'));
     expect(spies.setStops).not.toHaveBeenCalled();
@@ -199,8 +214,99 @@ describe('EveningCloseView', () => {
     expect((document.querySelector('[name="loaded-shipments"]') as HTMLInputElement).value).toBe(''); // no leakage
   });
 
-  it('draft rows are flagged as excluded from definitive KPIs', () => {
-    renderClose([stop()], record({ closeStatus: 'draft' }));
-    expect(screen.getByTestId('evening-close').textContent).toContain('draftExcluded');
+  it('date switch resets EVERY date-scoped field in one helper — no leakage', () => {
+    const pickerStop = stop({ status: 'pending' });
+    renderClose([pickerStop], undefined);
+    // enter values + open the reason picker on date A
+    setField('loaded-shipments', '7');
+    setField('cod-remitted-on', '2026-08-25');
+    setField('cod-adjust-note', 'note-A');
+    setField('cod-expected-manual', '500');
+    setField('close-fuel', '55');
+    setOutcome(pickerStop.reference ?? '', 'pending'); // opens picker, reasonFor state engaged
+    fireEvent.change(screen.getByTestId('close-date'), { target: { value: '2026-08-20' } });
+    expect((document.querySelector('[name="loaded-shipments"]') as HTMLInputElement).value).toBe('');
+    expect((document.querySelector('[name="cod-remitted-on"]') as HTMLInputElement).value).toBe('');
+    expect((document.querySelector('[name="cod-adjust-note"]') as HTMLInputElement).value).toBe('');
+    expect((document.querySelector('[name="cod-expected-manual"]') as HTMLInputElement).value).toBe('');
+    expect((document.querySelector('[name="close-fuel"]') as HTMLInputElement).value).toBe('');
+    expect((document.querySelector('[name="close-drivers"]') as HTMLInputElement).value).toBe('');
+    expect(screen.queryByTestId('reason-picker')).toBeNull(); // reasonFor reset
+  });
+
+  it('draft save REJECTS structurally invalid loaded counts (-1, 1.5)', () => {
+    renderClose([stop({ status: 'delivered' }), stop()], undefined);
+    reviewCrew();
+    setField('loaded-shipments', '-1');
+    fireEvent.click(screen.getByTestId('save-draft'));
+    expect(commitBundleSpy).not.toHaveBeenCalled();
+    expect(screen.getByTestId('close-message').textContent).toContain('fixNumbers');
+    setField('loaded-shipments', '1.5');
+    fireEvent.click(screen.getByTestId('save-draft'));
+    expect(commitBundleSpy).not.toHaveBeenCalled();
+    // a valid value persists again
+    setField('loaded-shipments', '2');
+    fireEvent.click(screen.getByTestId('save-draft'));
+    expect(commitBundleSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('new close requires explicitly reviewed fuel and attendance; junk blocked; explicit zero accepted', () => {
+    renderClose([stop({ status: 'delivered' }), stop()], undefined);
+    setField('loaded-shipments', '2');
+    // blank fuel + drivers ⇒ both required blockers visible, draft blocked
+    fireEvent.click(screen.getByTestId('save-draft'));
+    expect(commitBundleSpy).not.toHaveBeenCalled();
+    const blockers = screen.getByTestId('close-blockers').textContent;
+    expect(blockers).toContain('fuel-required');
+    expect(blockers).toContain('drivers-required');
+    // negative / fractional / exponent junk blocked
+    for (const [fuelName, fuelVal, driversVal] of [
+      ['close-fuel', '-5', '2'], ['close-drivers', '80', '-1'], ['close-drivers', '80', '1.5'], ['close-fuel', '1e3', '2'],
+    ] as const) {
+      setField('close-fuel', '');
+      setField('close-drivers', '');
+      setField(fuelName, fuelVal);
+      setField('close-drivers', driversVal);
+      fireEvent.click(screen.getByTestId('save-draft'));
+      expect(commitBundleSpy).not.toHaveBeenCalled();
+    }
+    // explicit zero IS accepted (reviewed)
+    setField('close-fuel', '0');
+    setField('close-drivers', '0');
+    fireEvent.click(screen.getByTestId('save-draft'));
+    const bundle = (commitBundleSpy.mock.calls[0] as unknown[])[0] as { dailyRecords: Record<string, DailyRecord> };
+    expect(bundle.dailyRecords[DATE].fuelCost).toBe(0);
+    expect(bundle.dailyRecords[DATE].driversPresent).toBe(0);
+  });
+
+  it('existing date keeps stored crew values when fields left untouched; clearing blocks only junk', () => {
+    renderClose([stop({ status: 'delivered' }), stop()], record());
+    setField('loaded-shipments', '2');
+    fireEvent.click(screen.getByTestId('save-draft')); // blank inputs → preserved 90/1
+    const bundle = (commitBundleSpy.mock.calls[0] as unknown[])[0] as { dailyRecords: Record<string, DailyRecord> };
+    expect(bundle.dailyRecords[DATE].fuelCost).toBe(90);
+    expect(bundle.dailyRecords[DATE].driversPresent).toBe(1);
+  });
+
+  it('positive remitted amount without a remittance date blocks; clearing COD note/date clears persisted fields', () => {
+    // NOTE: no stored codExpectedSar — a stored manual expectation would
+    // legitimately demand its note (tested at domain level).
+    const existing = record({ cashRemittedSar: 30, codRemittedOn: '2026-08-25', codAdjustmentNote: 'stale-note' });
+    renderClose([stop({ status: 'delivered' })], existing);
+    reviewCrew();
+    setField('loaded-shipments', '1');
+    // operator clears the stale note and date; remitted stays positive but date input emptied
+    setField('cod-adjust-note', '');
+    setField('cod-remitted-on', '');
+    fireEvent.click(screen.getByTestId('save-draft'));
+    const blockers = screen.getByTestId('close-blockers').textContent;
+    expect(blockers).toContain('remittance-date-required'); // positive remitted needs its day
+    expect(commitBundleSpy).not.toHaveBeenCalled();
+    // supply the date again → saves, and the cleared note is gone from storage
+    setField('cod-remitted-on', '2026-08-25');
+    fireEvent.click(screen.getByTestId('save-draft'));
+    const bundle = (commitBundleSpy.mock.calls[0] as unknown[])[0] as { dailyRecords: Record<string, DailyRecord> };
+    expect(bundle.dailyRecords[DATE].codAdjustmentNote).toBeUndefined(); // explicitly cleared, not stale
+    expect(bundle.dailyRecords[DATE].codRemittedOn).toBe('2026-08-25');
   });
 });

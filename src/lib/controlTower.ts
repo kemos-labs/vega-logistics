@@ -126,7 +126,9 @@ export function buildControlTowerSnapshot(inputSpec: ControlTowerInput): Control
   // Explicit stable ranking: high before medium, then fixed domain priority.
   // Sorting happens BEFORE slicing so a high-severity item can never be
   // displaced by insertion-order luck.
-  const PRIORITY = ['recovery-overdue', 'backup-stale', 'cod-outstanding', 'failed-yesterday', 'pod-gaps', 'record-yesterday'] as const;
+  // draft-close is prompt-only (navigation polish lands with R5-UX); its
+  // position here is INTENTIONAL — last medium action, never accidental.
+  const PRIORITY = ['recovery-overdue', 'backup-stale', 'cod-outstanding', 'failed-yesterday', 'pod-gaps', 'record-yesterday', 'draft-close'] as const;
   const rank = (a: TowerAction): number => (a.severity === 'high' ? 0 : 1) * 100 + PRIORITY.indexOf(a.id as typeof PRIORITY[number]);
   const sortedActions = [...actions].sort((a, b) => rank(a) - rank(b)).slice(0, 3);
 

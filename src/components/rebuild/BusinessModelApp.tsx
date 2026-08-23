@@ -240,7 +240,7 @@ export default function BusinessModelApp() {
           />
         )}
       <main id="bm-main" className="bm-main">
-        {view === 'close' && <EveningCloseView date={toDateString(new Date())} stops={stops} setStops={setStops} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} />}
+        {view === 'close' && <EveningCloseView initialDate={toDateString(new Date())} stops={stops} setStops={setStops} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} />}
         {view === 'dispatch' && <DispatchBoardView stops={stops} setStops={setStops} drivers={input.drivers} />}
         {view === 'stops' && <StopPlanning stops={stops} setStops={setStops} />}
         {stopsBootDropped > 0 && (
