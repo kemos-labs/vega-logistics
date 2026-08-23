@@ -1,145 +1,110 @@
 # VEGA Logistics OS — Master Plan
-**Status:** ACTIVE · **Horizon:** 6 months · **Owner:** founder + coding agents
-**Evidence base:** `docs/RESEARCH_DOSSIER.md` (verified source register — every factual claim below traces there) · `AGENTS.md` (hard rules)
+**Status:** ACTIVE · **Authority:** this file is the execution roadmap · **Evidence base:** `RESEARCH_DOSSIER.md` (verified register) · `PRODUCT_TRUTH_AUDIT.md` (capability truth) · `KSA_COMPLIANCE_MATRIX.md` · `KPI_DICTIONARY.md` · `OPERATOR_WORKFLOW.md` · `COMPETITOR_AND_TOOLS_MATRIX.md` · `DATA_MODEL.md`
 
-Claim discipline: **[REG]** = regulatory requirement with primary source · **[BM]** = industry benchmark with source · **[INT]** = VEGA internal target, no external support. Anything unverified is marked VERIFY and blocks dependent product claims.
+Claim discipline: **[REG]** regulatory w/ primary source · **[BM]** external benchmark w/ source · **[INT]** VEGA internal target · **[H]** operator hypothesis awaiting validation. Work is tracked by **product releases**, not review contracts.
 
 ---
 
-## 1. Vision
+## 1. Product promise
 
-One screen the owner opens every morning and closes every night. It must answer, in Arabic or English, in under 30 seconds:
+> One Arabic or English workspace that tells the owner, in under 30 seconds: what was planned, what was delivered, what failed, what cash is outstanding, what needs recovery, which vehicles/drivers need attention, and what must happen next.
 
-> *What happened yesterday, what broke, who owes me what, what must happen today.*
+Success measure: a Saudi owner runs tomorrow's operation more reliably, with less spreadsheet/WhatsApp confusion, zero unnecessary infrastructure cost, and full clarity about what the software can and cannot guarantee.
 
-Everything else serves that sentence.
+## 2. Where we are (audited — details in PRODUCT_TRUTH_AUDIT)
 
-## 2. Where we are (audited)
+Shipped and verified: fleet-economics model + scenarios; daily ops entry with plan-vs-actual engine; Standard/Pro EN-AR reports (PDF vector + Excel); recovery board; native Saudi Arabic UI (Cairo, RTL law); PWA offline shell; backup v2 integrity system (merge/replace/cancel, transactional writes, legacy scoped restore) **accepted**; backup-age banner (`da133b8`); Arabic WhatsApp provider parser with review-gated confirm (`6d66bf1`). Seams only: telematics (mock), repositories/sync interfaces. Absent: stop-level planning/dispatch/close workflow, compliance-lite fields, driver analytics.
 
-| Capability | State |
-|---|---|
-| Daily ops entry (deliveries/misses/drivers/fuel-SAR/COD/POD/customer split) | ✅ live |
-| Plan-vs-actual engine + variance history | ✅ live |
-| Standard & Pro reports, EN/AR/both, PDF+Excel, vector charts | ✅ live |
-| Recovery board (owners, aging, close-rate, weekly trend) | ✅ live |
-| Customer scorecards w/ trend | ✅ live |
-| Native Saudi Arabic UI (Cairo), PWA offline shell | ✅ live |
-| Telematics seam (mock adapter) | ✅ seam only |
-| Persistence | ⚠️ localStorage single-device |
-| Compliance features | ❌ none (research stage) |
-| Route planning | ❌ none |
+**P1 is closed** as of the Foundation commit (see R0). No further alphabetic review-contract loops.
 
-## 3. KSA ground truth (sourced)
+## 3. KSA ground truth (sourced — full citations in dossier)
 
-| Fact | Class | Consequence for VEGA | Source |
-|---|---|---|---|
-| From 1 Jan 2026 TGA enforces: parcel companies must not accept/carry postal shipments lacking recipient's National Address; fines SAR 5,000–50,000 [REG] | [PRIMARY] TGA news 198 (2026-01-01) | National-Address field + format validation on shipment/customer records; manifest exports carry it; **no compliance claim** until operator's licensing scope confirmed | tga.gov.sa/ar/MediaCenter/TGANewsDetails/198 |
-| Short Address format = 4 letters + 4 numbers [REG-format only] | [PRIMARY] SPL portal | Client-side `AAAA9999` check is *format validation*; authoritative verification only via SPL services | splonline.com.sa/en/national-address-1 |
-| ZATCA Phase 1 ("Generation", since 4 Dec 2021): compliant generation/storage of e-invoices; simplified B2C invoices require QR per ZATCA spec [REG] | [PRIMARY] zatca.gov.sa | Receipt generator stores invoice-shaped data + QR payload fields; never claims more than data-readiness | zatca.gov.sa Roll-out phases · Phase-1 How-to-prepare |
-| ZATCA Phase 2 ("Integration", waves from 1 Jan 2023): Fatoora integration, XML or PDF/A-3 w/ embedded XML, clearance (B2B) vs 24h reporting (B2C), cryptographic stamp; wave assignment only via ZATCA notice ≥6 months ahead [REG] | [PRIMARY] docs; mechanism details VERIFY pending page-level extraction | VEGA can only keep data ZATCA-shaped. No "compliant" wording anywhere in UI. Operator checks own wave notice | zatca.gov.sa How-to-get-ready.pdf · Detailed Guideline · 19-May-2023 Resolution |
-| TGA light-freight (≤3,500 kg) rules & electronic transport documents | **VERIFY** | P2 manifest export labelled "informed by TGA fields", explicitly non-authoritative | tga.gov.sa/ar/Regulations/Regulation/4786 |
-| COD: 25% of surveyed consumers chose cash for their **last** online purchase (debit 50%) — survey of payment method, NOT value share | [PRIMARY] SAMA 2023, p.24 | COD reconciliation stays core; no market-value claims in copy | sama.gov.sa Report_on_Payments_Usage_Study_2023_en.pdf |
-| Ramadan seasonal surge is real and measured: 26M+ parcels in Ramadan 1446 (+18% YoY), 1.1M peak day [PRIMARY: SPA/TGA, 2025-03-29]; last mile ≈ up to 50% of total logistics costs [VENDOR: Grant Thornton] | Season mode = manual plan multiplier + shifted shift labels; no numeric plan claim inherited from these figures | dossier Addendum (SPA verbatim; GT verbatim) |
-
-## 4. Targets — three separate registers
-
-**Industry benchmarks [BM]**
-| Measure | Value | Source |
+| Fact | Class | Consequence |
 |---|---|---|
-| e-POD completeness, cross-industry median | 80.0% (n=1,144 companies) | APQC measure 108931 |
-| US domestic first-attempt success Q2-2025 | 99.22% (vendor-reported, not small-fleet/KSA comparable) | Parcel Perform `[VENDOR]` |
+| From 1 Jan 2026 TGA bars carrying postal shipments without recipient National Address; fines SAR 5,000–50,000 | [PRIMARY] TGA news 198 | R5 address capture + manifest fields; no "verified" claims |
+| Short Address = 4 letters + 4 digits | [PRIMARY] SPL | format-only validator |
+| VAT standard rate 15% (VAT Law Art.2 verbatim Arabic; effective 1 Jul 2020) | [PRIMARY] ZATCA law PDF | `vatRate` default source-backed, configurable; drafts only |
+| ZATCA Phase 1 live since Dec 2021; Phase 2 waves w/ ≥6-month notices | [PRIMARY→VERIFY mechanism pages] | data-shaped receipts; never "compliant" |
+| GASTAT 2024: parcels >180M (+~29% YoY), delivery-app orders 288.1M, sector on-time 96%, avg delivery ~2 days | [OFFICIAL STATISTICS] GASTAT W&L 2024 | market context only — never internal targets |
+| COD: cash = 25% of consumers' last online purchase (survey share, not value) | [PRIMARY] SAMA 2023 p.24 | COD reconciliation stays core |
+| Ramadan surge real: 26M+ parcels Ramadan 1446 (+18% YoY), 1.1M peak day | [PRIMARY] SPA/TGA 2025-03-29 | season mode = manual plan multiplier |
+| Last-mile up to 50% of logistics costs; ~40% of demand outside major urban centres | [VENDOR] Grant Thornton KSA | motivates non-Riyadh-friendly simplicity |
 
-**VEGA internal operating targets [INT]** *(owner-set; no external support claimed)*
-| Target | Value | Encoded in |
-|---|---|---|
-| Completion/FADR | ≥90% daily (stretch 95%) | scoreboard target line |
-| Miss rate | ≤8% warn · ≤3% healthy | insight thresholds + tests |
-| e-POD completeness | ≥98% (stretch above APQC median) | podLine/podShare |
-| Recovery close rate | ≥50%, overdue>7d hot | RECOVERY_TARGETS |
-| Fuel cost control | alert >115% model day | insight thresholds + tests |
-| Cost per delivered stop | ±10% of rolling 4-week baseline | cost-trend view |
+## 4. Targets — three registers
 
-## 5. Roadmap
+**Benchmarks [BM]:** APQC e-POD median 80.0% (n=1,144). Parcel Perform 99.22% US-domestic `[VENDOR]` — explicitly not KSA/small-fleet comparable.
+**Internal [INT]:** completion ≥90% (stretch 95%) · miss ≤8% warn/≤3% healthy · ePOD ≥98% · recovery close ≥50%, >7d hot · fuel alert >115% model day · cost/stop ±10% of rolling 4-week baseline · COD remit lag ≤2 working days.
+**Hypotheses [H]:** all workflow assumptions in OPERATOR_WORKFLOW.md until first real operator session.
 
-### P0 — Hardening (DONE)
-Redesign · report engine v2 · recovery board · daily rebuild · native-Arabic rewrite · Cairo typography · PWA shell · deploy pipeline. Gates green.
+---
 
-### P1 — Backup integrity *(core done — stabilization through contract F; acceptance marks this phase's core complete)*
-Nothing else matters if records die with the browser.
-- [x] Audit persisted keys → final inventory: five data keys + `language`; `vega-vehicles`/`vega-zones` were immutable seeds and their persistence was REMOVED (truthful-design option b).
-- [x] Strict versioned envelope v2 round-tripping FinancialInput, every DailyRecord field (incl. optionals), scenarios, recovery entries, follow-up actions, language pref. Missing/malformed collection ⇒ whole-file rejection; FinancialInput validated BEFORE sanitize (`{}` rejected); corrupt individual records ⇒ warnings + lossless=false.
-- [x] Import preview with explicit **merge / replace / cancel**; deterministic conflicts via normalized-ISO `updatedAt` (numeric compare; newer incoming wins; ties keep local; identical ignored; visible counts). Merge never overwrites model inputs. Parse failure never touches state or localStorage.
-- [x] Destructive-Replace guard: any dropped record disables Replace; localStorage write failures are collected and NEVER announced as success (`persistBundle`).
-- [x] Legacy v1 import migration + explicit "v1 never stored recovery/actions" warning; Replace disabled for v1.
-- [x] Language round-trip: active i18n language captured in exports; stored/restored RAW (`en`/`ar`, matching ClientLayout/i18n.ts); Blob-intercept test proves it; reload test asserts raw value + changeLanguage('ar') + app language event.
-- [x] Legacy v1 gets a clearly-labelled **scoped restore**: adopts model/days/scenarios; recovery entries, actions and language are preserved untouched; Replace stays disabled.
-- [x] Lossless-aware validation: every material drop/sanitization (bad optionals, invalid timestamps, malformed breakdown entries, impossible calendar dates, non-positive shipments, fractional/negative ids, bad enums, duplicate dates/ids) warns and marks the file lossy; Scenario.input shape-gated before sanitize.
-- [x] Transactional persistence: snapshot → attempt all → rollback on any failure; React state moves only after full success; preview stays open on failure; distinct critical message when rollback itself fails.
-- [x] Tests: 30 backup total — 20 unit + 10 browser/component jsdom (incl. exported-Blob language proof, quota-rollback UI proof, v1 scoped-restore reload proof). **Core ACCEPTED after Commit F review.**
-- [x] In-app backup-age banner after 7 days without export — pure clock-injected engine (`backupReminder.ts`), device key outside backup files, download-initiated stamp reset, day-scoped dismissal, EN/AR banner w/ CTA navigation+focus. **Complete after Commit G tests/live verification.**
-- [x] v1 duplicate-id scope corruption warns + blocks scoped restore (G1 regression tests).
-- [x] Arabic WhatsApp paste-parser — pure engine + review/confirm card in Daily view; unreconciled totals block confirmation; overwrite of an existing date requires explicit acknowledgement. **Complete after Commit H tests/live verification.**
-**Accept:** export→import deep-equality tests; corrupt file rejected without touching current data; v1 migration test; merge-conflict determinism test; malformed-import-cannot-change-state integration proof; recovery-updatedAt end-to-end survival; corrupt-v1 scoped-restore block; snapshot-read abort. ✅ delivered (all tests passing: 147).
+## 5. Release roadmap
 
-### P2 — Compliance-lite data capture (~2 weeks)
-1. National Address + Short Address fields w/ `^[A-Za-z]{4}\d{4}$` **format** validator (labelled format-only).
-2. Manifest PDF gains cargo-statement-style block (vehicle, plate, driver, stop list) — explicitly non-authoritative pending TGA VERIFY.
-3. Invoice-shaped receipt draft: VAT lines driven by a **configurable `vatRate` constant** (default 15 flagged VERIFY — rate not yet quoted verbatim from a primary source), Phase-1-style QR payload; UI copy says "data-ready for e-invoicing", never "compliant".
-**Accept:** validator tests; receipts render EN/AR; no regulatory claim strings in locales; no hard-coded rate anywhere.
+### R0 — Foundation: close P1 once (this cycle)
+Batch-close the remaining parser/reminder defects in ONE commit, then freeze P1:
+- [x] stale preview cleared when source text edited after parse
+- [x] blank/invalid record date can never be confirmed
+- [x] overwrite acknowledgement required for ANY existing date record (not only "valued" ones)
+- [x] greetings/chatter stripped from driver-name extraction («السلام عليكم», «صباح الخير», «الحمد لله»…)
+- [x] conflicting duplicate term values warn instead of silently taking first
+- [x] parser warnings localized EN/AR (no raw tokens in UI)
+- [x] reminder baseline uses LOCAL calendar days for dismissal (timezone law), dead code removed
+- [x] modified model inputs count toward reminder eligibility (meaningful-data check)
+- [x] governance reset (AGENTS durable-only, SESSION_MEMORY status moved out)
+**Accept:** unit+UI tests per fix; gates green; deployed. ✅
 
-### P3 — Route-lite (~2 weeks)
-1. Per-driver stop sequencing: manual drag order default; optional drive-order suggestion behind `NEXT_PUBLIC_OSRM_URL`.
-2. **CSP reality:** app ships `connect-src 'self'`. Enabling public OSRM requires explicit CSP addition naming the origin + OSM attribution display + identifying User-Agent policy awareness (public demo ≈1 rps fair-use, no SLA → self-host is the production path). Without env var, feature stays offline-manual.
-3. Geocode cache (localStorage) honouring Nominatim 1 rps / attribution / anti-bulk rules if geocoding ships at all.
-**Accept:** driver sheet ordered for tomorrow prints <1 min; zero network calls when flag unset.
+### R1 — Daily Control Tower *(next)*
+One home workspace answering the promise <30s: yesterday planned/delivered/failed/recovered; unreconciled differences; today's readiness; COD outstanding; POD gaps; open exceptions + recovery aging; backup staleness; top-3 actions.
+Requirements: EN/AR; 375px mobile no overflow; honest empty/local-only states; everything derived from recorded data; every tile links to its corrective workflow.
+**Accept:** component tests per tile; RTL visual check; live deploy verify.
 
-### P4 — Analytics depth (~2 weeks)
-1. COD remittance-lag trend chart.
-2. Driver leaderboard (utilisation, miss attribution, recoveries).
-3. Fuel control chart w/ >115% alert (already pinned).
-4. Weekly digest = **manual export flow** until backend exists (P5); no cron-on-static-hosting fiction.
-**Accept:** all charts from recorded data; no server assumptions.
+### R2 — Shipment & stop planning
+StopRecord model per DATA_MODEL.md §3; manual entry; safe bulk paste; CSV import preview; duplicate detection; validation summary; explicit confirm before any mutation; privacy-labelled optional phone.
+**Accept:** import-cannot-mutate-on-reject tests; migration fixtures; backup envelope v3 round-trip.
 
-### P5 — Optional sync backend (free tier)
-1. Supabase free tier behind `NEXT_PUBLIC_SYNC=supabase`: Postgres mirror, email-link auth, RLS owner-only.
-2. Local-first write-through; conflicts last-writer-wins per record via updatedAt; localStorage remains boot source.
-3. **Accepted platform limits** (per official docs): pause after 7 days of LOW ACTIVITY with warning email ~1 week prior; restore possible for up to 1 year; normal operator activity ("a few user requests each day") naturally prevents pausing — no artificial keep-alive. Pause consequence = temporary sync outage; recovery paths = local-first data + P1 backups + dashboard resume.
-**Accept:** two devices converge; airplane-mode edits reconcile.
+### R3 — Morning dispatch & manifest
+Day board: unassigned/assigned stops; accessible reorder (buttons first, drag optional); workload counts; missing-address/contact warnings; bilingual print manifest labelled «مستند تشغيلي داخلي».
+**Accept:** dispatcher prints a practical day plan <1 min, zero network calls.
 
-### P6 — Live fleet (when hardware exists)
-Traccar self-host adapter implementing the existing telematics seam (`NEXT_PUBLIC_TELEMATICS=traccar`). Position poll → map strip in Daily view; idle-time feeds fuel analysis. Needs a small VPS when activated.
+### R4 — Evening close & exception loop
+Guided close enforcing `loaded = delivered + returned + pending/unexplained`; failed-by-reason capture; failed stops → recovery entries idempotently; COD expected/collected/remitted/outstanding; draft saves labelled unreconciled and excluded from definitive KPIs.
+**Accept:** invariant tests incl. impossible dates/timezones; blocked-unresolved-difference UI test.
 
-### P7 — Evaluate only
-ERPNext Delivery Trip import/export; WhatsApp Cloud API outbound templates (verify per-message pricing first); multi-company partitioning.
+### R5 — Compliance-lite data readiness
+Short Address format validation; National Address completeness flag; document-expiry reminders where justified; configurable-VAT receipt drafts (default 15 now [REG-backed]) + Phase-1-shaped QR payload; disclaimers everywhere; PDPL minimization labels.
+**Accept:** no prohibited claim strings (lint-time locale grep); validator tests; EN/AR receipt render.
 
-## 6. Free-stack decisions (locked unless dossier overturns)
+### R6 — Operational analytics
+Driver scorecard; customer scorecard (exists, extend); COD remittance-lag trend; cost-per-delivered-stop; fuel control; recovery aging/close-rate; failure Pareto. Every chart: definition + denominator + empty/insufficient states + drilldown + Arabic labels + tabular alternative + PDF/Excel parity.
+**Accept:** recorded-data-only provenance test per metric.
 
-| Need | Choice | Why | Accepted catch |
-|---|---|---|---|
-| Hosting | GitHub Pages | free, green pipeline | static-only |
-| Routing (opt-in) | OSRM self-host path; demo only for dev | OSS; demo has fair-use limits, no SLA | CSP extension needed for any public endpoint |
-| Geocoding (if shipped) | Nominatim under OSMF policy | free w/ rules | 1 rps, attribution, anti-bulk, caching duty |
-| GPS | Traccar | OSS, broad protocol support | needs VPS when live |
-| Backend (opt-in) | Supabase free tier | Postgres+auth+RLS | pauses, no PITR — accepted, documented |
-| Fonts/charts/PDF | self-hosted Cairo+IBM Plex, jsPDF vector, exceljs | zero CDN deps (CSP law) | manual Arabic shaping care in PDFs |
+### R7 — Route-lite (evaluate AFTER local loop stable)
+Offline manual ordering ships first (R3). Optional OSRM suggestion behind `NEXT_PUBLIC_OSRM_URL`: CSP origin named, OSM attribution visible, timeout fallback, manual order always recoverable, demo-endpoint reliance banned for production.
 
-**Banned:** paid SaaS per-seat tools without approval · CDN font/script loads · litres-based fuel logic · server-required features while P5 unshipped · silent CSP loosening.
+### R8 — Optional sync (last)
+Supabase free tier behind `NEXT_PUBLIC_SYNC=supabase`: magic-link auth, RLS owner-only, KSA-region project (PDPL transfer gate), local-first boot path, outbox retries, record-level conflict preview, tombstones, account/data deletion path, privacy note shipped in-app.
+
+### Future evaluation — do NOT implement until justified
+Traccar telemetry; maintenance work orders; customer tracking portal; WhatsApp Business outbound (pricing NOT RESEARCHED); vehicle inspections; AI assistant; predictive maintenance; carbon reporting; full ZATCA Phase-2 integration; multi-company tenancy. Seams stay clean; none distract from daily operations.
+
+## 6. Free-stack decisions (locked)
+
+GitHub Pages hosting · self-host-path OSRM/VROOM · Traccar (future) · Supabase free tier opt-in (pause-aware, no keep-alive hacks) · Nominatim policy-compliant if geocoding ever ships · self-hosted Cairo/IBM-Plex fonts · jsPDF vector charts · exceljs. **Banned:** paid SaaS without approval · CDN loads · litres fuel logic · server-required features pre-R8 · silent CSP loosening.
 
 ## 7. Risk register
 
-| Risk | L×I | Mitigation | Early signal |
+| Risk | L×I | Mitigation | Signal |
 |---|---|---|---|
-| localStorage loss | H×H | P1 backups + age banner | days-since-backup counter |
-| National Address obligation scope | M×H | capture fields now; legal scope VERIFY | % shipments missing address |
-| ZATCA wave notice arrives | L×H | data-shaped invoices ready; integrate then | revenue near VAT threshold |
-| OSRM/Nominatim policy drift | M×L | env-flag + offline fallback; policy re-check at deploy | fetch failure streak |
-| Supabase pause | M×L | local-first; backups are recovery path | sync outage reports |
-| RTL/regression quality | M×L | AGENTS.md laws + locale parity checks | screenshot diffs |
+| localStorage loss | H×H | backups + age banner (shipped) | days-since-backup |
+| National Address scope misread | M×H | capture fields; legal scope VERIFY | % shipments missing address |
+| ZATCA wave notice | L×H | data-shaped invoices ready | revenue near threshold |
+| OSRM/Nominatim policy drift | M×L | env-flag + offline fallback | fetch-failure streak |
+| Supabase pause / terms | M×L | local-first + backups are recovery | sync outage reports |
+| Operator hypotheses wrong | M×M | interview guide ready; label everything [H] | first operator session |
+| RTL/regression quality | M×L | typography laws + parity tests | screenshot diffs |
 
-## 8. Definition of Done (every phase)
+## 8. Definition of Done (every release)
 
-`tsc ✓ · all tests passing ✓ · lint 0/0 · build ✓ · Pages workflow success ✓ · live-site spot-check ✓ · locale parity EN+AR ✓ · SESSION_MEMORY.md updated · roadmap checkboxes above moved for the shipped work · no unsupported claims introduced`.
+`tsc clean ✓ · vitest all passing ✓ · lint 0 ✓ · build ✓ · python suite ✓ · git diff --check ✓ · Pages workflow success ✓ · live-site spot-check ✓ · locale parity EN+AR ✓ · docs updated (plan checkboxes, SESSION_MEMORY, DATA_MODEL if schema) ✓ · no unsupported claims introduced ✓`.
 
----
-
-*All sourced statements trace to `docs/RESEARCH_DOSSIER.md`. Items flagged VERIFY there block related product claims until resolved.*
+Release reports additionally state: user problem solved; research used; decisions; changed files; schema changes/migrations/persisted keys; backup compatibility; AR/EN behavior; browser evidence; tests added + exact total; commit hash; workflow URL; live URL; known limitations; next release.
