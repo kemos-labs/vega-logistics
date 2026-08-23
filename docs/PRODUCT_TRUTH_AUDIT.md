@@ -98,7 +98,8 @@ Explicitly deferred (requires business scale + budget justification before any b
 | PWA offline shell | Working local-only |
 | Provider WhatsApp import | Working local-only (manual paste) |
 | CSV/paste stop import w/ preview gates | Production (R2-B) |
-| Stop planning (manual create/edit/delete/retain) | Production (R2); dispatch ordering = R3 |
+| Stop planning (manual create/edit/delete/retain) | Production (R2) |
+| Morning dispatch board + internal driver sheet (print) | Production (R3; explicitly non-official document) |
 | Evening-close guided reconciliation | Absent (planned R4; totals currently advisory) |
 | National Address / Short Address capture | Absent (planned R5; format-check only) |
 | Invoice/receipt drafts | Absent (planned R5; data-shaped, never "compliant") |

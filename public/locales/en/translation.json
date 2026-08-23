@@ -787,7 +787,8 @@
       "actions": "Follow-up",
       "recovery": "Recovery board",
       "tower": "Control Tower",
-      "stops": "Stops"
+      "stops": "Stops",
+      "dispatch": "Dispatch"
     },
     "brand": {
       "subtitle": "Business model"
@@ -1515,6 +1516,51 @@
       "dupProbableAck": "This may duplicate an existing stop. Review it, then tick the acknowledgement to save anyway.",
       "dupProbableAckLabel": "I reviewed the possible duplicate — save anyway.",
       "import.errReadFailed": "The file could not be read — try again or paste the rows instead."
+    },
+    "dispatch": {
+      "nav": "Dispatch",
+      "tag": "MORNING DISPATCH",
+      "title": "Dispatch today's runs",
+      "desc": "Assign planned stops to drivers, order each run, print the driver sheet.",
+      "dateLabel": "Operation date",
+      "unassignedCount": "Unassigned: {count}",
+      "unassignedTitle": "Unassigned queue",
+      "unassignedEmpty": "Every stop for this date is assigned.",
+      "providerReported": "provider-reported",
+      "assignPlaceholder": "Assign to…",
+      "assignAria": "Assign stop {label} to a driver",
+      "moveUpAria": "Move stop {label} up",
+      "moveDownAria": "Move stop {label} down",
+      "unassignBtn": "Unassign",
+      "printBtn": "Print sheet",
+      "persistFailed": "Saving failed ({{keys}}) — nothing was changed. Try again.",
+      "rollbackCritical": "CRITICAL: partial write and rollback failure on {{keys}} — export a backup now.",
+      "workload": {
+        "count": "Stops",
+        "cod": "COD (SAR)",
+        "morning": "Morning",
+        "afternoon": "Afternoon",
+        "evening": "Evening",
+        "missingAddress": "Missing address",
+        "missingPhone": "No phone (optional)",
+        "missingReference": "Missing reference"
+      },
+      "manifest": {
+        "title": "Driver sheet — internal run plan",
+        "date": "Date",
+        "generatedAt": "Generated",
+        "driver": "Driver",
+        "car": "Car",
+        "plate": "Plate",
+        "reference": "Reference",
+        "customer": "Customer",
+        "stop": "Stop",
+        "address": "Address notes",
+        "phone": "Phone (optional)",
+        "cod": "COD (SAR)",
+        "window": "Window",
+        "signature": "Driver signature: ______________    Notes: ______________________________"
+      }
     }
   }
 }

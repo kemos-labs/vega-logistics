@@ -18,7 +18,7 @@
 - Code batch (same cycle): parser stale-preview clear, blank-date block, any-existing-record overwrite ack, greeting/chatter name filtering, conflicting-duplicate-term warnings, localized warnings EN/AR, reminder local-day dismissal baseline + dead-code removal, model-inputs-in-reminder-eligibility. Tests: 6 new (4 engine greeting/conflict + 2 UI stale/blank-date) → 193 total.
 
 ## Next release
-**R2 shipped** (R2-A `6b61b45` domain+backup v3; R2-B StopPlanning UI + import). **Next: R3 morning dispatch & manifest** (assignment board, accessible ordering, bilingual print manifest). R0/R1 ACCEPTED by owner; R2 pending live review. Tests: 270 passing (26 files).
+**R2-C shipped** (`ccefffc` integrity batch + `a248c70` zone-portable CI fix; quality job gates deploy). **R3 shipped this cycle** (`dispatch.ts` + DispatchBoard + print manifest). **Next: R4 evening close** (loaded=delivered+returned+pending invariant, COD close, failed→recovery links). Tests: 291 passing (28 files), vitest exit 0 enforced in CI.
 
 ## Blockers / VERIFY queue
 - TGA light-freight reg 4786 text extraction (JS-rendered portal) → gates manifest wording

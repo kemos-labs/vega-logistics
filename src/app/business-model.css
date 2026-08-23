@@ -755,3 +755,25 @@ html[dir='rtl'] .bm-stop-row .bm-stop-main{flex-direction:row-reverse;text-align
 .bm-delete-confirm{color:#8f3b30;font-weight:600}
 .bm-row-exact-dup td{opacity:.45;text-decoration:line-through}
 @media(max-width:600px){.bm-stops-grid{grid-template-columns:1fr}}
+
+/* ── R3 dispatch board + print manifest ── */
+.bm-run{border:1px solid #d8cfb4;border-radius:10px;padding:10px 12px;margin:10px 0;background:#fffdf6}
+.bm-run-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.bm-run-head h3{margin:0;font-size:15px}
+.bm-assign-label select{min-width:150px}
+.bm-visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.bm-manifest-print{display:none}
+
+@media print{
+  .bm-app-header,.bm-app-nav,.bm-tower,.bm-stops,.bm-provider-import,.bm-dispatch .bm-panel-head,
+  .bm-dispatch .bm-provider-row,.bm-dispatch h3,.bm-stops-list,.bm-run,.bm-import-note,.bm-import-warning,
+  .bm-dispatch output,.bm-dispatch [role='status']{display:none !important}
+  .bm-manifest-print{display:block !important;font-family:var(--font-cairo),'Cairo',sans-serif;color:#000;background:#fff}
+  .bm-manifest-print h1{font-size:18px;margin:0 0 4px}
+  .bm-manifest-print table{width:100%;border-collapse:collapse;font-size:12px}
+  .bm-manifest-print th,.bm-manifest-print td{border:1px solid #444;padding:4px 6px;text-align:start}
+  .bm-manifest-print thead{display:table-header-group} /* repeat headers across pages */
+  .bm-manifest-print tr{page-break-inside:avoid}        /* never split a stop row */
+  .bm-manifest-disclaimer{margin-top:10px;border-top:1.5px solid #000;padding-top:6px;font-weight:700;font-size:11px}
+  .bm-manifest-totals{font-weight:600;font-size:12px;margin:6px 0}
+}

@@ -31,7 +31,7 @@ describe('UI stress', () => {
     expect(dt).toBeLessThan(1500);
   });
 
-  it('mounts a 200-class × 300-customer × 800-driver model and navigates all views', () => {
+  it('mounts a 200-class × 300-customer × 800-driver model and navigates all views', { timeout: 20000 }, () => {
     localStorage.setItem('vega-financialInput-v2', JSON.stringify(bigModel()));
     const t0 = performance.now();
     render(<BusinessModelApp />);

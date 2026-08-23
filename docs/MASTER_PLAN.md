@@ -69,8 +69,11 @@ Requirements: EN/AR; 375px mobile no overflow; honest empty/local-only states; e
 - [x] Bulk paste/CSV: BOM, quotes, CRLF/TSV, Arabic headers+aliases, digit normalization, caps, binary rejection, unknown-header reporting, preview counts, atomic confirm, stale-preview invalidation, persistence-failure keeps preview open
 **Accept:** import-cannot-mutate-on-reject tests; migration fixtures; backup envelope v3 round-trip.
 
-### R3 — Morning dispatch & manifest
-Day board: unassigned/assigned stops; accessible reorder (buttons first, drag optional); workload counts; missing-address/contact warnings; bilingual print manifest labelled «مستند تشغيلي داخلي».
+### R3 — Morning dispatch & manifest *(shipped this cycle — owner live review pending)*
+- [x] `dispatch.ts` pure domain: dispatchable = planned/pending ONLY (history never reassigned); active-driver adapter over the existing `FinancialInput.drivers` catalog (no second source of truth); assign/reassign/unassign preserving status+unrelated fields; gapless 1..N resequencing; boundary-safe move up/down; per-run workload (count/COD/windows/missing address/phone/reference)
+- [x] DispatchBoard view: date selector, unassigned queue w/ accessible assign selects (aria-labels), per-run sections w/ keyboard-operable ▲/▼ + unassign, workload lines, transactional writes
+- [x] Print-first bilingual driver sheet: ordered stops w/ all operational fields, per-run totals, signature/notes area, mandatory disclaimer «مستند تشغيلي داخلي — ليس مستند نقل نظامياً ولا يثبت صحة العنوان الوطني» + English equivalent on every page; no government seals/compliance styling; print CSS (repeating headers, unsplit rows, app chrome hidden)
+- [x] Persistence through the existing stops key + v3 backups (assignments/sequence round-trip; no schema change, no version bump)
 **Accept:** dispatcher prints a practical day plan <1 min, zero network calls.
 
 ### R4 — Evening close & exception loop

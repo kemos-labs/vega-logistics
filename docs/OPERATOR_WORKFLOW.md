@@ -9,7 +9,7 @@
 3. Gaps surface: missing address/contact, missing COD amount, vehicle unavailable.
 4. Print/export a **driver sheet / manifest** (bilingual, print-friendly).
 
-**VEGA today:** daily counts + provider WhatsApp import (totals-level). **R2/R3 add:** stop-level records, safe bulk paste/CSV preview, assignment board, printable manifest.
+**VEGA today:** daily counts + provider WhatsApp import (totals-level) + **stop planning (R2)** + **dispatch board & printable driver sheet (R3)**: stops are assigned to active company drivers from the configured catalog, ordered with accessible buttons, and a bilingual internal manifest prints in under a minute with zero network calls.
 
 ### During the day (execute) — H
 - Drivers update via WhatsApp voice/text; dispatcher adjusts statuses manually (offline-first — no live backend assumption).
