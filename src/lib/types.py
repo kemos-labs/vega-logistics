@@ -49,46 +49,46 @@ class FinancialInput:
     leaseCostPerVehicle: float = 0.0
     fuelPricePerLiter: float = 0.0
     avgFuelConsumptionPerVehicle: float = 0.0
-    
+
     # Driver costs
     driverSalary: float = 0.0
     freelancerDriverCount: int = 0
     freelancerCostPerShipment: float = 0.0
-    
+
     # Facility costs
     warehouseRent: float = 0.0
     insurancePerVehicle: float = 0.0
     maintenancePerVehicle: float = 0.0
-    
+
     # Shipment volume and revenue
     dailyShipmentVolume: int = 0
     avgRevenuePerShipment: float = 0.0
-    
+
     # Operational metrics
     failedDeliveryRate: float = 0.0
     returnRate: float = 0.0
     clientPaymentDelay: int = 0
     expressShipmentRatio: float = 0.0
-    
+
     # Office and utilities
     internetCost: float = 0.0
     electricityCost: float = 0.0
-    
+
     # Team costs
     opsTeamCount: int = 0
     opsTeamAvgSalary: float = 0.0
     salesTeamCount: int = 0
     salesTeamBaseSalary: float = 0.0
     salesCommissionPercent: float = 0.0
-    
+
     # Per-shipment costs
     packagingCostPerUnit: float = 0.0
     pickPackLaborPerOrder: float = 0.0
-    
+
     # Technology and insurance
     technologySaaS: float = 0.0
     cargoInsurance: float = 0.0
-    
+
     # Additional revenue streams
     fulfillmentRevenue: float = 0.0
     subcontractingRevenue: float = 0.0
@@ -104,17 +104,17 @@ class FinancialOutput:
     burnRate: float = 0.0
     cashRunway: float = 0.0
     operationalBreakeven: float = 0.0
-    
+
     totalDailyShipments: int = 0
     totalMonthlyShipments: int = 0
     avgRevenuePerShipment: float = 0.0
-    
+
     fleetUtilization: float = 0.0
     perVehicleProfitability: float = 0.0
-    
+
     dailyRevenue: float = 0.0
     dailyCost: float = 0.0
-    
+
     costBreakdown: CostBreakdown = field(default_factory=CostBreakdown)
     revenueBreakdown: RevenueBreakdown = field(default_factory=RevenueBreakdown)
 
@@ -140,7 +140,7 @@ class GhostGrowthResult:
 
 
 # Feasibility Engine types
-@dataclass 
+@dataclass
 class FeasibilityInput:
     initialFleetSize: int = 5
     vanPurchasePrice: float = 95000.0

@@ -171,7 +171,7 @@ Future Supabase mirror (P5, opt-in): table-per-collection with text PK (=existin
 |---|---|---|---|---|
 | 1 | localStorage loss (reset/clear) | H×H | P1 backups + banner (post-acceptance) | days-since-backup |
 | 2 | National Address obligation scope ambiguity | M×H | capture fields now; legal scope VERIFY | % shipments missing address |
-| 3 | ZATCA wave notice arrives unannounced to us | M×M | invoice-shaped data ready; operator monitors notices | revenue growth near thresholds |
+| 3 | ZATCA wave notice arrives | M×M | invoice-shaped data ready; integrate then | **official ZATCA wave notification received** (sole authoritative signal) |
 | 4 | OSRM/Nominatim policy or availability drift | M×L | env-flag endpoints; offline-manual fallback | fetch-failure streak |
 | 5 | Supabase free pause | M×L | local-first; restore ≤1yr documented | pause-warning email |
 | 6 | RTL/Arabic regression | M×L | typography laws + parity checks | screenshot diff |
@@ -200,6 +200,19 @@ Future Supabase mirror (P5, opt-in): table-per-collection with text PK (=existin
 ---
 *Items flagged VERIFY above block any product claim that depends on them. They are queued for direct document extraction before related features ship.*
 
+
+## Explicitly NOT RESEARCHED (contract E — truth labels)
+
+| Item | Status | What completing it requires |
+|---|---|---|
+| Labour / driver-hours rules & vehicle inspection regime (KSA) | **NOT RESEARCHED** | Primary texts: TGA driver-hours circulars; periodic technical inspection (Fahes/muroor) official pages |
+| OpenRouteService (self-host vs cloud, optimization endpoint parity) | **NOT RESEARCHED** | ORS docs + license (Apache?) + self-host resource sizing |
+| n8n / GitHub Actions automation options | **NOT RESEARCHED** | Pricing/self-host matrix; repo-visibility constraints |
+| WhatsApp Business API pricing & operational catches | **NOT RESEARCHED** | Meta per-message pricing page quote; template approval flow; BSP comparison |
+| Hijri calendar / prayer-time data sources | **NOT RESEARCHED** | Official Umm-al-Qura source or library with citation |
+| W5 extended schema: WhatsApp ingestion mapping, invoice lines, National Address columns | **PARTIALLY SPECIFIED** (storage keys + row shapes defined; ingestion mapping & invoice-line table deferred to P2 design) | P2 detailed design doc |
+
+Until researched, these items carry **zero weight in plan decisions** and must not be cited as support.
 
 ## Addendum citations (contract D)
 

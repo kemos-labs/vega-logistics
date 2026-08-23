@@ -19,7 +19,7 @@ def make_input(overrides=None):
 
 
 class TestFeasibilityEngine(unittest.TestCase):
-    
+
     def test_basic_output(self):
         result = calculateFeasibility(make_input())
         self.assertGreaterEqual(result.breakEvenMonths, 0)

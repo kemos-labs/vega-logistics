@@ -50,7 +50,7 @@ def make_input(overrides=None):
 
 
 class TestCalculateFinancials(unittest.TestCase):
-    
+
     def test_basic_output_structure(self):
         inp = make_input()
         result = calculateFinancials(inp)

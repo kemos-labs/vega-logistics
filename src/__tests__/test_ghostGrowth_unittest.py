@@ -27,7 +27,7 @@ def make_metrics(overrides=None):
 
 
 class TestGhostGrowthIndex(unittest.TestCase):
-    
+
     def test_safe_level(self):
         metrics = make_metrics({
             'revenueGrowth': 3,

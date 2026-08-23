@@ -3,15 +3,16 @@
 > Governance: `AGENTS.md` (strict rules R1–R10) · Roadmap authority: `docs/MASTER_PLAN.md` · Claims discipline: `docs/RESEARCH_DOSSIER.md`
 
 ## Authoritative state (2026-08-23, post review-contract C)
-- Dev = http://vega.localhost:8080 (portless alias; localhost:3002 belongs to the Options Terminal project — never cite it here) · Pages deploy green · tsc clean · all 130 tests passing · ESLint 0/0
+- Dev = http://vega.localhost:8080 (portless alias; localhost:3002 belongs to the Options Terminal project — never cite it here) · Pages deploy green · tsc clean · all tests passing (136: 106 prior + 30 backup) · ESLint 0/0
 - package-lock.json 334KB committed & CI-healthy — never regenerate casually on NTFS
 - BreakEvenAnalytics / @heroui fully removed from repo
 
 ## Current phase
-**P1 backup core DONE under review contract C; banner + parser still BLOCKED pending owner acceptance of Commit C.**
+**P1 backup core DONE through review contract E (stabilization); banner + parser still BLOCKED pending owner acceptance of Commit E.**
+E additions: language flows from real handler into exports and stores RAW en/ar (never JSON-stringified, matches ClientLayout/i18n.ts); v1 files get a scoped 'Restore legacy scope' action (adopts model/days/scenarios; NEVER replaces recovery/actions/language); every material sanitization drop/invalid timestamp/impossible date/bad enum/duplicate warns and flips lossless=false; commitBundle is transactional (snapshot→attempt-all→rollback-on-failure, rollback-failure = distinct critical message; preview stays open on failure).
 Backup scope (final): `vega-financialInput-v2` · `vega-daily-reports-v2` · `vega-scenarios-v1` · `vega-recovery-board-v1` · `vega-followup-actions-v1` · `language`. `vega-vehicles`/`vega-zones` persistence removed (immutable seed catalogs — read-only consumers; truthful-design option b).
 Engine facts: strict v2 containers (missing/malformed collection ⇒ whole-file reject); FinancialInput structurally validated BEFORE sanitize (`{}` rejected); per-record drops ⇒ warnings + Replace disabled (lossless flag); RecoveryEntry & FollowUpAction carry normalized-ISO `updatedAt`; numeric timestamp comparison; identical rows ignored (not conflicts); incoming duplicate ids → LAST wins + warning; merge never overwrites model inputs (one visible conflict when differing); persistBundle collects write failures — success never announced on partial failure.
-Review contracts outstanding: D (dossier W1–W6 completion + SVG reflow/render-check).
+D delivered (4bcea9f). E delivered this pass. Outstanding VERIFY register lives at the end of docs/RESEARCH_DOSSIER.md incl. explicit NOT RESEARCHED items.
 
 ## Recently shipped (this session, commits in order)
 1933b75 deploy fix → 7bda133 Excel recovery-trend sheet → 0467f98 native-Arabic rewrite (~180 strings, costs.* gaps filled) → 215c4e9 Cairo typography root-fix (Archivo had no AR glyphs; RTL letter-spacing law) → 6beded0 master plan v1 + AGENTS R1–R10 → **remediation commit A** (dossier/plan/governance corrections per review).

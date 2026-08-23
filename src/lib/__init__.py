@@ -3,7 +3,7 @@
 
 from lib.calculations import calculateFinancials, applyOperationalPatch
 from lib.feasibilityEngine import (
-    calculateFeasibility, 
+    calculateFeasibility,
     generateRiskManagementPlan,
     DEFAULT_FEASIBILITY_INPUT
 )
@@ -11,7 +11,7 @@ from lib.ghostGrowth import calculateGhostGrowthIndex
 from lib.types import (
     FinancialInput, FinancialOutput, CostBreakdown, RevenueBreakdown,
     GhostGrowthMetrics, GhostGrowthResult, GhostGrowthLevel,
-    FeasibilityInput, FeasibilityOutput, RiskFactor, 
+    FeasibilityInput, FeasibilityOutput, RiskFactor,
     DEFAULT_FEASIBILITY_INPUT as DEFAULT_FEASIBILITY_INPUT_TYPES
 )
 

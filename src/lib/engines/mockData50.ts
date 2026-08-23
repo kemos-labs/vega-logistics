@@ -9,7 +9,7 @@ import {
   DriverSafetyScorecard, FuelCard, Part, CustomerNotification,
   MaintenanceRule, Route, GeofenceEvent,
   VehicleType, VehicleStatus, JobStatus, SafetyEventType,
-    
+
 } from '../types2026';
 
 // ── Utilities ──

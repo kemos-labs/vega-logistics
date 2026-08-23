@@ -24,7 +24,7 @@ Read `SESSION_MEMORY.md` for full history, then `docs/MASTER_PLAN.md` (roadmap a
 
 ## Quick commands
 ```bash
-npm run dev          # dev on :3002
+npm run dev          # start dev server — open it via the portless alias http://vega.localhost:8080
 npm run build        # production build
 npx tsc --noEmit     # TS check
 npx vitest run       # unit tests

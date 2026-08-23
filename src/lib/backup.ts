@@ -128,6 +128,13 @@ function str(value: unknown, max = 4000): string {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** True only for REAL calendar dates ('2026-02-30' fails). */
+function isValidCalendarDate(value: string): boolean {
+  if (!DATE_RE.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 /**
  * Normalize a timestamp to a real ISO-8601 instant.
  * Returns the canonical `Date.toISOString()` form so downstream
@@ -162,11 +169,16 @@ export function isFinancialInputShape(value: unknown): value is FinancialInput {
  * protection inherited from the v1 parser). Corrupt OPTIONAL fields are
  * dropped individually rather than rejecting the whole day.
  */
-function sanitizeDailyRecord(rawDate: string, value: unknown): DailyRecord | null {
+function sanitizeDailyRecord(rawDate: string, value: unknown, warn: (msg: string) => void): DailyRecord | null {
   if (!isRecord(value)) return null;
   const candidate = str(value.date, 10);
-  const date = DATE_RE.test(candidate) ? candidate : DATE_RE.test(rawDate) ? rawDate : '';
-  if (!DATE_RE.test(date)) return null;
+  let date = DATE_RE.test(candidate) ? candidate : DATE_RE.test(rawDate) ? rawDate : '';
+  if (!isValidCalendarDate(date)) {
+    if (date !== '') warn(`day:${date}:impossible-date`);
+    date = '';
+  }
+  if (date === '') return null;
+  const stampWarn = (field: string) => warn(`day:${date}:${field}`);
   const completed = finite(value.completedShipments);
   const failed = finite(value.failedShipments);
   const fuel = finite(value.fuelCost);
@@ -182,6 +194,7 @@ function sanitizeDailyRecord(rawDate: string, value: unknown): DailyRecord | nul
     notes: str(value.notes, 2000),
     updatedAt: normalizeIso(value.updatedAt) ?? '',
   };
+  if (record.updatedAt === '' && value.updatedAt !== undefined && value.updatedAt !== null && str(value.updatedAt, 40) !== '') stampWarn('updatedAt-invalid');
 
   if (typeof value.tomorrowNote === 'string') record.tomorrowNote = value.tomorrowNote.slice(0, 2000);
   if (isRecord(value.failureReasons)) {
@@ -189,17 +202,24 @@ function sanitizeDailyRecord(rawDate: string, value: unknown): DailyRecord | nul
     for (const [key, count] of Object.entries(value.failureReasons)) {
       const n = finite(count);
       if (n !== null && n >= 0) reasons[key.slice(0, 60)] = n;
+      else warn(`day:${date}:failureReasons:${key.slice(0, 20)}`);
     }
     record.failureReasons = reasons as DailyRecord['failureReasons'];
+  } else if (value.failureReasons !== undefined && value.failureReasons !== null) {
+    stampWarn('failureReasons-container');
   }
   const extraCosts = finite(value.extraCosts);
   if (extraCosts !== null) record.extraCosts = extraCosts;
+  else if (value.extraCosts !== undefined && value.extraCosts !== null) stampWarn('extraCosts-invalid');
   const visits = finite(value.newCustomerVisits);
   if (visits !== null) record.newCustomerVisits = visits;
+  else if (value.newCustomerVisits !== undefined && value.newCustomerVisits !== null) stampWarn('newCustomerVisits-invalid');
   const recovered = finite(value.recoveredShipments);
   if (recovered !== null) record.recoveredShipments = recovered;
+  else if (value.recoveredShipments !== undefined && value.recoveredShipments !== null) stampWarn('recoveredShipments-invalid');
   const incidents = finite(value.safetyIncidents);
   if (incidents !== null) record.safetyIncidents = incidents;
+  else if (value.safetyIncidents !== undefined && value.safetyIncidents !== null) stampWarn('safetyIncidents-invalid');
 
   if (isRecord(value.customerBreakdown)) {
     const breakdown: Record<string, { delivered: number; missed: number }> = {};
@@ -208,25 +228,34 @@ function sanitizeDailyRecord(rawDate: string, value: unknown): DailyRecord | nul
       const delivered = finite(entry.delivered);
       const missed = finite(entry.missed);
       if (delivered !== null && missed !== null) breakdown[name.slice(0, 80)] = { delivered, missed };
+      else warn(`day:${date}:customerBreakdown:${name.slice(0, 20)}`);
     }
     if (Object.keys(breakdown).length > 0) record.customerBreakdown = breakdown;
+  } else if (value.customerBreakdown !== undefined && value.customerBreakdown !== null) {
+    stampWarn('customerBreakdown-container');
   }
 
   const pod = value.podStatus;
   if (pod === 'complete' || pod === 'partial' || pod === 'none') record.podStatus = pod;
+  else if (pod !== undefined && pod !== null) stampWarn('podStatus-invalid');
   if (typeof value.driverName === 'string') record.driverName = value.driverName.slice(0, 120);
   if (typeof value.carNumber === 'string') record.carNumber = value.carNumber.slice(0, 40);
   if (typeof value.plateNumber === 'string') record.plateNumber = value.plateNumber.slice(0, 40);
   const cod = finite(value.codShipments);
   if (cod !== null) record.codShipments = cod;
+  else if (value.codShipments !== undefined && value.codShipments !== null) stampWarn('codShipments-invalid');
   const prepaid = finite(value.prepaidShipments);
   if (prepaid !== null) record.prepaidShipments = prepaid;
+  else if (value.prepaidShipments !== undefined && value.prepaidShipments !== null) stampWarn('prepaidShipments-invalid');
   const collected = finite(value.cashCollectedSar);
   if (collected !== null) record.cashCollectedSar = collected;
+  else if (value.cashCollectedSar !== undefined && value.cashCollectedSar !== null) stampWarn('cashCollectedSar-invalid');
   const remitted = finite(value.cashRemittedSar);
   if (remitted !== null) record.cashRemittedSar = remitted;
+  else if (value.cashRemittedSar !== undefined && value.cashRemittedSar !== null) stampWarn('cashRemittedSar-invalid');
   const weather = value.weatherCondition;
   if (weather === 'clear' || weather === 'rain' || weather === 'fog' || weather === 'sand') record.weatherCondition = weather;
+  else if (weather !== undefined && weather !== null) stampWarn('weatherCondition-invalid');
 
   return record;
 }
@@ -234,9 +263,13 @@ function sanitizeDailyRecord(rawDate: string, value: unknown): DailyRecord | nul
 function sanitizeDailyMap(value: Record<string, unknown>, warn: (msg: string) => void): Record<string, DailyRecord> {
   const map: Record<string, DailyRecord> = {};
   for (const [date, raw] of Object.entries(value)) {
-    const record = sanitizeDailyRecord(date, raw);
-    if (record) map[record.date] = record;
-    else warn(`day:${date}`);
+    const record = sanitizeDailyRecord(date, raw, warn);
+    if (record) {
+      // Two distinct source keys resolving to the same record.date collide —
+      // LAST occurrence wins deterministically, and the file is marked lossy.
+      if (map[record.date] !== undefined && record.date !== date) warn(`duplicate-date:${record.date}`);
+      map[record.date] = record;
+    } else warn(`day:${date}`);
   }
   return map;
 }
@@ -261,17 +294,25 @@ function sanitizeScenarios(value: unknown[], warn: (msg: string) => void): Scena
   const out: Scenario[] = [];
   for (let index = 0; index < value.length; index += 1) {
     const raw = value[index];
-    if (!isRecord(raw) || !isRecord(raw.input)) {
+    if (!isRecord(raw)) {
       warn(`scenario:index-${index}`);
       continue;
     }
-    const input = sanitizeFinancialInput(raw.input as unknown as FinancialInput);
+    // Structure BEFORE sanitize, same law as the top-level model input.
+    if (!isFinancialInputShape(raw.input)) {
+      warn(`scenario:index-${index}:input-shape`);
+      continue;
+    }
+    const savedAt = normalizeIso(raw.savedAt);
+    if (!savedAt && raw.savedAt !== undefined && raw.savedAt !== null && str(raw.savedAt, 40) !== '') {
+      warn(`scenario:index-${index}:savedAt-invalid`);
+    }
     out.push({
       id: str(raw.id, 60) || `scn-index-${index}`,
       name: str(raw.name, 60) || 'Scenario',
       // Immutable creation stamp — see conflict-policy note in the header.
-      savedAt: normalizeIso(raw.savedAt) ?? '',
-      input: pruneUndefined(input),
+      savedAt: savedAt ?? '',
+      input: pruneUndefined(sanitizeFinancialInput(raw.input as unknown as FinancialInput)),
     });
   }
   return out;
@@ -289,12 +330,12 @@ function sanitizeRecoveryEntries(value: unknown[], warn: (msg: string) => void):
     const createdAt = str(raw.createdAt, 10);
     const status = raw.status;
     // NOTE: an EMPTY owner is valid in the current model (unassigned row).
-    if (shipments === null || shipments < 0 || !DATE_RE.test(createdAt)) {
-      warn(`recovery:index-${index}`);
+    if (shipments === null || shipments < 1 || !isValidCalendarDate(createdAt)) {
+      warn(`recovery:index-${index}:shipments-or-date`);
       continue;
     }
     if (status !== 'pending' && status !== 'recovered' && status !== 'written_off') {
-      warn(`recovery:index-${index}`);
+      warn(`recovery:index-${index}:status`);
       continue;
     }
     const entry: RecoveryEntry = {
@@ -309,8 +350,10 @@ function sanitizeRecoveryEntries(value: unknown[], warn: (msg: string) => void):
     if (typeof raw.note === 'string') entry.note = raw.note.slice(0, 1000);
     const resolvedAt = normalizeIso(raw.resolvedAt);
     if (resolvedAt) entry.resolvedAt = resolvedAt;
+    else if (raw.resolvedAt !== undefined && raw.resolvedAt !== null && str(raw.resolvedAt, 40) !== '') warn(`recovery:${entry.id}:resolvedAt-invalid`);
     const updatedAt = normalizeIso(raw.updatedAt);
     if (updatedAt) entry.updatedAt = updatedAt;
+    else if (raw.updatedAt !== undefined && raw.updatedAt !== null && str(raw.updatedAt, 40) !== '') warn(`recovery:${entry.id}:updatedAt-invalid`);
     out.push(entry);
   }
   return out;
@@ -326,13 +369,15 @@ function sanitizeFollowUpActions(value: unknown[], warn: (msg: string) => void):
     }
     const id = finite(raw.id);
     const text = str(raw.text, 300);
-    if (id === null || text === '') {
-      warn(`action:index-${index}`);
+    // ids are whole numbers >= 0 (fractional/negative ids are corrupt)
+    if (id === null || !Number.isInteger(id) || id < 0 || text === '') {
+      warn(`action:index-${index}:id-or-text`);
       continue;
     }
     const action: FollowUpAction = { id, text, owner: str(raw.owner, 80), done: raw.done === true };
     const updatedAt = normalizeIso(raw.updatedAt);
     if (updatedAt) action.updatedAt = updatedAt;
+    else if (raw.updatedAt !== undefined && raw.updatedAt !== null && str(raw.updatedAt, 40) !== '') warn(`action:${id}:updatedAt-invalid`);
     out.push(action);
   }
   return out;
@@ -440,7 +485,6 @@ export function parseBackup(raw: string): ParsedBackup {
   const language = languageRaw === 'en' || languageRaw === 'ar' ? languageRaw : undefined;
 
   const dropped = { days: daysDropped, scenarios: scenariosDropped, recoveryEntries: recoveryDropped, followUpActions: actionsDropped };
-  const totalDropped = daysDropped + scenariosDropped + recoveryDropped + actionsDropped;
 
   const scenarios = dedupeById(rawScenarios, warn);
   const recoveryEntries = dedupeById(rawRecovery, warn);
@@ -452,7 +496,8 @@ export function parseBackup(raw: string): ParsedBackup {
     ok: true,
     warnings,
     dropped,
-    lossless: totalDropped === 0 && warnings.filter(w => w.startsWith('duplicate-id')).length === 0,
+    // ANY warning means the file did not survive byte-perfect ⇒ lossy.
+    lossless: warnings.length === 0,
     file: {
       format: BACKUP_FORMAT,
       version: BACKUP_VERSION,
@@ -601,35 +646,109 @@ export function replaceWithBackup(_current: StateBundle, file: BackupFileV2): St
 export interface PersistResult {
   persistedOk: boolean;
   failedKeys: string[];
+  /** True unless the post-failure rollback also wrote back cleanly. */
+  rollbackOk: boolean;
+  /** Keys whose rollback itself failed (critical — data may be mixed). */
+  rollbackFailedKeys: string[];
+}
+
+type WritableStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+function defaultStorage(): WritableStorage | undefined {
+  return typeof window === 'undefined' ? undefined : window.localStorage;
 }
 
 /**
- * Write every restored collection straight to its localStorage key so the
- * restore survives reload even if React state hydration hiccups. Storage
- * failures are COLLECTED, never thrown — callers must not announce a
- * successful restore when any key failed (review contract C2).
+ * Best-effort TRANSACTIONAL write (review contract E-4):
+ *   1. snapshot the RAW current value of every destination key;
+ *   2. attempt ALL writes (language stored RAW 'en'/'ar', matching
+ *      ClientLayout/i18n.ts — never JSON-stringified for this key);
+ *   3. any failure ⇒ roll EVERY destination key back to its snapshot
+ *      (absent-before ⇒ removed again);
+ *   4. report exactly what happened; callers must not update React state
+ *      or announce success unless result.persistedOk.
  */
-export function persistBundle(
-  bundle: StateBundle,
-  language: string | undefined,
-  storage: Pick<Storage, 'setItem'> = typeof window === 'undefined' ? undefined as unknown as Storage : window.localStorage,
+export function commitBundle(
+  bundle: Partial<StateBundle>,
+  language?: string,
+  options: { storage?: WritableStorage; keys?: ReadonlyArray<keyof typeof STORAGE_KEYS> } = {},
 ): PersistResult {
-  const payload: Array<[string, unknown]> = [
-    [STORAGE_KEYS.financialInput, bundle.financialInput],
-    [STORAGE_KEYS.dailyRecords, bundle.dailyRecords],
-    [STORAGE_KEYS.scenarios, bundle.scenarios],
-    [STORAGE_KEYS.recoveryEntries, bundle.recoveryEntries],
-    [STORAGE_KEYS.followUpActions, bundle.followUpActions],
-  ];
-  if (language === 'en' || language === 'ar') payload.push([STORAGE_KEYS.language, language]);
+  const storage = options.storage ?? defaultStorage();
+  if (!storage) return { persistedOk: false, failedKeys: [], rollbackOk: true, rollbackFailedKeys: [] };
 
+  const allWrites: Array<[string, string | null]> = []; // null ⇒ key not wanted
+  const wants = options.keys ?? (Object.keys(STORAGE_KEYS) as Array<keyof typeof STORAGE_KEYS>);
+  for (const slot of wants) {
+    const key = STORAGE_KEYS[slot];
+    if (slot === 'language') {
+      allWrites.push([key, language === 'en' || language === 'ar' ? language : null]);
+      continue;
+    }
+    const value = (bundle as Record<string, unknown>)[slot];
+    if (value !== undefined) allWrites.push([key, JSON.stringify(value)]);
+  }
+  const present = allWrites.filter(([, v]) => v !== null) as Array<[string, string]>;
+
+  // 1. snapshot raw values of every destination we will touch
+  const snapshot = new Map<string, string | null>();
+  for (const [key] of present) snapshot.set(key, storage.getItem(key));
+
+  // 2. attempt every write, collecting failures
   const failedKeys: string[] = [];
-  for (const [key, value] of payload) {
+  for (const [key, value] of present) {
     try {
-      storage.setItem(key, JSON.stringify(value));
+      storage.setItem(key, value);
     } catch {
       failedKeys.push(key);
     }
   }
-  return { persistedOk: failedKeys.length === 0, failedKeys };
+
+  let rollbackOk = true;
+  const rollbackFailedKeys: string[] = [];
+  if (failedKeys.length > 0) {
+    // 3. roll EVERY touched key back to its previous raw value
+    for (const [key] of present) {
+      try {
+        const previous = snapshot.get(key);
+        if (previous === null || previous === undefined) storage.removeItem(key);
+        else storage.setItem(key, previous);
+      } catch {
+        rollbackOk = false;
+        rollbackFailedKeys.push(key);
+      }
+    }
+  }
+
+  return {
+    persistedOk: failedKeys.length === 0,
+    failedKeys,
+    rollbackOk,
+    rollbackFailedKeys,
+  };
+}
+
+/** Back-compat wrapper: fire-and-forget persistence with failure list. */
+export function persistBundle(bundle: StateBundle, language?: string, storage?: WritableStorage): PersistResult {
+  return commitBundle(bundle, language, { storage });
+}
+
+/**
+ * Scoped adoption of a LEGACY v1 file (review contract E-2): take its
+ * model input, days and scenarios; PRESERVE current recovery entries,
+ * follow-up actions and language — collections absent from v1 are never
+ * replaced by it. Persistence touches only the three adopted keys.
+ */
+export function applyLegacyScopedRestore(current: StateBundle, file: BackupFileV2): { next: StateBundle; stats: MergeStats } {
+  const next: StateBundle = {
+    financialInput: structuredClone(file.data.financialInput),
+    dailyRecords: structuredClone(file.data.dailyRecords),
+    scenarios: structuredClone(file.data.scenarios),
+    recoveryEntries: current.recoveryEntries,
+    followUpActions: current.followUpActions,
+  };
+  const incomingDays = Object.keys(next.dailyRecords).length;
+  return {
+    next,
+    stats: { added: incomingDays, updated: 0, conflicts: 0, identical: 0 },
+  };
 }

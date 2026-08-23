@@ -23,6 +23,11 @@ const T0 = '2026-08-20T18:00:00.000Z';
 // arrives. Disable it so renders flush through the normal scheduler.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = false;
 
+// Mutable active-language handle so tests can flip the UI language and
+// observe it flowing into exports / restores.
+let CURRENT_LANG: 'en' | 'ar' = 'en';
+const changeLanguageSpy = vi.fn();
+
 vi.mock('react-i18next', () => ({
   initReactI18next: { type: '3rdparty', init: () => undefined },
   useTranslation: () => ({
@@ -31,7 +36,7 @@ vi.mock('react-i18next', () => ({
       if (opts) for (const [k, v] of Object.entries(opts)) out += ` ~${k}=${String(v)}~`;
       return out;
     },
-    i18n: { language: 'en', changeLanguage: vi.fn() },
+    i18n: { get language() { return CURRENT_LANG; }, changeLanguage: (lng: string) => changeLanguageSpy(lng) },
   }),
   withTranslation: () => <P extends object>(Component: ComponentType<P>) => Component,
 }));
@@ -51,14 +56,23 @@ function bundle(overrides: Partial<StateBundle> = {}): StateBundle {
   };
 }
 
-function renderView(current: StateBundle, language = 'en') {
-  const spies = {
+let lastSpies: ReturnType<typeof createSpies> | undefined;
+function createSpies() {
+  return {
     setDailyRecords: vi.fn(),
     setScenarios: vi.fn(),
     setRecoveryEntries: vi.fn(),
     setActions: vi.fn(),
     applyFinancialInput: vi.fn(),
   };
+}
+function spiesForLastRender() {
+  return lastSpies as unknown as Record<string, ReturnType<typeof vi.fn>>;
+}
+
+function renderView(current: StateBundle, language = 'en') {
+  const spies = createSpies();
+  lastSpies = spies;
   const view = render(
     <ScenarioView
       input={current.financialInput}
@@ -94,8 +108,36 @@ async function expectPreview() {
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
+  CURRENT_LANG = 'en';
 });
 afterEach(() => cleanup());
+
+describe('exported file language (contract E-1)', () => {
+  it('intercepts the downloaded Blob and proves the ACTIVE language is inside', async () => {
+    CURRENT_LANG = 'ar'; // operator is using the Arabic UI
+    renderView(bundle());
+    const created: Blob[] = [];
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob: Blob | MediaSource) => {
+      created.push(blob as Blob);
+      return 'blob:mock';
+    });
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const clickSpy = vi.fn();
+    const originalClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = clickSpy;
+
+    fireEvent.click(screen.getByText(/downloadBackup/));
+
+    expect(clickSpy).toHaveBeenCalled();
+    createSpy.mockRestore(); revokeSpy.mockRestore(); HTMLAnchorElement.prototype.click = originalClick;
+    expect(created).toHaveLength(1);
+    const text = await created[0].text();
+    const parsedFile = JSON.parse(text) as { format: string; version: number; data: { language?: string } };
+    expect(parsedFile.format).toBe('vega-logistics-backup');
+    expect(parsedFile.version).toBe(2);
+    expect(parsedFile.data.language).toBe('ar'); // active language captured in the export
+  });
+});
 
 describe('backup UI integration', () => {
   it('preview → Cancel changes neither React state nor localStorage', async () => {
@@ -161,6 +203,9 @@ describe('backup UI integration', () => {
       recoveryEntries: [{ id: 'r9', createdAt: '2026-09-01', shipments: 1, owner: '', status: 'pending' }],
     });
     const { spies } = renderView(current);
+    const firedEvents: string[] = [];
+    const onLang = (event: Event) => firedEvents.push((event as CustomEvent).detail as string);
+    window.addEventListener('vega:set-language', onLang);
     chooseFile(new File([JSON.stringify(buildBackup(incoming, 'ar'))], 'r.json', { type: 'application/json' }));
     await expectPreview();
     fireEvent.click(screen.getByTestId('import-replace'));
@@ -168,7 +213,10 @@ describe('backup UI integration', () => {
 
     expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.dailyRecords) ?? '{}')['2026-09-01'].completedShipments).toBe(12);
     expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.recoveryEntries) ?? '[]')[0].owner).toBe('');
-    expect(localStorage.getItem(STORAGE_KEYS.language)).toBe('"ar"');
+    // RAW storage — matches ClientLayout.setItem('language', lang), never JSON-stringified
+    expect(localStorage.getItem(STORAGE_KEYS.language)).toBe('ar');
+    expect(changeLanguageSpy).toHaveBeenCalledWith('ar');
+    expect(firedEvents).toContain('ar');
     expect(screen.getByText(/replaceDoneMessage/)).toBeTruthy();
   });
 
@@ -226,5 +274,87 @@ describe('backup UI integration', () => {
     expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.recoveryEntries) ?? '[]')).toEqual(original.recoveryEntries);
     expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.followUpActions) ?? '[]')).toEqual(original.followUpActions);
     expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.financialInput) ?? '{}')).toEqual(original.financialInput);
+  });
+});
+
+describe('quota failure → transactional rollback in the UI (contract E-4)', () => {
+  it('setters untouched, previous values restored, preview stays open, no success message', async () => {
+    const current = bundle();
+    const previousDaysRaw = JSON.stringify(current.dailyRecords);
+    // seed so there IS a previous value to protect
+    localStorage.setItem(STORAGE_KEYS.dailyRecords, previousDaysRaw);
+    renderView(current);
+    const originalSetItem = Storage.prototype.setItem;
+    let quotaHit = false;
+    Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+      // fail ONLY the first dailyRecords write so the subsequent ROLLBACK
+      // pass can succeed — exercising the recoverable branch
+      if (!quotaHit && key === STORAGE_KEYS.dailyRecords) {
+        quotaHit = true;
+        throw new DOMException('quota', 'QuotaExceededError');
+      }
+      return originalSetItem.call(this, key, value);
+    };
+    try {
+      const incoming: StateBundle = { ...bundle(), dailyRecords: { '2026-08-30': record('2026-08-30', 77, 1) } };
+      chooseFile(new File([JSON.stringify(buildBackup(incoming))], 'q.json', { type: 'application/json' }));
+      await expectPreview();
+      fireEvent.click(screen.getByTestId('import-merge'));
+
+      // React setters were NEVER called — storage failed first
+      expect(spiesForLastRender().setDailyRecords).not.toHaveBeenCalled();
+      // previous raw value rolled back / untouched
+      expect(localStorage.getItem(STORAGE_KEYS.dailyRecords)).toBe(previousDaysRaw);
+      // preview remains open for retry-or-cancel
+      expect(screen.getByTestId('import-preview')).toBeTruthy();
+      // no success message appeared
+      expect(screen.queryByText(/mergeDoneMessage/)).toBeNull();
+      // honest partial-failure message IS shown
+      await screen.findByText(/partialFailMessage/);
+    } finally {
+      Storage.prototype.setItem = originalSetItem;
+    }
+  });
+});
+
+describe('v1 scoped restore through the UI (contract E-2)', () => {
+  it('wipe-default browser → v1 restore → v1 model/days/scenarios back, newer scope preserved', async () => {
+    // "old device": only v1-era data ever existed; user ALSO has newer-scope
+    // rows on this device that v1 could never have contained
+    const current = bundle(); // has recovery entry + action + language default en
+    const v1Payload = {
+      version: 1,
+      exportedAt: T0,
+      input: structuredClone(defaultFinancialInput),
+      dailyRecords: { '2026-06-30': record('2026-06-30', 30, 6) },
+      scenarios: [{ id: 'scn-old', name: 'Old plan', savedAt: '2026-06-01T00:00:00.000Z', input: structuredClone(defaultFinancialInput) }],
+    };
+    localStorage.setItem(STORAGE_KEYS.recoveryEntries, JSON.stringify(current.recoveryEntries));
+    localStorage.setItem(STORAGE_KEYS.followUpActions, JSON.stringify(current.followUpActions));
+    localStorage.setItem(STORAGE_KEYS.language, 'en');
+
+    const { spies } = renderView(current);
+    chooseFile(new File([JSON.stringify(v1Payload)], 'legacy.json', { type: 'application/json' }));
+    await expectPreview();
+    expect(screen.getByTestId('legacy-note')).toBeTruthy();
+    fireEvent.click(await screen.findByTestId('import-legacy'));
+    await screen.findByText(/scopedDoneMessage/);
+
+    // v1 scope adopted (React)
+    expect(spies.applyFinancialInput).toHaveBeenCalledWith(v1Payload.input);
+    expect(spies.setDailyRecords).toHaveBeenCalledWith(expect.objectContaining({ '2026-06-30': expect.objectContaining({ completedShipments: 30 }) }));
+    expect(spies.setScenarios).toHaveBeenCalledWith([expect.objectContaining({ id: 'scn-old' })]);
+    // newer scope PRESERVED (React)
+    expect(spies.setRecoveryEntries).not.toHaveBeenCalled();
+    expect(spies.setActions).not.toHaveBeenCalled();
+
+    // RELOAD simulation from raw storage:
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.dailyRecords) ?? '{}')['2026-06-30'].completedShipments).toBe(30);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.scenarios) ?? '[]')[0].id).toBe('scn-old');
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.financialInput) ?? '{}')).toEqual(defaultFinancialInput);
+    // newer-scope collections never replaced by the v1 file:
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.recoveryEntries) ?? '[]')).toEqual(current.recoveryEntries);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.followUpActions) ?? '[]')).toEqual(current.followUpActions);
+    expect(localStorage.getItem(STORAGE_KEYS.language)).toBe('en');
   });
 });

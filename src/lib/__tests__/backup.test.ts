@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   applyBackupMerge,
+  applyLegacyScopedRestore,
   buildBackup,
+  commitBundle,
   normalizeIso,
   parseBackup,
   persistBundle,
@@ -253,21 +255,103 @@ describe('corrupt data is rejected without deleting current data (contract C2)',
   });
 });
 
-describe('persistence honesty — quota/write failures are reported (contract C2)', () => {
-  it('persistBundle collects failed keys and reports persistedOk=false', () => {
-    const bundle = fullBundle();
-    const failing: Pick<Storage, 'setItem'> = {
-      setItem: key => {
-        if (key === STORAGE_KEYS.dailyRecords) throw new DOMException('quota', 'QuotaExceededError');
-        if (key === STORAGE_KEYS.language) throw new Error('disk full');
-      },
+function memoryStorage(seed: Record<string, string> = {}): Storage & { dump(): Record<string, string> } {
+  const map = new Map(Object.entries(seed));
+  return {
+    get length() { return map.size; },
+    key: (index: number) => [...map.keys()][index] ?? null,
+    clear: () => map.clear(),
+    getItem: (k: string) => (map.has(k) ? (map.get(k) as string) : null),
+    setItem: (k: string, v: string) => void map.set(k, v),
+    removeItem: (k: string) => void map.delete(k),
+    dump: () => Object.fromEntries(map),
+  } as Storage & { dump(): Record<string, string> };
+}
+
+describe('transactional persistence (contract E-4)', () => {
+
+  it('writes all six destinations; language stored RAW (no JSON quotes)', () => {
+    const store = memoryStorage();
+    const result = commitBundle(fullBundle(), 'ar', { storage: store });
+    expect(result.persistedOk).toBe(true);
+    expect(store.getItem(STORAGE_KEYS.language)).toBe('ar'); // raw, not '"ar"'
+  });
+
+  it('rolls EVERY touched key back when one write fails, incl. re-removing absent keys', () => {
+    const seed: Record<string, string> = {};
+    seed[STORAGE_KEYS.financialInput] = '{"kept":true}';
+    // dailyRecords + language intentionally ABSENT before
+    let calls = 0;
+    const store = memoryStorage(seed);
+    const realSet = store.setItem.bind(store);
+    (store as { setItem: Storage['setItem'] }).setItem = (k, v) => {
+      calls += 1;
+      if (calls === 2) throw new DOMException('quota', 'QuotaExceededError'); // second write fails
+      realSet(k, v);
     };
-    const result = persistBundle(bundle, 'ar', failing);
+    const result = commitBundle(fullBundle(), 'ar', { storage: store });
     expect(result.persistedOk).toBe(false);
-    expect(result.failedKeys).toEqual([STORAGE_KEYS.dailyRecords, STORAGE_KEYS.language]);
-    const ok = persistBundle(bundle, undefined, { setItem: () => undefined });
-    expect(ok.persistedOk).toBe(true);
-    expect(ok.failedKeys).toEqual([]);
+    expect(result.rollbackOk).toBe(true);
+    expect(result.failedKeys).toEqual([STORAGE_KEYS.dailyRecords]);
+    const dump = store.dump();
+    expect(dump[STORAGE_KEYS.financialInput]).toBe('{"kept":true}'); // restored raw
+    expect(dump[STORAGE_KEYS.dailyRecords]).toBeUndefined(); // absent again
+    expect(dump[STORAGE_KEYS.language]).toBeUndefined();
+  });
+
+  it('reports critical rollback failure distinctly', () => {
+    const store = memoryStorage({ [STORAGE_KEYS.financialInput]: 'x' });
+    let first = true;
+    const realSet = store.setItem.bind(store);
+    (store as { setItem: Storage['setItem'] }).setItem = (key: string, value: string) => {
+      void realSet; void key; void value;
+      if (first) { first = false; throw new Error('quota'); } // original write fails
+      throw new Error('rollback-broken'); // rollback of this key also fails
+    };
+    const result = commitBundle(fullBundle(), undefined, { storage: store });
+    expect(result.persistedOk).toBe(false);
+    expect(result.rollbackOk).toBe(false);
+    expect(result.rollbackFailedKeys.length).toBeGreaterThan(0);
+  });
+});
+
+describe('legacy scoped restore (contract E-2)', () => {
+  it('adopts v1 model/days/scenarios and PRESERVES recovery entries, actions and language', () => {
+    const current = fullBundle(); // has recovery entries + actions
+    const v1File = JSON.stringify({
+      version: 1,
+      exportedAt: T0,
+      input: structuredClone(defaultFinancialInput),
+      dailyRecords: { '2026-06-30': record('2026-06-30', 30, 6) },
+      scenarios: [scenario('scn-old', '2026-06-01T00:00:00.000Z')],
+    });
+    const parsed = parseBackup(v1File);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const { next } = applyLegacyScopedRestore(current, parsed.file);
+    expect(next.dailyRecords['2026-06-30'].completedShipments).toBe(30); // v1 adopted
+    expect(next.scenarios.map(scn => scn.id)).toEqual(['scn-old']);
+    expect(next.financialInput).toEqual(defaultFinancialInput);
+    // newer scope untouched:
+    expect(next.recoveryEntries).toEqual(current.recoveryEntries);
+    expect(next.followUpActions).toEqual(current.followUpActions);
+
+    // persistence for scoped restore touches ONLY the three adopted keys —
+    // recovery/actions/language stay exactly as stored before:
+    const store = memoryStorage({
+      [STORAGE_KEYS.recoveryEntries]: JSON.stringify(current.recoveryEntries),
+      [STORAGE_KEYS.followUpActions]: JSON.stringify(current.followUpActions),
+      [STORAGE_KEYS.language]: 'en',
+    });
+    const persisted = persistBundle(
+      { financialInput: next.financialInput, dailyRecords: next.dailyRecords, scenarios: next.scenarios, recoveryEntries: next.recoveryEntries, followUpActions: next.followUpActions },
+      'en',
+      store,
+    );
+    expect(persisted.persistedOk).toBe(true);
+    expect(JSON.parse(store.getItem(STORAGE_KEYS.dailyRecords) ?? '{}')['2026-06-30']).toBeDefined();
+    expect(JSON.parse(store.getItem(STORAGE_KEYS.recoveryEntries) ?? '[]')).toEqual(current.recoveryEntries);
+    expect(store.getItem(STORAGE_KEYS.language)).toBe('en'); // preserved raw
   });
 });
 

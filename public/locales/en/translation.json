@@ -1131,7 +1131,10 @@
       "droppedWarning": "Some records in this file were corrupt and will be skipped — Replace is disabled to protect your history; Merge keeps every valid row.",
       "mergeDoneMessage": "Merged into current data. Model inputs were kept — use Replace on a lossless backup to adopt them.",
       "replaceDoneMessage": "All data replaced from the backup dated {{date}}.",
-      "partialFailMessage": "Restore finished in memory but NOT fully saved: {{keys}} failed to write. Free up storage and re-run the restore."
+      "partialFailMessage": "Restore finished in memory but NOT fully saved: {{keys}} failed to write. Free up storage and re-run the restore.",
+      "legacyScopeBtn": "Restore legacy scope (model, days, scenarios only)",
+      "scopedDoneMessage": "Legacy scope restored: model input plus {{days}} recorded day(s). Recovery entries and actions were preserved.",
+      "rollbackCriticalMessage": "CRITICAL: the restore failed AND could not fully roll back. Affected keys: {{keys}}. Export a fresh backup before closing this page."
     },
     "charts": {
       "customersTag": "Customer concentration",

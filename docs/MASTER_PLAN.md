@@ -71,8 +71,12 @@ Nothing else matters if records die with the browser.
 - [x] Import preview with explicit **merge / replace / cancel**; deterministic conflicts via normalized-ISO `updatedAt` (numeric compare; newer incoming wins; ties keep local; identical ignored; visible counts). Merge never overwrites model inputs. Parse failure never touches state or localStorage.
 - [x] Destructive-Replace guard: any dropped record disables Replace; localStorage write failures are collected and NEVER announced as success (`persistBundle`).
 - [x] Legacy v1 import migration + explicit "v1 never stored recovery/actions" warning; Replace disabled for v1.
-- [x] Tests: unit (17) + browser/component jsdom suite (7: cancel-changes-nothing, strict-fail-changes-nothing, merge persists keys, replace persists keys incl. language, v1 legacy note, lossy disables Replace, wipe→restore→reload deep equality).
-- [ ] In-app backup-age banner after 7 days without export — **BLOCKED until owner accepts the backup-integrity commit**.
+- [x] Language round-trip: active i18n language captured in exports; stored/restored RAW (`en`/`ar`, matching ClientLayout/i18n.ts); Blob-intercept test proves it; reload test asserts raw value + changeLanguage('ar') + app language event.
+- [x] Legacy v1 gets a clearly-labelled **scoped restore**: adopts model/days/scenarios; recovery entries, actions and language are preserved untouched; Replace stays disabled.
+- [x] Lossless-aware validation: every material drop/sanitization (bad optionals, invalid timestamps, malformed breakdown entries, impossible calendar dates, non-positive shipments, fractional/negative ids, bad enums, duplicate dates/ids) warns and marks the file lossy; Scenario.input shape-gated before sanitize.
+- [x] Transactional persistence: snapshot → attempt all → rollback on any failure; React state moves only after full success; preview stays open on failure; distinct critical message when rollback itself fails.
+- [x] Tests: 30 backup total — 20 unit + 10 browser/component jsdom (incl. exported-Blob language proof, quota-rollback UI proof, v1 scoped-restore reload proof).
+- [ ] In-app backup-age banner after 7 days without export — **BLOCKED until owner accepts Commit E**.
 - [ ] Arabic WhatsApp paste-parser — same gate.
 **Accept:** export→import deep-equality tests; corrupt file rejected without touching current data; v1 migration test; merge-conflict determinism test; malformed-import-cannot-change-state integration proof. ✅ delivered (all tests passing: 130).
 

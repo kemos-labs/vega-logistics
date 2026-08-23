@@ -20,7 +20,7 @@ import { resolveTelematicsProvider } from '@/lib/platform/telematics';
 
 type View = 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios';
 type RecoveryOpenRow = { id: string; createdAt: string; shipments: number; owner: string; status: 'pending' | 'recovered' | 'written_off' };
-import { applyBackupMerge, buildBackup, parseBackup, persistBundle, replaceWithBackup, type BackupFileV2, type FollowUpAction } from '@/lib/backup';
+import { applyBackupMerge, applyLegacyScopedRestore, buildBackup, commitBundle, parseBackup, replaceWithBackup, type BackupFileV2, type FollowUpAction, type PersistResult } from '@/lib/backup';
 import { createScenario, type Scenario } from '@/lib/scenarios';
 type NumberField = keyof Pick<FinancialInput,
   'companyDriverCount' | 'driverSalary' | 'opsTeamCount' | 'opsTeamAvgSalary' | 'salesTeamCount' |
@@ -698,8 +698,9 @@ export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,s
     if(!pendingImport) return null;
     return applyBackupMerge({financialInput:input,dailyRecords,scenarios,recoveryEntries,followUpActions:actions},pendingImport.file).stats;
   },[pendingImport,input,dailyRecords,scenarios,recoveryEntries,actions]);
+  const activeLanguage = i18n.language === 'ar' ? 'ar' : 'en';
   const downloadBackup=()=>{
-    const backup=buildBackup(bundle);
+    const backup=buildBackup(bundle,activeLanguage);
     const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const anchor=document.createElement('a');
@@ -711,35 +712,52 @@ export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,s
     const text=await file.text();
     const parsed=parseBackup(text);
     if(!parsed.ok){ setMessage(t(S+'importFailed')); return; }
-    setMessage(''); 
+    setMessage('');
     setPendingImport({file:parsed.file,migratedFrom:parsed.migratedFrom,warnings:parsed.warnings,lossless:parsed.lossless});
   };
-  // Commit restored state to React AND localStorage. Storage failures must
-  // never be announced as success (review contract C2).
-  const commit=(next:ReturnType<typeof applyBackupMerge>['next'],lang?:string)=>{
+  // Transactional restore (review contract E-4): storage FIRST via
+  // commitBundle (snapshot -> attempt all -> rollback on any failure);
+  // React state and language flip ONLY after a fully successful write.
+  // On failure the preview stays open so the user can retry or cancel.
+  const finishOk=(result:PersistResult,successMessage:string)=>{
+    if(result.persistedOk){ setPendingImport(null); setMessage(successMessage); return; }
+    if(!result.rollbackOk) setMessage(t(S+'rollbackCriticalMessage',{keys:[...result.failedKeys,...result.rollbackFailedKeys].join(', ')}));
+    else setMessage(t(S+'partialFailMessage',{keys:result.failedKeys.join(', ')}));
+  };
+  const applyState=(next:ReturnType<typeof applyBackupMerge>['next'])=>{
     applyFinancialInput(next.financialInput);
     setDailyRecords(next.dailyRecords); setScenarios(next.scenarios);
     setRecoveryEntries(next.recoveryEntries); setActions(next.followUpActions);
-    const result=persistBundle(next,lang);
-    return result;
   };
+  const switchLanguageIfAny=(lang?:string)=>{ if(lang){ void i18n.changeLanguage(lang); window.dispatchEvent(new CustomEvent('vega:set-language',{detail:lang})); } };
   const doMerge=()=>{
     if(!pendingImport) return;
     const {next}=applyBackupMerge(bundle,pendingImport.file);
-    const result=commit(next,next===undefined?undefined:undefined); // merge keeps current inputs & language
-    setPendingImport(null);
-    if(!result.persistedOk){ setMessage(t(S+'partialFailMessage',{keys:result.failedKeys.join(', ')})); return; }
-    setMessage(t(S+'mergeDoneMessage'));
+    // merge keeps current model inputs AND current language — only the five data keys are written
+    const result=commitBundle({financialInput:next.financialInput,dailyRecords:next.dailyRecords,scenarios:next.scenarios,recoveryEntries:next.recoveryEntries,followUpActions:next.followUpActions},undefined,{keys:['financialInput','dailyRecords','scenarios','recoveryEntries','followUpActions']});
+    if(!result.persistedOk){ finishOk(result,''); return; }
+    applyState(next);
+    finishOk(result,t(S+'mergeDoneMessage'));
   };
   const doReplace=()=>{
     if(!pendingImport||!pendingImport.lossless) return;
     const next=replaceWithBackup(bundle,pendingImport.file);
     const lang=pendingImport.file.data.language;
-    const result=commit(next,lang);
-    if(lang&&result.persistedOk){ void i18n.changeLanguage(lang); window.dispatchEvent(new CustomEvent('vega:set-language',{detail:lang})); }
-    setPendingImport(null);
-    if(!result.persistedOk){ setMessage(t(S+'partialFailMessage',{keys:result.failedKeys.join(', ')})); return; }
-    setMessage(t(S+'replaceDoneMessage',{date:fmtDateMedium(locale,pendingImport.file.exportedAt||new Date().toISOString())}));
+    const result=commitBundle(next,lang);
+    if(!result.persistedOk){ finishOk(result,''); return; }
+    applyState(next); switchLanguageIfAny(lang);
+    finishOk(result,t(S+'replaceDoneMessage',{date:fmtDateMedium(locale,pendingImport.file.exportedAt||new Date().toISOString())}));
+  };
+  const doLegacyScope=()=>{
+    if(!pendingImport||pendingImport.migratedFrom!==1) return;
+    const {next}=applyLegacyScopedRestore(bundle,pendingImport.file);
+    // adopt ONLY v1 scope: model input, days, scenarios — recovery entries,
+    // follow-up actions and language are preserved untouched (E-2)
+    const result=commitBundle({financialInput:next.financialInput,dailyRecords:next.dailyRecords,scenarios:next.scenarios},undefined,{keys:['financialInput','dailyRecords','scenarios']});
+    if(!result.persistedOk){ finishOk(result,''); return; }
+    applyFinancialInput(next.financialInput);
+    setDailyRecords(next.dailyRecords); setScenarios(next.scenarios);
+    finishOk(result,t(S+'scopedDoneMessage',{days:Object.keys(next.dailyRecords).length}));
   };
   return <><div className="bm-page-head"><h1>{t(S+'title')}</h1><p>{t(S+'desc')}</p></div>
     <section className="bm-form-card bm-scenario-save"><h2>{t(S+'saveHead')}</h2><div className="bm-scenario-save-row"><input aria-label={t(S+'scenarioName')} placeholder={t(S+'namePlaceholder')} value={name} maxLength={60} onChange={event=>setName(event.target.value)} onKeyDown={event=>{if(event.key==='Enter')save();}} /><button className="bm-primary" onClick={save}><Plus size={15}/> {t(S+'saveBtn')}</button></div>{message&&<output aria-live="polite">{message}</output>}</section>
@@ -774,6 +792,7 @@ export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,s
         <div className="bm-import-choices">
           <button className="bm-primary" data-testid="import-merge" onClick={doMerge}>{t(S+'mergeBtn')}</button>
           <button data-testid="import-replace" onClick={doReplace} disabled={!pendingImport.lossless} title={!pendingImport.lossless?t(S+'droppedWarning'):undefined}>{t(S+'replaceBtn')}</button>
+          {pendingImport.migratedFrom===1&&<button data-testid="import-legacy" onClick={doLegacyScope}>{t(S+'legacyScopeBtn')}</button>}
           <button data-testid="import-cancel" onClick={()=>{setPendingImport(null);setMessage('');}}>{t(S+'cancelBtn')}</button>
         </div>
         {previewStats&&<p className="bm-import-stats">{t(S+'previewStats',{added:previewStats.added,updated:previewStats.updated,conflicts:previewStats.conflicts})}</p>}
