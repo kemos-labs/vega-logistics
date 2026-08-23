@@ -47,6 +47,34 @@ describe('ten accepted real-world variants', () => {
   }
 });
 
+describe('R0 fixes — greetings, conflicts, chatter', () => {
+  it('strips greetings from the name run: «السلام عليكم يعقوب…» yields يعقوب only', () => {
+    const preview = expectParsed('السلام عليكم صباح الخير يعقوب عبدالقادر سيارة 10 لوحة 4684 تحميل 25 توصيل 18 راجع 7');
+    expect(preview.providerName).toBe('يعقوب عبدالقادر');
+    expect(preview.providerName).not.toContain('السلام');
+    expect(preview.warnings).not.toContain('ambiguous-name');
+  });
+
+  it('greeting-only preamble degrades to name-missing, numbers still parsed', () => {
+    const preview = expectParsed('السلام عليكم كيف الحال الحمد لله سيارة 10 لوحة 4684 تحميل 9 توصيل 7 راجع 2');
+    expect(preview.warnings).toContain('name-missing');
+    expect(preview.providerName).toBeUndefined();
+    expect(preview.loaded).toBe(9);
+  });
+
+  it('conflicting duplicate تحميل values warn conflict:loaded and keep the first', () => {
+    const preview = expectParsed('يعقوب سياره10 لوحه4684 تحميل25 توصيل18 راجع7 تحميل30');
+    expect(preview.loaded).toBe(25);
+    expect(preview.warnings).toContain('conflict:loaded');
+  });
+
+  it('identical repeated values are NOT conflicts', () => {
+    const preview = expectParsed('يعقوب سياره10 لوحه4684 تحميل25 توصيل18 راجع7 وتحميل 25 ايضا');
+    expect(preview.loaded).toBe(25);
+    expect(preview.warnings.filter(w => w.startsWith('conflict:'))).toEqual([]);
+  });
+});
+
 describe('the operator\'s literal unreconciled message stays blocked', () => {
   it('parses fine but reconcile() exposes difference +5 — confirmation must be blocked upstream', () => {
     const preview = expectParsed('يعقوب عبدالقادر سياره 10 لوحه4684 تحميل 25 توصيل 18 راجع 2');

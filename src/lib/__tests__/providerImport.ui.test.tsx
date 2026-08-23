@@ -109,6 +109,31 @@ describe('ProviderImportCard', () => {
     expect(localStorage.getItem(STORAGE_KEYS.dailyRecords)).toBeNull(); // card itself never writes
   });
 
+  it('editing source text after parse invalidates the stale preview (confirm becomes no-op)', async () => {
+    const onApply = vi.fn();
+    renderCard({}, onApply);
+    pasteAndParse(BALANCED);
+    await screen.findByTestId('preview-grid');
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: BALANCED + ' تعديل' } });
+    // preview is cleared outright — a stale preview must never be confirmable
+    expect(screen.queryByTestId('preview-grid')).toBeNull();
+    expect((screen.getByTestId('import-confirm') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('import-confirm'));
+    expect(onApply).not.toHaveBeenCalled();
+  });
+
+  it('blank/invalid record date cannot be confirmed and shows an explicit error', async () => {
+    const onApply = vi.fn();
+    renderCard({}, onApply);
+    pasteAndParse(BALANCED);
+    await screen.findByTestId('preview-grid');
+    fireEvent.change(document.querySelector('input[type="date"]') as HTMLInputElement, { target: { value: '' } });
+    expect(screen.getByTestId('date-error')).toBeTruthy();
+    expect((screen.getByTestId('import-confirm') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('import-confirm'));
+    expect(onApply).not.toHaveBeenCalled();
+  });
+
   it('existing-date overwrite requires EXPLICIT acknowledgement before confirm enables', async () => {
     const onApply = vi.fn();
     renderCard({ '2026-08-22': baseRecord({ completedShipments: 5 }) }, onApply);

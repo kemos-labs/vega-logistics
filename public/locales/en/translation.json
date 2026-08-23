@@ -1377,7 +1377,17 @@
       "overwriteWarning": "This date already has recorded values. Confirming will overwrite completed/failed counts and driver fields only.",
       "ackOverwrite": "I reviewed the existing values — overwrite them with this preview.",
       "confirmBtn": "Confirm into daily record",
-      "resetBtn": "Clear"
+      "resetBtn": "Clear",
+      "warn_ambiguous_name": "Name could not be read confidently — shown fields are numbers only.",
+      "warn_name_missing": "No driver/provider name found before the first field.",
+      "warn_unparsed_car": "Car term found without a readable number.",
+      "warn_unparsed_plate": "Plate term found without a readable number.",
+      "warn_conflict_loaded": "Two different تحميل values appear — the first was kept; fix the source text if wrong.",
+      "warn_conflict_delivered": "Two different توصيل values appear — the first was kept; fix the source text if wrong.",
+      "warn_conflict_returned": "Two different راجع values appear — the first was kept; fix the source text if wrong.",
+      "warn_conflict_car": "Two different car numbers appear — the first was kept.",
+      "warn_conflict_plate": "Two different plate numbers appear — the first was kept.",
+      "errDate": "Choose a valid record date before confirming."
     }
   }
 }

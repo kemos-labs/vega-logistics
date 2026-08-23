@@ -10,6 +10,7 @@
 // Dismissal hides the banner for the remainder of the calendar day only.
 
 import { normalizeIso } from '@/lib/backup';
+import { toDateString } from '@/lib/operationsReporting';
 
 export const BACKUP_REMINDER_KEY = 'vega-last-backup-at-v1';
 export const BACKUP_DISMISS_KEY_PREFIX = 'vega-backup-banner-dismissed:';
@@ -33,7 +34,9 @@ export interface BackupReminderState {
 }
 
 function dayKey(nowMs: number): string {
-  return new Date(nowMs).toISOString().slice(0, 10);
+  // LOCAL calendar day (Saudi UTC+3 law) — a UTC slice would flip the
+  // "today" boundary at 03:00 local time.
+  return toDateString(new Date(nowMs));
 }
 
 export function evaluateBackupReminder(
@@ -49,9 +52,6 @@ export function evaluateBackupReminder(
   if (!normalized) return { visible: true, reason: 'invalid', daysSince: null };
   const thenMs = Date.parse(normalized);
   if (thenMs > nowMs + FUTURE_SKEW_MS) return { visible: false, reason: 'future', daysSince: null };
-  if (thenMs <= nowMs - FUTURE_SKEW_MS && thenMs > nowMs) {
-    // unreachable numerically; kept for clarity of intent
-  }
   const daysSince = Math.floor((nowMs - thenMs) / 86_400_000);
   if (daysSince < BACKUP_REMINDER_DAYS) return { visible: false, reason: 'fresh', daysSince };
   return { visible: true, reason: 'stale', daysSince };

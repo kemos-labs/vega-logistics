@@ -10,6 +10,7 @@ import type { DriverRecord, FinancialInput, Provider, VehicleClass } from '@/lib
 import { resizeVehicleFleet } from '@/lib/fleetModel';
 import { calculateFinancials } from '@/lib/calculations';
 import { buildMonthlyRollup, buildProjection, calculateDailyMetrics, migrateDailyRecords, toDateString, FAILURE_REASON_KEYS, type DailyRecord, type FailureReasonKey } from '@/lib/operationsReporting';
+import { defaultFinancialInput } from '@/lib/mockData';
 import { buildReportModel, type ReportKind, type ReportModel } from '@/lib/reportEngine';
 import { exportBusinessModelExcel, exportDailyReportPdf } from '@/lib/reportExport';
 import ProReport, { buildReportLabels } from '@/components/rebuild/ProReport';
@@ -93,7 +94,10 @@ export default function BusinessModelApp() {
     const id = window.setInterval(() => setReminderNowMs(Date.now()), 60_000);
     return () => window.clearInterval(id);
   }, []);
-  const hasMeaningfulData = Object.keys(dailyRecords).length > 0 || scenarios.length > 0 || recoveryEntries.length > 0;
+  // Meaningful data = any real records OR a model tuned away from defaults —
+  // both represent work a backup protects.
+  const modelModified = useMemo(() => JSON.stringify(input) !== JSON.stringify(defaultFinancialInput), [input]);
+  const hasMeaningfulData = Object.keys(dailyRecords).length > 0 || scenarios.length > 0 || recoveryEntries.length > 0 || modelModified;
   const backupReminder = useMemo(() => evaluateBackupReminder(reminderNowMs, lastBackupAt, hasMeaningfulData), [reminderNowMs, lastBackupAt, hasMeaningfulData]);
   const bannerDismissed = useMemo(() => isDismissedToday(reminderNowMs as never), [reminderNowMs]);
   const [reportKind, setReportKind] = useState<ReportKind>('daily');
@@ -862,12 +866,16 @@ export function ProviderImportCard({ dailyRecords, onApply }: { dailyRecords: Re
   const preview: ProviderPreview | null = parsed && parsed.ok ? parsed.preview : null;
   const recon = preview ? reconcile(preview) : null;
   const existing = dailyRecords[date];
-  const hasExistingValues = !!existing && (existing.completedShipments > 0 || existing.failedShipments > 0 || !!existing.notes);
-  const confirmEnabled = !!preview && !!recon?.balanced && (!hasExistingValues || ackOverwrite);
+  // ANY existing record on the chosen date requires explicit acknowledgement
+  // before confirm — even an all-zero or notes-only row is someone's data.
+  const dateIsValid = /^\d{4}-\d{2}-\d{2}$/.test(date);
+  const confirmEnabled = !!preview && !!recon?.balanced && dateIsValid && (!existing || ackOverwrite);
 
+  // Editing the source text invalidates the previous parse — a stale preview
+  // must never be confirmable against text the operator has since changed.
   const doParse = () => setParsed(rawText.trim() ? parseProviderMessage(rawText) : null);
   const doConfirm = () => {
-    if (!preview || !recon?.balanced || !confirmEnabled) return;
+    if (!preview || !recon?.balanced || !confirmEnabled || !dateIsValid) return;
     onApply(date, applyPreviewToRecord(existing, preview, date, new Date().toISOString()));
     setRawText(''); setParsed(null); setAckOverwrite(false);
   };
@@ -880,7 +888,7 @@ export function ProviderImportCard({ dailyRecords, onApply }: { dailyRecords: Re
         placeholder={t(S + 'placeholder')}
         value={rawText}
         rows={3}
-        onChange={event => { setRawText(event.target.value); }}
+        onChange={event => { setRawText(event.target.value); if (parsed) setParsed(null); }}
         onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) doParse(); }}
       />
       <div className="bm-provider-row">
@@ -914,10 +922,13 @@ export function ProviderImportCard({ dailyRecords, onApply }: { dailyRecords: Re
         )}
         {preview && warningsList(preview).length > 0 && (
           <ul className="bm-import-note" data-testid="parser-warnings">
-            {warningsList(preview).map(w => <li key={w}>{t(S + 'warn_' + w.split(':')[0].replace(/-/g, '_'), { fallback: w })}</li>)}
+            {warningsList(preview).map(w => <li key={w}>{t(S + 'warn_' + w.split(':')[0].replace(/-/g, '_'))}</li>)}
           </ul>
         )}
-        {preview && hasExistingValues && (
+        {preview && !dateIsValid && (
+          <p className="bm-import-warning" data-testid="date-error" role="alert">{t(S + 'errDate')}</p>
+        )}
+        {preview && existing && (
           <p className="bm-import-warning" data-testid="overwrite-note">
             {t(S + 'overwriteWarning')}
             <label className="bm-ack">

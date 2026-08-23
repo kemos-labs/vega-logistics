@@ -71,6 +71,24 @@ const TERMS: TermSpec[] = [
 
 const SEP = '[\\s=:،,.;\\-]*';
 
+/** Common greetings/closers that must never become the driver name. */
+const GREETINGS = [
+  'السلام عليكم', 'عليكم السلام', 'صباح الخير', 'صباح النور', 'مساء الخير',
+  'مساء النور', 'كيف الحال', 'كيف حالك', 'الحمد لله', 'ان شاء الله',
+  'إن شاء الله', 'تفضل', 'تفضلوا', 'اليوم',
+];
+
+/** Strip greetings/chatter from a candidate name run. */
+function stripChatter(candidate: string): string {
+  let cleaned = ` ${candidate.replace(/\s+/gu, ' ').trim()} `;
+  for (const greeting of GREETINGS) {
+    const pattern = new RegExp(`(^|\\s)${greeting}(?=(\\s|$))`, 'gu');
+    cleaned = cleaned.replace(pattern, ' ');
+  }
+  return cleaned.replace(/[\s=:،,.;\-]+/gu, ' ').trim();
+}
+
+
 function extractNumberAfter(text: string, from: number): number | null {
   const rest = text.slice(from);
   const match = new RegExp(`^${SEP}(\\d{1,5})`).exec(rest);
@@ -113,18 +131,23 @@ export function parseProviderMessage(input: string): ParseResult {
   let firstFieldIndex = Number.MAX_SAFE_INTEGER;
   for (const [slot, occurrences] of hits) {
     let assigned = false;
+    const extraValues = new Set<number>();
     for (const occurrence of occurrences) {
       firstFieldIndex = Math.min(firstFieldIndex, occurrence.index);
-      if (assigned) continue;
       const num = extractNumberAfter(text, occurrence.index + occurrence.term.length);
-      const specSlot = slot as 'car' | 'plate';
-      if (num !== null && (slot === 'loaded' || slot === 'delivered' || slot === 'returned')) {
+      if (num === null) continue;
+      if (!assigned) {
         numbers[slot] = num;
         assigned = true;
-      } else if (num !== null && (slot === 'car' || slot === 'plate')) {
-        numbers[specSlot] = num;
-        assigned = true;
+      } else {
+        extraValues.add(num); // occurrences beyond the first
       }
+    }
+    // Conflicting duplicate terms (e.g. two different تحميل values) must
+    // never silently keep the first — keep it as the value but WARN.
+    const firstValue = numbers[slot];
+    if (firstValue !== undefined && [...extraValues].some(v => v !== firstValue)) {
+      warnings.push(`conflict:${slot}`);
     }
     if (!assigned && (slot === 'car' || slot === 'plate')) {
       warnings.push(`unparsed:${slot}`);
@@ -138,19 +161,19 @@ export function parseProviderMessage(input: string): ParseResult {
     return { ok: false, error: 'missing-required', warnings };
   }
 
-  // provider/driver name: free-text run BEFORE the first field term
+  // provider/driver name: free-text run BEFORE the first field term,
+  // AFTER stripping greetings/chatter that would otherwise be mis-attributed.
   let providerName: string | undefined;
-  if (firstFieldIndex > 0) {
-    const candidate = normalizeDigits(original).slice(0, firstFieldIndex).replace(/[\s=:،,.;\-]+$/u, '').trim();
-    if (candidate.length >= 2 && candidate.length <= 60) {
-      if (/[\u0600-\u06FFa-zA-Z]/.test(candidate)) {
-        providerName = candidate.replace(/\s+/g, ' ');
-      } else {
-        warnings.push('ambiguous-name');
-      }
-    } else if (candidate.length > 0) {
+  const rawCandidate = firstFieldIndex > 0 ? normalizeDigits(original).slice(0, firstFieldIndex) : '';
+  const candidate = stripChatter(rawCandidate);
+  if (candidate.length >= 2 && candidate.length <= 60) {
+    if (/[\u0600-\u06FFa-zA-Z]/.test(candidate)) {
+      providerName = candidate;
+    } else {
       warnings.push('ambiguous-name');
     }
+  } else if (candidate.length > 60 || candidate.length === 1) {
+    warnings.push('ambiguous-name');
   } else {
     warnings.push('name-missing');
   }
