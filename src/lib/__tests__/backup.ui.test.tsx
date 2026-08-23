@@ -47,6 +47,7 @@ function record(date: string, completed: number, failed: number): DailyRecord {
 
 function bundle(overrides: Partial<StateBundle> = {}): StateBundle {
   return {
+    stops: [],
     financialInput: structuredClone(defaultFinancialInput),
     dailyRecords: { '2026-08-20': record('2026-08-20', 37, 14) },
     scenarios: [{ id: 'scn-1', name: 'Base', savedAt: T0, input: structuredClone(defaultFinancialInput) }],
@@ -59,6 +60,7 @@ function bundle(overrides: Partial<StateBundle> = {}): StateBundle {
 let lastSpies: ReturnType<typeof createSpies> | undefined;
 function createSpies() {
   return {
+      setStops: vi.fn(),
     setDailyRecords: vi.fn(),
     setScenarios: vi.fn(),
     setRecoveryEntries: vi.fn(),
@@ -75,6 +77,8 @@ function renderView(current: StateBundle, language = 'en') {
   lastSpies = spies;
   const view = render(
     <ScenarioView
+      stops={current.stops ?? []}
+      setStops={spies.setStops}
       input={current.financialInput}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       output={{} as any}
@@ -133,7 +137,7 @@ describe('exported file language (contract E-1)', () => {
     const text = await created[0].text();
     const parsedFile = JSON.parse(text) as { format: string; version: number; data: { language?: string } };
     expect(parsedFile.format).toBe('vega-logistics-backup');
-    expect(parsedFile.version).toBe(2);
+    expect(parsedFile.version).toBe(3); // v3 envelope since the stops upgrade
     expect(parsedFile.data.language).toBe('ar'); // active language captured in the export
   });
 });
@@ -260,7 +264,7 @@ describe('backup UI integration', () => {
     expect(localStorage.getItem(STORAGE_KEYS.dailyRecords)).toBeNull();
 
     // RESTORE through the real UI onto empty state
-    const empty: StateBundle = { financialInput: structuredClone(defaultFinancialInput), dailyRecords: {}, scenarios: [], recoveryEntries: [], followUpActions: [] };
+    const empty: StateBundle = { financialInput: structuredClone(defaultFinancialInput), dailyRecords: {}, scenarios: [], recoveryEntries: [], followUpActions: [] , stops: [] };
     renderView(empty);
     chooseFile(snapshotFile);
     await expectPreview();

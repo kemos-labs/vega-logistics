@@ -43,9 +43,17 @@ import type { FinancialInput } from '@/lib/types';
 import type { DailyRecord } from '@/lib/operationsReporting';
 import type { RecoveryEntry } from '@/lib/recoveryBoard';
 import type { Scenario } from '@/lib/scenarios';
+import { validateStopRecord, normalizeStopRecord, type StopRecord, type StopFieldError } from '@/lib/stops';
+
+function validateStopRecordForBackup(candidate: Record<string, unknown>): StopFieldError[] {
+  return validateStopRecord(candidate).errors.filter(e => e.field !== 'id');
+}
+function normalizeStopRecordForBackup(candidate: Record<string, unknown>): StopRecord {
+  return normalizeStopRecord(candidate);
+}
 
 export const BACKUP_FORMAT = 'vega-logistics-backup' as const;
-export const BACKUP_VERSION = 2 as const;
+export const BACKUP_VERSION = 3 as const;
 
 /** Authoritative inventory of user-state localStorage keys (see header). */
 export const STORAGE_KEYS = {
@@ -54,6 +62,7 @@ export const STORAGE_KEYS = {
   scenarios: 'vega-scenarios-v1',
   recoveryEntries: 'vega-recovery-board-v1',
   followUpActions: 'vega-followup-actions-v1',
+  stops: 'vega-stops-v1',
   language: 'language',
 } as const;
 
@@ -73,6 +82,8 @@ export interface BackupData {
   scenarios: Scenario[];
   recoveryEntries: RecoveryEntry[];
   followUpActions: FollowUpAction[];
+  /** v3 only — absent (not empty) in v2 files. */
+  stops?: StopRecord[];
   /** UI preference restored on import ('en' | 'ar'). */
   language?: string;
 }
@@ -91,6 +102,7 @@ export interface StateBundle {
   scenarios: Scenario[];
   recoveryEntries: RecoveryEntry[];
   followUpActions: FollowUpAction[];
+  stops: StopRecord[];
 }
 
 export interface MergeStats {
@@ -106,9 +118,9 @@ export type ParsedBackup =
   | {
       ok: true;
       file: BackupFileV2;
-      migratedFrom?: 1;
+      migratedFrom?: 1 | 2;
       warnings: string[];
-      dropped: { days: number; scenarios: number; recoveryEntries: number; followUpActions: number };
+      dropped: { days: number; scenarios: number; recoveryEntries: number; followUpActions: number; stops: number };
       /** false ⇒ destructive Replace must be disabled in the UI. */
       lossless: boolean;
       /**
@@ -409,6 +421,33 @@ function sanitizeFollowUpActions(value: unknown[], warn: (msg: string) => void):
   return out;
 }
 
+/** Strict per-row stop sanitization — invalid rows warn and are dropped. */
+function sanitizeStops(value: unknown[], warn: (msg: string) => void): StopRecord[] {
+  const out: StopRecord[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const raw = value[index];
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      warn(`stop:index-${index}`);
+      continue;
+    }
+    // Field-level validation reusing the domain module (single truth).
+    const errors: StopFieldError[] = [];
+    const candidate = raw as Record<string, unknown>;
+    if (typeof candidate.id !== 'string' || (candidate.id as string).trim() === '') {
+      errors.push({ field: 'id', code: 'required-missing' });
+    }
+    // Delegate remaining rules to validateStopRecord via a dry-run:
+    const probe = validateStopRecordForBackup(candidate);
+    errors.push(...probe);
+    if (errors.length > 0) {
+      warn(`stop:index-${index}:${errors[0].field}:${errors[0].code}`);
+      continue;
+    }
+    out.push(normalizeStopRecordForBackup(candidate));
+  }
+  return out;
+}
+
 function pruneUndefined<T>(value: T): T {
   if (Array.isArray(value)) return value.map(item => pruneUndefined(item)) as T;
   if (isRecord(value)) {
@@ -421,7 +460,7 @@ function pruneUndefined<T>(value: T): T {
   return value;
 }
 
-/** Build a v2 backup file from live state (including language pref). */
+/** Build a v3 backup file from live state (including language pref). */
 export function buildBackup(
   bundle: StateBundle,
   language?: string,
@@ -475,7 +514,7 @@ export function parseBackup(raw: string): ParsedBackup {
       ok: true,
       migratedFrom: 1,
       warnings: [...warnings, 'legacy-v1:no-recovery-or-actions-stored'],
-      dropped: { days: daysDroppedV1, scenarios: scenariosDroppedV1, recoveryEntries: 0, followUpActions: 0 },
+      dropped: { days: daysDroppedV1, scenarios: scenariosDroppedV1, recoveryEntries: 0, followUpActions: 0, stops: 0 },
       lossless: false, // full-fidelity Replace is impossible for v1 by definition
       legacyScopeMissing: true,
       contentLoss,
@@ -489,25 +528,86 @@ export function parseBackup(raw: string): ParsedBackup {
           scenarios: dedupedScenariosV1.map(scn => ({ ...scn })),
           recoveryEntries: [],
           followUpActions: [],
+          stops: [],
         },
       },
     };
   }
 
-  // ── v2 strict ──
+  // ── v2 legacy migration (full collections EXCEPT stops) ──
+  // A v2 file never contained stops; adopting it must NEVER erase current
+  // stop records. Parsed with the same strictness; stops = [] and
+  // legacyScopeMissing=true ⇒ UI keeps destructive Replace disabled and
+  // merge/scoped paths preserve existing stops.
+  if (parsed.version === 2 && parsed.format === BACKUP_FORMAT) {
+    const v2Result = parseV3ShapedData(parsed, warn, warnings, { requireStops: false });
+    if (!v2Result.ok) return { ok: false, error: v2Result.error };
+    return {
+      ok: true,
+      migratedFrom: 2,
+      warnings: [...warnings, 'legacy-v2:no-stops-stored'],
+      dropped: { ...v2Result.dropped, stops: 0 },
+      lossless: false, // missing-scope formats can never Replace losslessly
+      legacyScopeMissing: true,
+      contentLoss: v2Result.contentLoss,
+      file: {
+        format: BACKUP_FORMAT,
+        version: BACKUP_VERSION,
+        exportedAt: normalizeIso(parsed.exportedAt) ?? '',
+        data: { ...v2Result.data, stops: [] },
+      },
+    };
+  }
+
+  // ── v3 strict ──
   if (parsed.format !== BACKUP_FORMAT || parsed.version !== BACKUP_VERSION) {
     return { ok: false, error: 'unsupported-format' };
   }
   if (!isRecord(parsed.data)) return { ok: false, error: 'data-container-invalid' };
 
+  const shaped = parseV3ShapedData(parsed, warn, warnings);
+  if (!shaped.ok) return { ok: false, error: shaped.error };
+
+  return {
+    ok: true,
+    warnings,
+    dropped: shaped.dropped,
+    // ANY warning means the file did not survive byte-perfect ⇒ lossy.
+    lossless: warnings.length === 0,
+    contentLoss: warnings.length > 0,
+    file: {
+      format: BACKUP_FORMAT,
+      version: BACKUP_VERSION,
+      exportedAt: normalizeIso(parsed.exportedAt) ?? '',
+      data: { ...shaped.data, ...(shaped.language ? { language: shaped.language } : {}) },
+    },
+  };
+}
+
+/**
+ * Shared strict parser for v3 and the v2-migration branch. Container-type
+ * enforcement: a missing/malformed collection rejects the whole file —
+ * malformed collections NEVER become silent empty arrays. For v3, a MISSING
+ * stops key is malformed; `stops: []` is a valid explicit empty collection.
+ */
+function parseV3ShapedData(
+  parsed: Record<string, unknown>,
+  warn: (msg: string) => void,
+  warnings: string[],
+  /** v2 legacy files legitimately lack the stops collection. */
+  options: { requireStops: boolean } = { requireStops: true },
+): { ok: true; data: Omit<BackupData, 'language'> & { language?: string }; dropped: { days: number; scenarios: number; recoveryEntries: number; followUpActions: number; stops: number }; contentLoss: boolean; language?: string }
+  | { ok: false; error: string } {
+  if (!isRecord(parsed.data)) return { ok: false, error: 'data-container-invalid' };
   const data = parsed.data as Record<string, unknown>;
-  // Container-type enforcement: a missing/malformed collection rejects the
-  // whole file. Malformed collections NEVER become silent empty arrays.
   if (!isRecord(data.financialInput)) return { ok: false, error: 'financial-input-container' };
   if (!isRecord(data.dailyRecords)) return { ok: false, error: 'daily-records-container' };
   if (!Array.isArray(data.scenarios)) return { ok: false, error: 'scenarios-container' };
   if (!Array.isArray(data.recoveryEntries)) return { ok: false, error: 'recovery-entries-container' };
   if (!Array.isArray(data.followUpActions)) return { ok: false, error: 'follow-up-actions-container' };
+  const hasStops = Array.isArray(data.stops);
+  if (!hasStops && options.requireStops) return { ok: false, error: 'stops-container' };
+  const rawStopsInput = hasStops ? (data.stops as unknown[]) : [];
 
   // Structure BEFORE sanitize: coercive defaults must not rescue junk.
   if (!isFinancialInputShape(data.financialInput)) return { ok: false, error: 'financial-input-shape' };
@@ -520,37 +620,33 @@ export function parseBackup(raw: string): ParsedBackup {
   const recoveryDropped = data.recoveryEntries.length - rawRecovery.length;
   const rawActions = sanitizeFollowUpActions(data.followUpActions, warn);
   const actionsDropped = data.followUpActions.length - rawActions.length;
+  const rawStops = sanitizeStops(rawStopsInput, warn);
+  const stopsDropped = rawStopsInput.length - rawStops.length;
 
   const languageRaw = data.language;
   const language = languageRaw === 'en' || languageRaw === 'ar' ? languageRaw : undefined;
 
-  const dropped = { days: daysDropped, scenarios: scenariosDropped, recoveryEntries: recoveryDropped, followUpActions: actionsDropped };
+  const dropped = { days: daysDropped, scenarios: scenariosDropped, recoveryEntries: recoveryDropped, followUpActions: actionsDropped, stops: stopsDropped };
 
   const scenarios = dedupeById(rawScenarios, warn);
   const recoveryEntries = dedupeById(rawRecovery, warn);
   const followUpActions = dedupeById(rawActions.map(a => ({ ...a, id: String(a.id) })), warn)
     .map(({ id, ...rest }) => ({ ...rest, id: Number(id) }))
     .sort((a, b) => a.id - b.id);
+  const stops = dedupeById(rawStops, warn);
 
   return {
     ok: true,
-    warnings,
     dropped,
-    // ANY warning means the file did not survive byte-perfect ⇒ lossy.
-    lossless: warnings.length === 0,
     contentLoss: warnings.length > 0,
-    file: {
-      format: BACKUP_FORMAT,
-      version: BACKUP_VERSION,
-      exportedAt: normalizeIso(parsed.exportedAt) ?? '',
-      data: {
-        financialInput: pruneUndefined(sanitizeFinancialInput(data.financialInput)),
-        dailyRecords,
-        scenarios,
-        recoveryEntries,
-        followUpActions,
-        ...(language ? { language } : {}),
-      },
+    language,
+    data: {
+      financialInput: pruneUndefined(sanitizeFinancialInput(data.financialInput)),
+      dailyRecords,
+      scenarios,
+      recoveryEntries,
+      followUpActions,
+      stops,
     },
   };
 }
@@ -652,6 +748,13 @@ export function applyBackupMerge(current: StateBundle, file: BackupFileV2): { ne
     (a, b) => !(a.text === b.text && a.owner === b.owner && a.done === b.done),
   );
 
+  const stops = mergeById(
+    current.stops ?? [],
+    file.data.stops ?? [],
+    stop => normalizeIso(stop.updatedAt) || normalizeIso(stop.createdAt),
+    (a, b) => JSON.stringify(a) !== JSON.stringify(b),
+  );
+
   const inputsIdentical = JSON.stringify(current.financialInput) === JSON.stringify(file.data.financialInput);
 
   return {
@@ -663,8 +766,9 @@ export function applyBackupMerge(current: StateBundle, file: BackupFileV2): { ne
       followUpActions: actions.merged
         .map(({ id, ...rest }) => ({ ...rest, id: Number(id) }))
         .sort((a, b) => a.id - b.id),
+      stops: stops.merged as StopRecord[],
     },
-    stats: sum(days.stats, scenarios.stats, recovery.stats, actions.stats, {
+    stats: sum(days.stats, scenarios.stats, recovery.stats, actions.stats, stops.stats, {
       added: 0,
       updated: 0,
       conflicts: inputsIdentical ? 0 : 1,
@@ -681,6 +785,9 @@ export function replaceWithBackup(_current: StateBundle, file: BackupFileV2): St
     scenarios: file.data.scenarios,
     recoveryEntries: file.data.recoveryEntries,
     followUpActions: file.data.followUpActions,
+    // Legacy formats carry stops: [] — the UI's lossless gate prevents them
+    // from ever reaching this path with current stops present.
+    stops: file.data.stops ?? [],
   });
 }
 
@@ -797,6 +904,7 @@ export function applyLegacyScopedRestore(current: StateBundle, file: BackupFileV
     scenarios: structuredClone(file.data.scenarios),
     recoveryEntries: current.recoveryEntries,
     followUpActions: current.followUpActions,
+    stops: current.stops ?? [], // collections absent from legacy formats are never replaced by them
   };
   const incomingDays = Object.keys(next.dailyRecords).length;
   return {

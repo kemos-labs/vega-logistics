@@ -58,6 +58,29 @@ describe('buildControlTowerSnapshot', () => {
     expect(s.codOutstandingSar).toBe(150); // (500+200) − (300+250); remittances pay down older cash
   });
 
+  it('over-remittance never displays as negative “outstanding” (clamped ≥ 0)', () => {
+    const s = snap({
+      records: { '2026-08-22': record({ date: '2026-08-22', cashCollectedSar: 100, cashRemittedSar: 400 }) },
+    });
+    expect(s.codOutstandingSar).toBe(0);
+    expect(s.actions.some(a => a.id === 'cod-outstanding')).toBe(false);
+  });
+
+  it('actions are severity-sorted BEFORE slicing: backup-stale cannot be displaced by mediums', () => {
+    const s = snap({
+      records: {
+        '2026-08-22': record({ date: '2026-08-22', failedShipments: 5, podStatus: 'partial', cashCollectedSar: 400 }),
+      },
+      backup: { visible: true, reason: 'stale', daysSince: 12 }, // high severity, pushed AFTER two mediums pre-fix
+    });
+    expect(s.actions.map(a => a.id)).toEqual(['backup-stale', 'cod-outstanding', 'failed-yesterday']); // domain priority: data-loss risk above cash
+    // the regression: pre-fix, insertion order let pod-gaps/failed (mediums)
+    // occupy the slice while backup-stale (high) fell off the list entirely
+    expect(s.actions.slice(0, 2).every(a => a.severity === 'high')).toBe(true);
+    expect(s.actions.some(a => a.id === 'backup-stale')).toBe(true);
+    expect(s.actions.some(a => a.id === 'pod-gaps')).toBe(false);
+  });
+
   it('POD gaps list partial/none dates newest first; complete/absent ignored', () => {
     const s = snap({
       records: {

@@ -77,6 +77,8 @@ describe('successful download resets the reminder stamp (integration)', () => {
         setDailyRecords={spies.setDailyRecords}
         recoveryEntries={[]}
         setRecoveryEntries={spies.setRecoveryEntries}
+        stops={[]}
+        setStops={() => undefined}
         actions={[{ id: 1, text: 'a', owner: 'o', done: false }]}
         setActions={spies.setActions}
         applyFinancialInput={spies.applyFinancialInput}

@@ -11,6 +11,7 @@ import {
   persistBundle,
   replaceWithBackup,
   STORAGE_KEYS,
+  BACKUP_VERSION,
   type FollowUpAction,
   type StateBundle,
 } from '@/lib/backup';
@@ -18,6 +19,7 @@ import type { DailyRecord } from '@/lib/operationsReporting';
 import type { RecoveryEntry } from '@/lib/recoveryBoard';
 import { validateRecoveryEntries } from '@/lib/recoveryBoard';
 import type { Scenario } from '@/lib/scenarios';
+import { createStopRecord, type StopRecord } from '@/lib/stops';
 import { defaultFinancialInput } from '@/lib/mockData';
 import { memoryStorage } from './helpers/memoryStorage';
 
@@ -65,6 +67,7 @@ const action = (id: number, done = false, updatedAt?: string): FollowUpAction =>
 
 function fullBundle(): StateBundle {
   return {
+    stops: [],
     financialInput: structuredClone(defaultFinancialInput),
     dailyRecords: {
       '2026-08-20': record('2026-08-20', 37, 14),
@@ -334,7 +337,7 @@ describe('legacy scoped restore (contract E-2)', () => {
       [STORAGE_KEYS.language]: 'en',
     });
     const persisted = persistBundle(
-      { financialInput: next.financialInput, dailyRecords: next.dailyRecords, scenarios: next.scenarios, recoveryEntries: next.recoveryEntries, followUpActions: next.followUpActions },
+      { ...next },
       'en',
       store,
     );
@@ -358,7 +361,7 @@ describe('v1 migration (backward compatibility)', () => {
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     expect(parsed.migratedFrom).toBe(1);
-    expect(parsed.file.version).toBe(2);
+    expect(parsed.file.version).toBe(BACKUP_VERSION); // v1 migrates UP to the current envelope
     expect(parsed.file.data.dailyRecords['2026-06-30'].completedShipments).toBe(30);
     expect(parsed.file.data.scenarios[0].id).toBe('scn-old');
     expect(parsed.file.data.recoveryEntries).toEqual([]);
@@ -552,5 +555,163 @@ describe('v1 duplicate-id scope corruption (contract G1)', () => {
     expect(parsed.warnings.some(w => w.startsWith('duplicate-id'))).toBe(true);
     expect(parsed.dropped.scenarios).toBe(1); // original 2 → deduped 1
     expect(parsed.file.data.scenarios).toHaveLength(1);
+  });
+});
+
+// ═══════════ Backup v3 — stops collection (Release R2-A) ═══════════
+
+describe('backup v3 — stops', () => {
+  const T_STOP = '2026-08-24T08:00:00.000Z';
+  function stop(over: Partial<StopRecord> = {}, nowIso = T_STOP): StopRecord {
+    return createStopRecord({
+      operationDate: '2026-08-25', customerName: 'عميل التجارب',
+      stopLabel: 'حي الملقا بوابة 3', reference: 'SH-9', codAmountSar: 25, ...over,
+    }, nowIso);
+  }
+  function bundleWith(stops: StopRecord[]): StateBundle {
+    return { ...fullBundle(), stops };
+  }
+
+  it('v3 deep-equality round-trip preserves EVERY StopRecord field', () => {
+    const rich = stop({ customerId: 'c1', addressNotes: 'وصف العنوان', phone: '0551234567', serviceWindow: 'morning', driverName: 'سالم', carNumber: '12', plateNumber: 'أ ب ج 1234', sequence: 2, status: 'failed', failureReasonKey: 'addressIssue' });
+    const file = buildBackup(bundleWith([rich]), 'ar');
+    const parsed = parseBackup(JSON.stringify(file));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.file.version).toBe(BACKUP_VERSION);
+    expect(parsed.lossless).toBe(true);
+    expect(parsed.file.data.stops).toEqual([rich]); // byte-perfect incl. Arabic + optionals
+  });
+
+  it('`stops: []` is a valid explicit empty v3 collection (lossless)', () => {
+    const parsed = parseBackup(JSON.stringify(buildBackup(bundleWith([]))));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.lossless && parsed.file.data.stops!.length === 0).toBe(true);
+  });
+
+  it('MISSING stops key in a v3 file is malformed → whole-file rejection', () => {
+    const file = buildBackup(bundleWith([])) as unknown as Record<string, unknown>;
+    const data = { ...(file.data as Record<string, unknown>) };
+    delete data.stops;
+    const parsed = parseBackup(JSON.stringify({ ...file, data }));
+    expect(parsed).toMatchObject({ ok: false });
+  });
+
+  it('invalid individual stop rows warn, flip contentLoss/lossless=false; valid rows survive', () => {
+    const good = stop({ reference: 'OK-1' });
+    const bad = { id: '', operationDate: '2026-02-30', customerName: 'x', stopLabel: 'y', status: 'planned', createdAt: T_STOP, updatedAt: T_STOP };
+    const parsed = parseBackup(JSON.stringify(buildBackup(bundleWith([bad as unknown as StopRecord, good]))));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.contentLoss).toBe(true);
+    expect(parsed.lossless).toBe(false); // destructive Replace must be disabled upstream
+    expect(parsed.dropped.stops).toBe(1);
+    expect(parsed.warnings.some(w => w.startsWith('stop:index-0'))).toBe(true);
+    expect(parsed.file.data.stops!).toEqual([good]);
+  });
+
+  it('stop merge conflicts use numeric updatedAt: newer wins / tie keeps local / identical ignored', () => {
+    const local = [stop({ reference: 'M-1' }, '2026-08-24T10:00:00.000Z')];
+    const newer = [{ ...local[0], codAmountSar: 55, updatedAt: '2026-08-24T11:00:00.000Z' }];
+    const older = [{ ...local[0], codAmountSar: 11, updatedAt: '2026-08-24T09:00:00.000Z' }];
+    const equalDiff = [{ ...local[0], codAmountSar: 77, updatedAt: local[0].updatedAt }];
+
+    const rNewer = applyBackupMerge(bundleWith(local), buildBackup(bundleWith(newer)));
+    expect(rNewer.next.stops[0].codAmountSar).toBe(55);
+    expect(rNewer.stats.updated).toBe(1);
+
+    const rTie = applyBackupMerge(bundleWith(local), buildBackup(bundleWith(equalDiff)));
+    expect(rTie.next.stops[0].codAmountSar).toBe(local[0].codAmountSar); // tie keeps LOCAL
+    expect(rTie.stats.conflicts).toBe(1);
+
+    const rOlder = applyBackupMerge(bundleWith(local), buildBackup(bundleWith(older)));
+    expect(rOlder.stats.conflicts).toBe(1);
+
+    const rSame = applyBackupMerge(bundleWith(local), buildBackup(bundleWith([{ ...local[0] }])));
+    expect(rSame.stats.identical).toBeGreaterThanOrEqual(1);
+  });
+
+  it('duplicate incoming stop ids resolve deterministically to the LAST occurrence', () => {
+    const first = stop({ reference: 'DUP' }, '2026-08-24T08:00:00.000Z');
+    const last = { ...first, customerName: 'الأخير يفوز', updatedAt: '2026-08-24T09:00:00.000Z' };
+    const parsed = parseBackup(JSON.stringify(buildBackup(bundleWith([first, last]))));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.warnings.some(w => w.startsWith('duplicate-id'))).toBe(true);
+    expect(parsed.file.data.stops!).toHaveLength(1);
+    expect(parsed.file.data.stops![0].customerName).toBe('الأخير يفوز');
+    expect(parsed.dropped.stops).toBe(0); // dedupe collapse is not a drop
+  });
+
+  it('a v2 backup MERGES in without touching current stops', () => {
+    const currentStops = [stop()];
+    const current = bundleWith(currentStops);
+    // craft a v2-shaped file: full v3 minus stops, version:2
+    const v3 = JSON.parse(JSON.stringify(buildBackup(fullBundle()))) as Record<string, unknown>;
+    const data = v3.data as Record<string, unknown>;
+    delete data.stops;
+    const v2File = { ...v3, version: 2 };
+    const parsed = parseBackup(JSON.stringify(v2File));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.migratedFrom).toBe(2);
+    expect(parsed.legacyScopeMissing).toBe(true);
+    expect(parsed.lossless).toBe(false); // Replace disabled for missing-scope formats
+    const { next } = applyBackupMerge(current, parsed.file);
+    expect(next.stops).toEqual(currentStops); // NEVER erased by an older format
+  });
+
+  it('a v1 backup merge and scoped restore both preserve current stops', () => {
+    const currentStops = [stop()];
+    const v1 = {
+      version: 1, exportedAt: T0,
+      input: structuredClone(defaultFinancialInput),
+      dailyRecords: {},
+      scenarios: [],
+    };
+    const parsed = parseBackup(JSON.stringify(v1));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const merged = applyBackupMerge(bundleWith(currentStops), parsed.file);
+    expect(merged.next.stops).toEqual(currentStops);
+    const scoped = applyLegacyScopedRestore(bundleWith(currentStops), parsed.file);
+    expect(scoped.next.stops).toEqual(currentStops);
+  });
+
+  it('v2/v1 files can never destructively erase stops: replace path is gated by lossless=false', () => {
+    for (const version of [1, 2]) {
+      const base = version === 1
+        ? { version, exportedAt: T0, input: structuredClone(defaultFinancialInput), dailyRecords: {}, scenarios: [] }
+        : (() => { const f = JSON.parse(JSON.stringify(buildBackup(fullBundle()))); const d = f.data as Record<string, unknown>; if ('stops' in d) delete d.stops; f.version = 2; return f; })();
+      const parsed = parseBackup(JSON.stringify(base));
+      if (!parsed.ok) throw new Error(`v${version} should parse`);
+      expect(parsed.lossless).toBe(false); // UI gate ⇒ doReplace() refuses
+    }
+  });
+
+  it('commitBundle writes the stops key transactionally; failure rolls back leaving state untouched', () => {
+    const store = memoryStorage();
+    store.setItem(STORAGE_KEYS.stops, JSON.stringify([{ original: true }]));
+    const stops = [stop({ reference: 'TX-1' })];
+    let firstWriteFailed = false; // simulate a one-shot quota failure
+    const storage = {
+      getItem: (key: string) => store.getItem(key),
+      setItem: (key: string, value: string) => {
+        if (!firstWriteFailed) { firstWriteFailed = true; throw new Error('quota'); }
+        store.setItem(key, value);
+      },
+      removeItem: (key: string) => store.removeItem(key),
+    } as unknown as Storage;
+    const result = commitBundle({ stops }, undefined, { storage, keys: ['stops'] });
+    expect(result.persistedOk).toBe(false);
+    expect(result.rollbackOk).toBe(true);
+    expect(store.getItem(STORAGE_KEYS.stops)).toBe(JSON.stringify([{ original: true }]));
+  });
+
+  it('exported files never contain the reminder metadata key', () => {
+    const text = JSON.stringify(buildBackup(bundleWith([stop()])));
+    expect(text.includes('vega-last-backup-at')).toBe(false);
+    expect(text.includes('backup-banner-dismissed')).toBe(false);
   });
 });

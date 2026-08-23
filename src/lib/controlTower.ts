@@ -59,7 +59,8 @@ export function yesterdayKey(nowMs: number): string {
 export function buildControlTowerSnapshot(inputSpec: ControlTowerInput): ControlTowerSnapshot {
   const { records, recoveryEntries, plannedShipmentsPerDay, nowMs, backup } = inputSpec;
 
-  // ── yesterday (most recent RECORDED day ≤ yesterday; missing ⇒ null)
+  // ── EXACT yesterday only (local calendar). A day that was not recorded
+  // is honest "no data", never substituted by an older recorded day.
   const yKey = yesterdayKey(nowMs);
   let yesterday: TowerYesterday | null = null;
   if (records[yKey]) {
@@ -74,11 +75,14 @@ export function buildControlTowerSnapshot(inputSpec: ControlTowerInput): Control
     };
   }
 
-  // ── COD outstanding across ALL recorded days (collected − remitted)
-  let codOutstandingSar = 0;
+  // ── COD outstanding across ALL recorded days. Raw balance nets globally
+  // (remittances pay down older cash); displayed outstanding clamps at zero —
+  // over-remittance credit representation arrives in R4.
+  let codBalanceRaw = 0;
   for (const record of Object.values(records)) {
-    codOutstandingSar += Math.max(0, Number(record.cashCollectedSar) || 0) - Math.max(0, Number(record.cashRemittedSar) || 0);
+    codBalanceRaw += Math.max(0, Number(record.cashCollectedSar) || 0) - Math.max(0, Number(record.cashRemittedSar) || 0);
   }
+  const codOutstandingSar = Math.max(0, codBalanceRaw);
 
   // ── POD gaps (partial/none), most recent first, cap 7 shown upstream
   const podGapDates = Object.values(records)
@@ -98,6 +102,9 @@ export function buildControlTowerSnapshot(inputSpec: ControlTowerInput): Control
   if (recoveryOverdue > 0) {
     actions.push({ id: 'recovery-overdue', severity: 'high', labelKey: 'recoveryOverdue', params: { count: recoveryOverdue } });
   }
+  if (backup?.visible) {
+    actions.push({ id: 'backup-stale', severity: 'high', labelKey: 'backupStale', params: {} });
+  }
   if (codOutstandingSar > 0) {
     actions.push({ id: 'cod-outstanding', severity: 'high', labelKey: 'codOutstanding', params: { amount: codOutstandingSar } });
   }
@@ -107,12 +114,16 @@ export function buildControlTowerSnapshot(inputSpec: ControlTowerInput): Control
   if (podGapDates.length > 0) {
     actions.push({ id: 'pod-gaps', severity: 'medium', labelKey: 'podGaps', params: { count: podGapDates.length } });
   }
-  if (backup?.visible) {
-    actions.push({ id: 'backup-stale', severity: 'high', labelKey: 'backupStale', params: {} });
-  }
   if (!yesterday) {
     actions.push({ id: 'record-yesterday', severity: 'medium', labelKey: 'recordYesterday', params: { date: yKey } });
   }
+
+  // Explicit stable ranking: high before medium, then fixed domain priority.
+  // Sorting happens BEFORE slicing so a high-severity item can never be
+  // displaced by insertion-order luck.
+  const PRIORITY = ['recovery-overdue', 'backup-stale', 'cod-outstanding', 'failed-yesterday', 'pod-gaps', 'record-yesterday'] as const;
+  const rank = (a: TowerAction): number => (a.severity === 'high' ? 0 : 1) * 100 + PRIORITY.indexOf(a.id as typeof PRIORITY[number]);
+  const sortedActions = [...actions].sort((a, b) => rank(a) - rank(b)).slice(0, 3);
 
   return {
     yesterday,
@@ -122,6 +133,6 @@ export function buildControlTowerSnapshot(inputSpec: ControlTowerInput): Control
     recoveryOverdue,
     driversPresentYesterday: records[yKey]?.driversPresent ?? null,
     backup,
-    actions: actions.slice(0, 3),
+    actions: sortedActions,
   };
 }

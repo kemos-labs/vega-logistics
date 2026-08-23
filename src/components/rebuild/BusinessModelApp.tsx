@@ -11,6 +11,7 @@ import { resizeVehicleFleet } from '@/lib/fleetModel';
 import { calculateFinancials } from '@/lib/calculations';
 import { buildMonthlyRollup, buildProjection, calculateDailyMetrics, migrateDailyRecords, toDateString, FAILURE_REASON_KEYS, type DailyRecord, type FailureReasonKey } from '@/lib/operationsReporting';
 import { defaultFinancialInput } from '@/lib/mockData';
+import { type StopRecord } from '@/lib/stops';
 import { buildControlTowerSnapshot } from '@/lib/controlTower';
 import { ControlTowerView } from '@/components/rebuild/ControlTower';
 import { buildReportModel, type ReportKind, type ReportModel } from '@/lib/reportEngine';
@@ -23,7 +24,7 @@ import { resolveTelematicsProvider } from '@/lib/platform/telematics';
 
 type View = 'tower' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios';
 type RecoveryOpenRow = { id: string; createdAt: string; shipments: number; owner: string; status: 'pending' | 'recovered' | 'written_off' };
-import { applyBackupMerge, applyLegacyScopedRestore, buildBackup, commitBundle, parseBackup, replaceWithBackup, type BackupFileV2, type FollowUpAction, type PersistResult } from '@/lib/backup';
+import { applyBackupMerge, applyLegacyScopedRestore, buildBackup, commitBundle, parseBackup, replaceWithBackup, STORAGE_KEYS, type BackupFileV2, type FollowUpAction, type PersistResult } from '@/lib/backup';
 import { BACKUP_REMINDER_DAYS, BACKUP_REMINDER_KEY, dismissForToday, evaluateBackupReminder, isDismissedToday, markBackedUpNow } from '@/lib/backupReminder';
 import { applyPreviewToRecord, parseProviderMessage, reconcile, type ParseResult, type ProviderPreview } from '@/lib/providerMessageParser';
 import { createScenario, type Scenario } from '@/lib/scenarios';
@@ -63,6 +64,7 @@ export default function BusinessModelApp() {
   const dailyRecords = useMemo(() => migrateDailyRecords(rawDailyRecords, input.fuelPricePerLiter), [rawDailyRecords, input.fuelPricePerLiter]);
   const [scenarios, setScenarios] = useLocalStorage<Scenario[]>('vega-scenarios-v1', []);
   const [rawRecoveryEntries, setRecoveryEntries] = useLocalStorage<RecoveryEntry[]>('vega-recovery-board-v1', []);
+  const [stops, setStops] = useLocalStorage<StopRecord[]>(STORAGE_KEYS.stops, []);
   const recoveryEntries = useMemo(() => validateRecoveryEntries(rawRecoveryEntries), [rawRecoveryEntries]);
   const pendingRecoveries = recoveryEntries.filter(entry => entry.status === 'pending').length;
   // Telematics seam: the demo simulator answers until a vendor is configured.
@@ -236,7 +238,7 @@ export default function BusinessModelApp() {
         {view === 'costs' && <Page title={t('businessModel.costs.title')} description={t('businessModel.costs.desc')}><CostSections input={input} output={output} setNumber={setNumber} changeVehicle={changeVehicle} /></Page>}
         {view === 'daily' && <><DailyReport input={input} output={output} records={dailyRecords} setRecords={setDailyRecords} reportKind={reportKind} setReportKind={setReportKind} onOpenPro={setProModel} lng={lng} reportLang={reportLang} setReportLang={setReportLang} openActions={actions.filter(action => !action.done).slice(0, 5)} recoverySummary={recoverySummary} recoveryAll={recoveryEntries} recoveryOpen={recoveryEntries.filter(entry => entry.status === 'pending').slice(0, 8).map(({ id, createdAt, shipments, owner, status }) => ({ id, createdAt, shipments, owner, status }))} /><ProviderImportCard dailyRecords={dailyRecords} onApply={(date, record) => setDailyRecords(prev => ({ ...prev, [date]: record }))} /></>}
         {view === 'risks' && <Page title={t('businessModel.risks.title')} description={t('businessModel.risks.desc')}><div className="bm-risk-table"><div className="bm-risk-head"><span>{t('businessModel.risks.thStatus')}</span><span>{t('businessModel.risks.thRisk')}</span><span>{t('businessModel.risks.thValue')}</span><span>{t('businessModel.risks.thReason')}</span></div>{risks.map(risk => <div className="bm-risk-row" key={risk.titleKey}><span className={risk.level === 'controlled' ? 'ok' : 'bad'}>{levelLabel[risk.level]}</span><strong>{t(`businessModel.risks.${risk.titleKey}`)}</strong><span>{risk.value}</span><p>{risk.detail}</p></div>)}</div></Page>}
-        {view === 'scenarios' && <ScenarioView input={input} output={output} scenarios={scenarios} setScenarios={setScenarios} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} actions={actions} setActions={setActions} applyFinancialInput={applyFinancialInput} onBackedUp={() => { const iso = new Date().toISOString(); markBackedUpNow(); setLastBackupAt(iso); bumpReminderClock(); }} />}
+        {view === 'scenarios' && <ScenarioView input={input} output={output} scenarios={scenarios} setScenarios={setScenarios} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} actions={actions} setActions={setActions} stops={stops} setStops={setStops} applyFinancialInput={applyFinancialInput} onBackedUp={() => { const iso = new Date().toISOString(); markBackedUpNow(); setLastBackupAt(iso); bumpReminderClock(); }} />}
         {view === 'recovery' && <Page title={t('businessModel.recovery.recovery')} description={t('businessModel.recovery.recoveryDesc')}><RecoveryBoard entries={recoveryEntries} setEntries={setRecoveryEntries} /></Page>}
         {view === 'actions' && <Page title={t('businessModel.actionsPage.title')} description={t('businessModel.actionsPage.desc')}><div className="bm-actions">{actions.map(action => <div className={action.done ? 'done' : ''} key={action.id}><button aria-label={action.done ? action.text : action.text} onClick={() => setActions(rows => rows.map(row => row.id === action.id ? {...row,done:!row.done,updatedAt:new Date().toISOString()}:row))}>{action.done ? <Check size={15}/> : null}</button><span><strong>{action.text}</strong><small>{action.owner}</small></span></div>)}</div></Page>}
       </main>
@@ -745,7 +747,7 @@ export function BackupBanner({ reason, days, onCta, onDismiss }: { reason: 'neve
   );
 }
 
-export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDailyRecords,recoveryEntries,setRecoveryEntries,actions,setActions,applyFinancialInput,onBackedUp}:{input:FinancialInput;output:ReturnType<typeof useSimulatedData>['financialOutput'];scenarios:Scenario[];setScenarios:(value:Scenario[]|((prev:Scenario[])=>Scenario[]))=>void;dailyRecords:Record<string,DailyRecord>;setDailyRecords:(value:Record<string,DailyRecord>|((prev:Record<string,DailyRecord>)=>Record<string,DailyRecord>))=>void;recoveryEntries:RecoveryEntry[];setRecoveryEntries:(value:RecoveryEntry[]|((prev:RecoveryEntry[])=>RecoveryEntry[]))=>void;actions:FollowUpAction[];setActions:(value:FollowUpAction[]|((prev:FollowUpAction[])=>FollowUpAction[]))=>void;applyFinancialInput:(next:FinancialInput)=>void;onBackedUp:()=>void}) {
+export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDailyRecords,recoveryEntries,setRecoveryEntries,actions,setActions,stops,setStops,applyFinancialInput,onBackedUp}:{input:FinancialInput;output:ReturnType<typeof useSimulatedData>['financialOutput'];scenarios:Scenario[];setScenarios:(value:Scenario[]|((prev:Scenario[])=>Scenario[]))=>void;dailyRecords:Record<string,DailyRecord>;setDailyRecords:(value:Record<string,DailyRecord>|((prev:Record<string,DailyRecord>)=>Record<string,DailyRecord>))=>void;recoveryEntries:RecoveryEntry[];setRecoveryEntries:(value:RecoveryEntry[]|((prev:RecoveryEntry[])=>RecoveryEntry[]))=>void;actions:FollowUpAction[];setActions:(value:FollowUpAction[]|((prev:FollowUpAction[])=>FollowUpAction[]))=>void;stops:StopRecord[];setStops:(value:StopRecord[]|((prev:StopRecord[])=>StopRecord[]))=>void;applyFinancialInput:(next:FinancialInput)=>void;onBackedUp:()=>void}) {
   const { t, i18n } = useTranslation();
   const locale = localeOf(i18n.language);
   const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
@@ -756,19 +758,19 @@ export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,s
   const save=()=>{ setScenarios(prev=>[...prev, createScenario(name,input,prev)]); setName(''); setMessage(t(S+'savedMessage')); };
   const load=(scenario:Scenario)=>{ applyFinancialInput(structuredClone(scenario.input)); setMessage(t(S+'loadedMessage',{name:scenario.name})); };
   const remove=(id:string)=>setScenarios(prev=>prev.filter(s=>s.id!==id));
-  const [pendingImport,setPendingImport]=useState<{file:BackupFileV2;migratedFrom?:1;warnings:string[];lossless:boolean;contentLoss?:boolean}|null>(null);
-  const bundle={financialInput:input,dailyRecords,scenarios,recoveryEntries,followUpActions:actions};
+  const [pendingImport,setPendingImport]=useState<{file:BackupFileV2;migratedFrom?:1|2;warnings:string[];lossless:boolean;contentLoss?:boolean}|null>(null);
+  const bundle=useMemo(()=>({financialInput:input,dailyRecords,scenarios,recoveryEntries,followUpActions:actions,stops}),[input,dailyRecords,scenarios,recoveryEntries,actions,stops]);
   const previewStats=useMemo(()=>{
     if(!pendingImport) return null;
-    return applyBackupMerge({financialInput:input,dailyRecords,scenarios,recoveryEntries,followUpActions:actions},pendingImport.file).stats;
-  },[pendingImport,input,dailyRecords,scenarios,recoveryEntries,actions]);
+    return applyBackupMerge(bundle,pendingImport.file).stats;
+  },[pendingImport,bundle]);
   const activeLanguage = i18n.language === 'ar' ? 'ar' : 'en';
   const downloadBackup=()=>{
     const backup=buildBackup(bundle,activeLanguage);
     const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const anchor=document.createElement('a');
-    anchor.href=url; anchor.download=`vega-backup-v2-${toDateString(new Date())}.json`;
+    anchor.href=url; anchor.download=`vega-backup-v3-${toDateString(new Date())}.json`;
     document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
     onBackedUp(); // reminder metadata written here only — never inside backup files
     setMessage(t(S+'backupDownloaded'));
@@ -793,13 +795,14 @@ export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,s
     applyFinancialInput(next.financialInput);
     setDailyRecords(next.dailyRecords); setScenarios(next.scenarios);
     setRecoveryEntries(next.recoveryEntries); setActions(next.followUpActions);
+    if (next.stops) setStops(next.stops);
   };
   const switchLanguageIfAny=(lang?:string)=>{ if(lang){ void i18n.changeLanguage(lang); window.dispatchEvent(new CustomEvent('vega:set-language',{detail:lang})); } };
   const doMerge=()=>{
     if(!pendingImport) return;
     const {next}=applyBackupMerge(bundle,pendingImport.file);
     // merge keeps current model inputs AND current language — only the five data keys are written
-    const result=commitBundle({financialInput:next.financialInput,dailyRecords:next.dailyRecords,scenarios:next.scenarios,recoveryEntries:next.recoveryEntries,followUpActions:next.followUpActions},undefined,{keys:['financialInput','dailyRecords','scenarios','recoveryEntries','followUpActions']});
+    const result=commitBundle({financialInput:next.financialInput,dailyRecords:next.dailyRecords,scenarios:next.scenarios,recoveryEntries:next.recoveryEntries,followUpActions:next.followUpActions,stops:next.stops},undefined,{keys:['financialInput','dailyRecords','scenarios','recoveryEntries','followUpActions','stops']});
     if(!result.persistedOk){ finishOk(result,''); return; }
     applyState(next);
     finishOk(result,t(S+'mergeDoneMessage'));
