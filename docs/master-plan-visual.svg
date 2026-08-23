@@ -10,6 +10,7 @@
   <rect width="1280" height="720" fill="url(#pine)"/>
   <rect x="28" y="28" width="1224" height="664" fill="none" stroke="#c9a227" stroke-opacity=".35" rx="14"/>
   <text x="64" y="92" fill="#f4f1e8" font-size="40" font-weight="800" letter-spacing="1">VEGA LOGISTICS OS</text>
+  <!-- numbers reconciled with docs/RESEARCH_DOSSIER.md -->
   <text x="64" y="124" fill="#9fb8a8" font-size="17" letter-spacing="6">MASTER PLAN · DAILY OPERATIONS COCKPIT · KSA-GRADE</text>
   <rect x="64" y="150" width="120" height="34" rx="8" fill="#c9a227"/>
   <text x="76" y="173" fill="#0c2117" font-size="15" font-weight="700">ROADMAP</text>
@@ -112,14 +113,14 @@
   <rect x="64" y="520" width="1158" height="130" rx="12" fill="#10281b" stroke="#2f5240"/>
   <text x="88" y="552" fill="#c9a227" font-size="14" font-weight="800" letter-spacing="3">TARGET KPI BOARD — APP COMPUTES ALL BY P4</text>
   <g fill="#dfe8df" font-size="13.5">
-    <text x="88" y="584">First-attempt ≥90%</text><text x="88" y="612">(stretch 95%)</text>
-    <text x="300" y="584">Miss ≤8% warn / ≤3% ok</text><text x="300" y="612">recovery close ≥50%</text>
-    <text x="560" y="584">e-POD ≥98%</text><text x="560" y="612">(industry median 80%)</text>
-    <text x="800" y="584">COD remit ≤2 days</text><text x="800" y="612">~25% of KSA e-com is COD</text>
-    <text x="1030" y="584">Cost/stop ±10%</text><text x="1030" y="612">of 4-week baseline</text>
+    <text x="88" y="584">Completion ≥90%</text><text x="88" y="612">[internal target]</text>
+    <text x="300" y="584">Miss ≤8% warn / ≤3% ok</text><text x="300" y="612">recovery close ≥50% [internal]</text>
+    <text x="560" y="584">e-POD ≥98% [internal]</text><text x="560" y="612">benchmark median 80% APQC</text>
+    <text x="800" y="584">COD stays core:</text><text x="800" y="612">25% of last orders paid cash (SAMA p24)</text>
+    <text x="1060" y="584">Cost/stop ±10%</text><text x="1060" y="612">of baseline [internal]</text>
   </g>
   <line x1="270" y1="568" x2="270" y2="618" stroke="#2f5240"/><line x1="530" y1="568" x2="530" y2="618" stroke="#2f5240"/>
   <line x1="770" y1="568" x2="770" y2="618" stroke="#2f5240"/><line x1="1000" y1="568" x2="1000" y2="618" stroke="#2f5240"/>
 
-  <text x="64" y="682" fill="#7d998a" font-size="11.5">Sources: zatca.gov.sa · tga.gov.sa · splonline.com.sa · SAMA 2023 · Parcel Perform Q2-2025 · APQC — full dossier: docs/MASTER_PLAN.md</text>
+  <text x="64" y="682" fill="#7d998a" font-size="11.5">Verified register: docs/RESEARCH_DOSSIER.md — TGA news 198 (2026-01-01) · SAMA 2023 p.24 · APQC 108931 · zatca.gov.sa · splonline.com.sa</text>
 </svg>

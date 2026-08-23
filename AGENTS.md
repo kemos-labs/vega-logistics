@@ -11,39 +11,23 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 <!-- BEGIN:session-memory -->
 # Session Memory — Auto-Load on Every Agent Start
 
-Read `SESSION_MEMORY.md` first for full project context, then follow this prioritized plan.
+Read `SESSION_MEMORY.md` for full history, then `docs/MASTER_PLAN.md` (roadmap authority) and `docs/RESEARCH_DOSSIER.md` (claim discipline).
 
-## Running State
-- **Dev Server**: `http://localhost:3002` — running
-- **Build**: ✅ passing (TS clean, exit 0)
-- **Python Tests**: ✅ 25/25
-- **ESLint**: ✅ 0 errors, 204 warnings
+## Authoritative running state (verified 2026-08-23)
+- **Dev server**: http://localhost:3002 (node listening; also reachable via portless alias if active)
+- **Public**: https://kemos-labs.github.io/vega-logistics/ — deploy workflow green
+- **TypeScript**: clean · **Vitest**: 106/106 · **ESLint**: 0 errors, 0 warnings · **Python suite** (`src/__tests__/run_all_tests.py`): passing
+- **package-lock.json**: 334KB, committed, `npm ci` green in CI — do NOT regenerate casually on this NTFS mount
+- **Archived**: BreakEvenAnalytics and @heroui are fully removed from the repo — do not reference them
+- **Current phase**: P1 Backup integrity (see MASTER_PLAN §5-P1). Do not start features beyond it without owner approval.
 
-## Current Priority Stack
-
-### 🔴 HIGH — Do First
-1. **Reconcile lightningcss pin** — `devDependencies`/`optionalDependencies` both `^1.25.0` (v1.32.0 binaries corrupt on NTFS); `package-lock.json` is stale (45KB) — regenerate after install
-2. **Wire-in or remove `BreakEvenAnalytics`** — orphaned (no importers) but imports `@heroui/react`; needs `@import "@heroui/styles"` in `globals.css` (now present) to render styled
-3. **Browser verify** — check all 30+ modules load correctly
-
-### 🟡 MEDIUM — Next
-4. **ESLint automated cleanup** — run `npm run lint -- --fix`
-5. **next.config.ts optimizations** — add image domains, webpack config
-6. **Evaluate MCP / AI agent integration** — check if useful
-
-### 🔵 FUTURE — Planned
-7. **AAA+ upgrades**: Control Tower, Real-time tracking, Carbon, Predictive Maintenance
-8. **PWA support** for mobile field operations
-9. **Real backend** per LOGISTICS_OS_SPEC.md
-10. **NTFS migration warning** — after `npm install`, verify `.node` binary sizes
-
-## Quick Commands
+## Quick commands
 ```bash
-npm run dev          # Start dev (use port 3002)
-npm run build        # Production build
-npx tsc --noEmit     # TypeScript check
+npm run dev          # dev on :3002
+npm run build        # production build
+npx tsc --noEmit     # TS check
+npx vitest run       # unit tests
 npm run lint         # ESLint
-python3 src/__tests__/run_all_tests.py  # Python tests
 ```
 <!-- END:session-memory -->
 
