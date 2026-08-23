@@ -5,6 +5,13 @@ Legend: **R** = recorded data only · **D** = derived from model inputs + record
 
 ---
 
+## Close-derived measures (R4)
+
+**Loaded** — recorded (`loadedShipments`) or stop-derived. **Returned/Pending** — recorded close counters derived from reviewed stop outcomes. **Unexplained difference** — loaded − (delivered+returned+pending), sign preserved; reconciled requires 0.
+**COD expected** — Σ delivered-stop COD (source-labelled) or manual-adjusted w/ note. **Outstanding** = max(0, collected−remitted) · **Uncollected** = max(0, expected−collected) · **Over-remitted** = max(0, remitted−collected) — credit visible.
+**Remittance lag** — day-granularity (single remitted amount per record); event-level timing deferred.
+**Draft exclusion** — `closeStatus:'draft'` rows are excluded from ALL definitive KPIs via `isDefinitiveDailyRecord`; legacy rows (no closeStatus) remain definitive.
+
 ## Daily operations
 
 **Completion rate** — R — `completedShipments / (completedShipments + failedShipments) × 100`. Denominator = recorded attempts that day. Exclusions: none. Window: per record date. Missing: 0% when denominator 0 (displayed as "no data" in UI, not 0). Threshold [INT]: ≥90% healthy target line.

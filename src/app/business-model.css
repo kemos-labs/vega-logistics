@@ -777,3 +777,6 @@ html[dir='rtl'] .bm-stop-row .bm-stop-main{flex-direction:row-reverse;text-align
   .bm-manifest-disclaimer{margin-top:10px;border-top:1.5px solid #000;padding-top:6px;font-weight:700;font-size:11px}
   .bm-manifest-totals{font-weight:600;font-size:12px;margin:6px 0}
 }
+.bm-close .bm-import-counts input{width:90px;font-size:16px;font-weight:700}
+.bm-close dd.bm-import-warning{color:#8f3b30}
+@media(max-width:600px){.bm-close .bm-import-counts{grid-template-columns:1fr 1fr}}

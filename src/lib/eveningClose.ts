@@ -142,7 +142,9 @@ export function buildRecoveryEntriesForStops(
   const linked = new Set(existing.map(entry => entry.stopId).filter(Boolean));
   const created: RecoveryEntry[] = [];
   for (const stop of stops) {
-    const isException = (stop.status === 'failed' || stop.status === 'returned') && stop.failureReasonKey;
+    // Exception = any non-delivered stop carrying a failure reason — that
+    // covers returned AND the failed-attempt mapping (pending + reason).
+    const isException = stop.status !== 'delivered' && Boolean(stop.failureReasonKey);
     if (!isException || linked.has(stop.id) || existing.some(entry => entry.stopId === stop.id)) continue;
     created.push({
       id: `rec-stop-${stop.id}`,

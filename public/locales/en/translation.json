@@ -788,7 +788,8 @@
       "recovery": "Recovery board",
       "tower": "Control Tower",
       "stops": "Stops",
-      "dispatch": "Dispatch"
+      "dispatch": "Dispatch",
+      "close": "Evening close"
     },
     "brand": {
       "subtitle": "Business model"
@@ -1561,6 +1562,74 @@
         "window": "Window",
         "signature": "Driver signature: ______________    Notes: ______________________________"
       }
+    },
+    "close": {
+      "nav": "Evening close",
+      "tag": "EVENING CLOSE",
+      "title": "Close the day",
+      "status": {
+        "open": "Not closed yet",
+        "draft": "Draft — excluded from definitive reports",
+        "reconciled": "Reconciled ✓"
+      },
+      "draftExcluded": "drafts are excluded from definitive KPIs",
+      "reopenFirst": "Reopen the reconciled close first.",
+      "outcomesTitle": "Stop outcomes",
+      "noStops": "No stops planned for this date.",
+      "outcomeAria": "Set outcome for stop {label}",
+      "outcomes": {
+        "delivered": "Delivered",
+        "returned": "Returned",
+        "pending": "Pending",
+        "failed": "Failed attempt"
+      },
+      "pickReason": "Pick a failure reason first.",
+      "applyReason": "Apply",
+      "reasonFor": "Reason for {label}",
+      "reasons": {
+        "vehicleBreakdown": "Vehicle breakdown",
+        "noDriver": "No driver",
+        "addressIssue": "Address issue",
+        "customerUnavailable": "Customer unavailable",
+        "refusedDelivery": "Refused",
+        "weatherDelay": "Weather delay",
+        "other": "Other"
+      },
+      "reconTitle": "Shipment reconciliation",
+      "loaded": "Loaded",
+      "derived": "derived",
+      "manual": "entered",
+      "difference": "Unexplained difference",
+      "positiveDiff": "+{difference} loaded shipments are unaccounted for — find them before confirming.",
+      "negativeDiff": "−{difference}: outcomes exceed the declared loaded — correct loaded or the outcomes.",
+      "reasonsTitle": "Failure reasons",
+      "failedCount": "Failed/returned: {count}",
+      "missingReasonCount": "Missing reason: {count}",
+      "codTitle": "COD close (SAR)",
+      "codExpected": "Expected",
+      "codCollected": "Collected",
+      "codRemitted": "Remitted",
+      "invalidMoney": "Enter valid non-negative amounts.",
+      "codUncollectedWarning": "{amount} SAR expected but not collected yet — allowed in a draft; resolve before confirming if unintended.",
+      "blockers": {
+        "shipment-mismatch": "Loaded ≠ delivered + returned + pending — resolve the difference",
+        "missing-reasons": "Some returned/failed stops have no reason",
+        "outcome-totals-disagree": "Entered totals disagree with the reviewed stop outcomes",
+        "invalid-number": "A number is invalid"
+      },
+      "saveDraft": "Save draft",
+      "confirmClose": "Confirm reconciled close",
+      "reopen": "Reopen close",
+      "reopenQuestion": "Reopen this reconciled close? It becomes a draft again; recovery entries are kept.",
+      "reopenYes": "Yes, reopen",
+      "reopenNo": "Cancel",
+      "draftSaved": "Draft saved — this date is NOT closed yet.",
+      "reconciledSaved": "Close reconciled ✓",
+      "reconciledWithRecovery": "Close reconciled ✓ · {count} recovery entries created.",
+      "reopened": "Close reopened as draft. Recovery entries kept.",
+      "persistFailed": "Saving failed ({{keys}}) — nothing was changed. Try again.",
+      "rollbackCritical": "CRITICAL: partial write and rollback failure on {{keys}} — export a backup now.",
+      "fixNumbers": "Fix the highlighted numbers first."
     }
   }
 }

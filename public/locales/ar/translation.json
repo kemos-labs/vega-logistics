@@ -788,7 +788,8 @@
       "recovery": "متابعة الفوات",
       "tower": "غرفة العمليات",
       "stops": "الوقفات",
-      "dispatch": "التوزيع"
+      "dispatch": "التوزيع",
+      "close": "إغلاق اليوم"
     },
     "brand": {
       "subtitle": "نموذج العمل"
@@ -1561,6 +1562,74 @@
         "window": "الفترة",
         "signature": "توقيع السائق: ______________    ملاحظات: ______________________________"
       }
+    },
+    "close": {
+      "nav": "إغلاق اليوم",
+      "tag": "إغلاق اليوم",
+      "title": "أغلق يومك",
+      "status": {
+        "open": "لم يُغلق بعد",
+        "draft": "مسودة — مستثناة من التقارير النهائية",
+        "reconciled": "مُطابَق ✓"
+      },
+      "draftExcluded": "المسودات مستثناة من مؤشرات الأداء النهائية",
+      "reopenFirst": "أعد فتح الإغلاق المُطابَق أولاً.",
+      "outcomesTitle": "نتائج الوقفات",
+      "noStops": "لا وقفات مخططة لهذا التاريخ.",
+      "outcomeAria": "حدد نتيجة الوقفة {label}",
+      "outcomes": {
+        "delivered": "موصّلة",
+        "returned": "مرتجعة",
+        "pending": "معلّقة",
+        "failed": "محاولة فاشلة"
+      },
+      "pickReason": "اختر سبب الفشل أولاً.",
+      "applyReason": "تطبيق",
+      "reasonFor": "سبب {label}",
+      "reasons": {
+        "vehicleBreakdown": "عطل مركبة",
+        "noDriver": "لا يوجد سائق",
+        "addressIssue": "مشكلة عنوان",
+        "customerUnavailable": "العميل غير متواجد",
+        "refusedDelivery": "رفض التسليم",
+        "weatherDelay": "ظرف جوي",
+        "other": "أخرى"
+      },
+      "reconTitle": "مطابقة الشحنات",
+      "loaded": "التحميل",
+      "derived": "محسوب",
+      "manual": "مُدخل",
+      "difference": "الفرق غير المفسّر",
+      "positiveDiff": "+{difference} شحنة محمّلة بلا تفسير — ابحث عنها قبل التأكيد.",
+      "negativeDiff": "−{difference}: النتائج تتجاوز التحميل المُعلن — صحّح التحميل أو النتائج.",
+      "reasonsTitle": "أسباب الفشل",
+      "failedCount": "فوات/مرتجع: {count}",
+      "missingReasonCount": "بدون سبب: {count}",
+      "codTitle": "إغلاق التحصيل (ريال)",
+      "codExpected": "المتوقع",
+      "codCollected": "المحصّل",
+      "codRemitted": "المُحوّل",
+      "invalidMoney": "أدخل مبالغ صحيحة غير سالبة.",
+      "codUncollectedWarning": "{amount} ريال متوقعة لم تُحصّل بعد — مسموح في المسودة؛ عالجها قبل التأكيد إن لم تكن مقصودة.",
+      "blockers": {
+        "shipment-mismatch": "التحميل ≠ توصيل + راجع + معلّق — عالِج الفرق",
+        "missing-reasons": "وقفات مرتجعة/فاشلة بلا سبب",
+        "outcome-totals-disagree": "الإجماليات المُدخلة تخالف نتائج الوقفات المراجعة",
+        "invalid-number": "رقم غير صالح"
+      },
+      "saveDraft": "حفظ المسودة",
+      "confirmClose": "تأكيد الإغلاق المُطابَق",
+      "reopen": "إعادة الفتح",
+      "reopenQuestion": "إعادة فتح هذا الإغلاق المُطابَق؟ سيعود مسودة؛ وتبقى بنود الاسترداد محفوظة.",
+      "reopenYes": "نعم، أعد الفتح",
+      "reopenNo": "إلغاء",
+      "draftSaved": "حُفظت المسودة — هذا التاريخ NOT مُغلق بعد.",
+      "reconciledSaved": "تمت المطابقة والإغلاق ✓",
+      "reconciledWithRecovery": "تم الإغلاق ✓ · أُنشئ {count} بند استرداد.",
+      "reopened": "أُعيد فتح الإغلاق كمسودة. بنود الاسترداد محفوظة.",
+      "persistFailed": "فشل الحفظ ({{keys}}) — لم يتغير أي شيء. حاول مجدداً.",
+      "rollbackCritical": "تحذير حرج: كتابة جزئية وفشل استرجاع في {{keys}} — صدّر نسخة احتياطية الآن.",
+      "fixNumbers": "صحّح الأرقام المحددة أولاً."
     }
   }
 }

@@ -55,6 +55,16 @@ StopRecord {
 ```
 Shipped exactly as specified here (source of truth: `src/lib/stops.ts`). Additions locked during implementation: `customerName` is a snapshot (catalog renames never break stops); real-calendar-date validation; `failureReasonKey` REQUIRED for failed/returned; reference-basis duplicate comparison treats ABSENT optional fields as non-contradicting (import rows without a COD column stay compatible with existing stops that have one); phone/addressNotes length-capped, privacy-minimized. Backup envelope is v3: v3 strict (missing stops key = malformed), v2/v1 migrate with `stops: []` + `legacyScopeMissing` + lossless=false so older formats can NEVER erase current stops; merge = numeric `updatedAt` newer-wins; commitBundle covers the stops key transactionally. Failed-stop→recovery auto-linking arrives with R4 (evening close).
 
+## 3b. Evening-close fields (R4, optional on DailyRecord — backward compatible)
+
+`loadedShipments?` · `returnedShipments?` · `pendingShipments?` · `codExpectedSar?` · `closeStatus?: 'draft'|'reconciled'` · `closedAt?` (reconciled only). RecoveryEntry += `stopId?`.
+**Vocabulary (authoritative):** Loaded = declared loaded for the date · Delivered = completed · Returned = to origin/provider, reason required · Pending = loaded still unresolved · **Failed attempt = metadata over a pending/returned outcome, never an extra bucket** · Unexplained difference = loaded − (delivered+returned+pending), sign preserved.
+**Invariant (reconciled):** `loaded = delivered + returned + pending`. Nothing auto-balances.
+**Draft KPI rule:** `isDefinitiveDailyRecord()` — draft=false, reconciled=true, missing closeStatus=true (legacy rows stay definitive).
+**Recovery idempotency:** one pending entry per non-delivered stop carrying a reason, linked by `stopId`; repeated saves create nothing; operator edits kept; delivered never erases history; returned stops sit on the board as write-off review.
+**COD:** expected = Σ delivered-stop COD unless manually adjusted (note required) · outstanding = max(0, collected−remitted) · uncollected = max(0, expected−collected) · overRemitted = max(0, remitted−collected) (credit visible, never hidden). Remittance timing is day-granularity (single remitted amount per record); per-event `codRemittances[]` deferred until multi-remittance days are observed.
+**Backup:** all new fields sanitized (malformed ⇒ warn + lossy); NO envelope version bump (structure unchanged).
+
 ## 4. Invariants enforced at save/close time
 
 - Provider totals: `loaded − (delivered + returned)` must be 0 to confirm an import; otherwise difference shown and confirmation blocked (shipped).

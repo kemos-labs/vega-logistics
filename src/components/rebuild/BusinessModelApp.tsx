@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState , useEffect} from 'react';
-import { Route, MapPin, LayoutDashboard, AlertTriangle, BarChart3, Building2, CalendarDays, Check, CircleDollarSign, ClipboardList, Download, FileText, Languages, Layers, Menu, Plus, RotateCcw, Search, Settings2, Trash2, Truck, Upload, X } from 'lucide-react';
+import { ClipboardCheck, Route, MapPin, LayoutDashboard, AlertTriangle, BarChart3, Building2, CalendarDays, Check, CircleDollarSign, ClipboardList, Download, FileText, Languages, Layers, Menu, Plus, RotateCcw, Search, Settings2, Trash2, Truck, Upload, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import '@/lib/i18n';
 import { useSimulatedData } from '@/hooks/useSimulatedData';
@@ -16,6 +16,7 @@ import { buildControlTowerSnapshot } from '@/lib/controlTower';
 import { ControlTowerView } from '@/components/rebuild/ControlTower';
 import { StopPlanning } from '@/components/rebuild/StopPlanning';
 import { DispatchBoardView } from '@/components/rebuild/DispatchBoard';
+import { EveningCloseView } from '@/components/rebuild/EveningClose';
 import { buildReportModel, type ReportKind, type ReportModel } from '@/lib/reportEngine';
 import { exportBusinessModelExcel, exportDailyReportPdf } from '@/lib/reportExport';
 import ProReport, { buildReportLabels } from '@/components/rebuild/ProReport';
@@ -24,7 +25,7 @@ import ServiceWorkerRegistrar from '@/components/rebuild/ServiceWorkerRegistrar'
 import { buildWeeklyRecoveryTrend, validateRecoveryEntries, type RecoveryEntry, type RecoverySummary } from '@/lib/recoveryBoard';
 import { resolveTelematicsProvider } from '@/lib/platform/telematics';
 
-type View = 'tower' | 'stops' | 'dispatch' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios';
+type View = 'tower' | 'stops' | 'dispatch' | 'close' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios';
 type RecoveryOpenRow = { id: string; createdAt: string; shipments: number; owner: string; status: 'pending' | 'recovered' | 'written_off' };
 import { applyBackupMerge, applyLegacyScopedRestore, buildBackup, commitBundle, parseBackup, replaceWithBackup, STORAGE_KEYS, type BackupFileV2, type FollowUpAction, type PersistResult } from '@/lib/backup';
 import { BACKUP_REMINDER_DAYS, BACKUP_REMINDER_KEY, dismissForToday, evaluateBackupReminder, isDismissedToday, markBackedUpNow } from '@/lib/backupReminder';
@@ -128,6 +129,7 @@ export default function BusinessModelApp() {
     { id: 'tower' as const, label: t('businessModel.nav.tower'), icon: LayoutDashboard },
     { id: 'stops' as const, label: t('businessModel.nav.stops'), icon: MapPin },
     { id: 'dispatch' as const, label: t('businessModel.nav.dispatch'), icon: Route },
+    { id: 'close' as const, label: t('businessModel.nav.close'), icon: ClipboardCheck },
     { id: 'summary' as const, label: t('businessModel.nav.summary'), icon: BarChart3 },
     { id: 'fleet' as const, label: t('businessModel.nav.fleet'), icon: Truck },
     { id: 'customers' as const, label: t('businessModel.nav.customers'), icon: Building2 },
@@ -238,6 +240,7 @@ export default function BusinessModelApp() {
           />
         )}
       <main id="bm-main" className="bm-main">
+        {view === 'close' && <EveningCloseView date={toDateString(new Date())} stops={stops} setStops={setStops} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} />}
         {view === 'dispatch' && <DispatchBoardView stops={stops} setStops={setStops} drivers={input.drivers} />}
         {view === 'stops' && <StopPlanning stops={stops} setStops={setStops} />}
         {stopsBootDropped > 0 && (

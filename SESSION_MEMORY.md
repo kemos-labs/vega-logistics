@@ -18,16 +18,4 @@
 - Code batch (same cycle): parser stale-preview clear, blank-date block, any-existing-record overwrite ack, greeting/chatter name filtering, conflicting-duplicate-term warnings, localized warnings EN/AR, reminder local-day dismissal baseline + dead-code removal, model-inputs-in-reminder-eligibility. Tests: 6 new (4 engine greeting/conflict + 2 UI stale/blank-date) → 193 total.
 
 ## Next release
-**R2-C shipped** (`ccefffc` integrity batch + `a248c70` zone-portable CI fix; quality job gates deploy). **R3 shipped this cycle** (`dispatch.ts` + DispatchBoard + print manifest). **Next: R4 evening close** (loaded=delivered+returned+pending invariant, COD close, failed→recovery links). Tests: 291 passing (28 files), vitest exit 0 enforced in CI.
-
-## Blockers / VERIFY queue
-- TGA light-freight reg 4786 text extraction (JS-rendered portal) → gates manifest wording
-- ZATCA Phase-2 mechanism page-level quotes → gates nothing shipped today
-- NOT RESEARCHED register in dossier (driver-hours, ORS, n8n/GH pricing, WhatsApp API pricing, Hijri sources, W5 extended fields)
-- No real operator interview yet — OPERATOR_WORKFLOW.md carries the guide; all workflows [H]
-
-## Storage inventory
-See `docs/DATA_MODEL.md` §1 (authoritative). Device metadata keys stay OUT of backups.
-
-## Gotchas (durable)
-jsdom: `IS_REACT_ACT_ENVIRONMENT=false` + `findBy*` for parse continuations; RTL tests need act-env disabled. BusinessModelApp SSRs Summary only. TGA/SPA sites JS-rendered — curl og:description for verbatim. SAMA PDF via curl w/ referer. SVG render check via cairosvg needs IBM Plex Sans Arabic/Noto Naskh fallback named explicitly or Arabic shows tofu locally (browsers fine).
+**R4 shipped** (R4-A `153bcfa` close domain+schema; R4-B EveningClose UI). R2-C/R3 ACCEPTED by owner. **Next: R5 compliance-lite** (Short Address format check, National Address flag, configurable-VAT receipt drafts, document-expiry reminders). Tests: 319 passing (30 files), exit 0, zero act() warnings.
