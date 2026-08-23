@@ -62,8 +62,11 @@ One home workspace answering the promise <30s: yesterday planned/delivered/faile
 Requirements: EN/AR; 375px mobile no overflow; honest empty/local-only states; everything derived from recorded data; every tile links to its corrective workflow.
 **Accept:** component tests per tile; RTL visual check; live deploy verify.
 
-### R2 — Shipment & stop planning
-StopRecord model per DATA_MODEL.md §3; manual entry; safe bulk paste; CSV import preview; duplicate detection; validation summary; explicit confirm before any mutation; privacy-labelled optional phone.
+### R2 — Shipment & stop planning *(shipped: R2-A `6b61b45`, R2-B this commit — owner live review pending)*
+- [x] StopRecord domain (`stops.ts`): validation w/ field-level errors, normalize/create/update, stable day sort, duplicate identity hierarchy (reference → fingerprint; exact/conflict/probable; absence ≠ contradiction)
+- [x] `vega-stops-v1` persisted via transactional seam; backup envelope v3 (v2/v1 migration preserves stops; Replace gated lossless)
+- [x] StopPlanning workspace: date filter, search, manual add/edit w/ inline validation + focus, delete confirmation, totals, status chips, privacy + local-data copy (EN/AR)
+- [x] Bulk paste/CSV: BOM, quotes, CRLF/TSV, Arabic headers+aliases, digit normalization, caps, binary rejection, unknown-header reporting, preview counts, atomic confirm, stale-preview invalidation, persistence-failure keeps preview open
 **Accept:** import-cannot-mutate-on-reject tests; migration fixtures; backup envelope v3 round-trip.
 
 ### R3 — Morning dispatch & manifest

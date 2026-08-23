@@ -10,6 +10,7 @@
 | `vega-scenarios-v1` | Scenario[] | yes | user data |
 | `vega-recovery-board-v1` | RecoveryEntry[] | yes | user data |
 | `vega-followup-actions-v1` | FollowUpAction[] | yes | user data |
+| `vega-stops-v1` | StopRecord[] | yes | user data (R2) |
 | `language` | raw `'en'`\|`'ar'` (never JSON-stringified) | yes | preference |
 | `vega-last-backup-at-v1` | raw ISO timestamp | **NO — device metadata** (restoring old backups must not suppress reminders) | device metadata |
 | `vega-backup-banner-dismissed:<YYYY-MM-DD>` | `'1'` | no — day-scoped dismissal | device metadata |
@@ -29,7 +30,7 @@ Timestamps: `date` (local YYYY-MM-DD key), `updatedAt` (ISO, normalized on every
 
 **Known mixing flagged in PRODUCT_TRUTH_AUDIT §7:** the 26-working-days constant and day-cost allocation are derived assumptions that must stay visually labelled wherever shown.
 
-## 3. Planned extension — Stop/Shipment record (Release R2)
+## 3. Stop/Shipment record — IMPLEMENTED (Release R2, key `vega-stops-v1`)
 
 ```
 StopRecord {
@@ -52,7 +53,7 @@ StopRecord {
   createdAt/updatedAt: ISO
 }
 ```
-New key would be `vega-stops-v1`; joins backup envelope v3 (versioned migration, old-file compatibility per Rule 7). Failed stops create/update recovery entries deterministically (idempotent link by `stopId`).
+Shipped exactly as specified here (source of truth: `src/lib/stops.ts`). Additions locked during implementation: `customerName` is a snapshot (catalog renames never break stops); real-calendar-date validation; `failureReasonKey` REQUIRED for failed/returned; reference-basis duplicate comparison treats ABSENT optional fields as non-contradicting (import rows without a COD column stay compatible with existing stops that have one); phone/addressNotes length-capped, privacy-minimized. Backup envelope is v3: v3 strict (missing stops key = malformed), v2/v1 migrate with `stops: []` + `legacyScopeMissing` + lossless=false so older formats can NEVER erase current stops; merge = numeric `updatedAt` newer-wins; commitBundle covers the stops key transactionally. Failed-stop→recovery auto-linking arrives with R4 (evening close).
 
 ## 4. Invariants enforced at save/close time
 

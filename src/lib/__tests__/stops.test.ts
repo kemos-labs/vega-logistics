@@ -121,9 +121,14 @@ describe('identifyStopDuplicates — identity hierarchy', () => {
     expect(identifyStopDuplicates(incoming, existing)[0]).toMatchObject({ kind: 'exact', basis: 'reference' });
   });
 
-  it('same reference materially different COD ⇒ conflict (blocks confirmation upstream)', () => {
+  it('same reference with BOTH-side differing COD ⇒ conflict (blocks confirmation upstream)', () => {
+    const anchor = createStopRecord(validDraft({ reference: 'SH-100', codAmountSar: 25 }) as never, NOW_ISO);
     const incoming = [createStopRecord(validDraft({ reference: 'SH-100', codAmountSar: 99 }) as never, NOW_ISO)];
-    expect(identifyStopDuplicates(incoming, existing)[0]?.kind).toBe('conflict');
+    expect(identifyStopDuplicates(incoming, [anchor])[0]?.kind).toBe('conflict');
+    // absent-vs-present is NOT a contradiction (import row without a COD
+    // column stays compatible with an existing stop that has one)
+    const noCod = [createStopRecord(validDraft({ reference: 'SH-100' }) as never, NOW_ISO)];
+    expect(identifyStopDuplicates(noCod, [anchor])[0]?.kind).toBe('exact');
   });
 
   it('same reference DIFFERENT date is not a duplicate', () => {

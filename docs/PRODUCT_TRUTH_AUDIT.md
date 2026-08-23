@@ -97,8 +97,8 @@ Explicitly deferred (requires business scale + budget justification before any b
 | Backup-age banner + WhatsApp parser | Shipped this cycle; pending owner live verification |
 | PWA offline shell | Working local-only |
 | Provider WhatsApp import | Working local-only (manual paste) |
-| CSV bulk import (shipments) | Documented-but-absent (planned R2) |
-| Stop/route planning | Absent (planned R2/R3) |
+| CSV/paste stop import w/ preview gates | Production (R2-B) |
+| Stop planning (manual create/edit/delete/retain) | Production (R2); dispatch ordering = R3 |
 | Evening-close guided reconciliation | Absent (planned R4; totals currently advisory) |
 | National Address / Short Address capture | Absent (planned R5; format-check only) |
 | Invoice/receipt drafts | Absent (planned R5; data-shaped, never "compliant") |

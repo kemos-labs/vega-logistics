@@ -18,7 +18,7 @@
 - Code batch (same cycle): parser stale-preview clear, blank-date block, any-existing-record overwrite ack, greeting/chatter name filtering, conflicting-duplicate-term warnings, localized warnings EN/AR, reminder local-day dismissal baseline + dead-code removal, model-inputs-in-reminder-eligibility. Tests: 6 new (4 engine greeting/conflict + 2 UI stale/blank-date) → 193 total.
 
 ## Next release
-**R1 shipped this cycle** (`controlTower.ts` + `ControlTower.tsx`, default landing view, 205 tests total). **Next: R2 stop planning** (StopRecord, safe paste/CSV preview, duplicate detection). Owner should hard-refresh http://vega.localhost:8080 to review the tower.
+**R2 shipped** (R2-A `6b61b45` domain+backup v3; R2-B StopPlanning UI + import). **Next: R3 morning dispatch & manifest** (assignment board, accessible ordering, bilingual print manifest). R0/R1 ACCEPTED by owner; R2 pending live review. Tests: 270 passing (26 files).
 
 ## Blockers / VERIFY queue
 - TGA light-freight reg 4786 text extraction (JS-rendered portal) → gates manifest wording

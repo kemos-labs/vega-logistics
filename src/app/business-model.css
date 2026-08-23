@@ -740,3 +740,18 @@ html[dir='rtl'] .bm-provider-import textarea{direction:rtl;text-align:right}
 .bm-tower-grid dd small{font-size:12px;color:#57503c;font-weight:600}
 .bm-tower-empty dd{color:#8b8062}
 @media(max-width:600px){.bm-tower-grid dd{text-align:start}}
+
+/* ── R2 Stop Planning ── */
+.bm-stops-form h3,.bm-stops h3{margin:14px 0 6px;font-size:15px;color:#1b231e}
+.bm-stops-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.bm-grow{flex:1;min-width:200px}
+.bm-stops-totals{padding:8px 12px;border-radius:8px;background:#efe7cf;border:1px solid #b9ad8a;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bm-stops-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.bm-stop-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;padding:9px 12px;border:1px solid #d8cfb4;border-radius:8px;background:#fffdf6;align-items:center}
+html[dir='rtl'] .bm-stop-row .bm-stop-main{flex-direction:row-reverse;text-align:right}
+.bm-chip{font-style:normal;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;border:1px solid currentColor;margin-inline-start:auto}
+.bm-chip-planned{color:#1f5f38}.bm-chip-delivered{color:#1b231e}.bm-chip-failed{color:#8f3b30}.bm-chip-returned{color:#7c4a12}.bm-chip-pending{color:#57503c}
+.bm-stop-actions,.bm-delete-confirm{display:flex;gap:6px;align-items:center}
+.bm-delete-confirm{color:#8f3b30;font-weight:600}
+.bm-row-exact-dup td{opacity:.45;text-decoration:line-through}
+@media(max-width:600px){.bm-stops-grid{grid-template-columns:1fr}}

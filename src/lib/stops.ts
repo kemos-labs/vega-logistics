@@ -301,6 +301,25 @@ function materiallyEqual(a: StopRecord, b: StopRecord): boolean {
 }
 
 /**
+ * Shared-field equality for REFERENCE-basis comparisons: an optional field
+ * ABSENT from one side (e.g. an import row with no COD column) does not
+ * contradict the other side — only genuinely differing PRESENT values do.
+ */
+function referenceCompatible(a: StopRecord, b: StopRecord): boolean {
+  const fields = ['customerName', 'stopLabel', 'phone', 'addressNotes'] as const;
+  for (const field of fields) {
+    const av = cleanText(a[field] ?? '', 300);
+    const bv = cleanText(b[field] ?? '', 300);
+    if (av !== '' && bv !== '' && av.toLowerCase() !== bv.toLowerCase()) return false;
+  }
+  if (a.codAmountSar !== undefined && b.codAmountSar !== undefined && a.codAmountSar !== b.codAmountSar) return false;
+  if ((a.serviceWindow ?? null) !== (b.serviceWindow ?? null)) {
+    if (a.serviceWindow !== undefined && b.serviceWindow !== undefined) return false;
+  }
+  return true;
+}
+
+/**
  * Deterministic duplicate classification across an incoming batch against
  * existing stops AND within the batch itself. Order-independent: pair
  * comparisons run i<j so swapping row order cannot change decisions.
@@ -329,7 +348,12 @@ export function identifyStopDuplicates(
       const match = existingByRef.get(`${candidate.operationDate}|${ref}`);
       if (match) {
         findings.push({
-          incomingIndex: i, existingId: match.id, kind: materiallyEqual(match, candidate) ? 'exact' : 'conflict', basis: 'reference',
+          incomingIndex: i,
+          existingId: match.id,
+          kind: referenceCompatible(match, candidate)
+            ? 'exact'
+            : 'conflict',
+          basis: 'reference',
         });
         found = true;
       }
@@ -338,7 +362,7 @@ export function identifyStopDuplicates(
         if (refKey(incoming[j].reference) === ref && incoming[j].operationDate === candidate.operationDate) {
           findings.push({
             incomingIndex: i, incomingAgainst: j,
-            kind: materiallyEqual(incoming[j], candidate) ? 'exact' : 'conflict',
+            kind: referenceCompatible(incoming[j], candidate) ? 'exact' : 'conflict',
             basis: 'reference',
           });
           found = true;

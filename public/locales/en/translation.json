@@ -786,7 +786,8 @@
       "scenarios": "Scenarios",
       "actions": "Follow-up",
       "recovery": "Recovery board",
-      "tower": "Control Tower"
+      "tower": "Control Tower",
+      "stops": "Stops"
     },
     "brand": {
       "subtitle": "Business model"
@@ -1415,6 +1416,96 @@
         "podGaps": "POD incomplete for {{count}} recent day(s)",
         "backupStale": "Backup is overdue — export a backup file",
         "recordYesterday": "No record for yesterday ({{date}}) — close the day"
+      }
+    },
+    "stops": {
+      "tag": "STOP PLANNING",
+      "title": "Plan tomorrow's stops",
+      "desc": "Create shipment stops by hand or paste them in — review everything before it is saved.",
+      "localNote": "Data is saved in THIS browser only. Export a backup from the Scenarios tab to keep it safe.",
+      "privacyNote": "Personal data (names, phones, addresses) — enter only what the operation needs.",
+      "dateLabel": "Operation date",
+      "searchLabel": "Search reference / customer / stop",
+      "totals": "{count} stops · COD {cod} SAR",
+      "addTitle": "Add a stop",
+      "editTitle": "Edit stop",
+      "addBtn": "Add stop",
+      "updateBtn": "Save changes",
+      "cancelBtn": "Cancel",
+      "savedOne": "Stop added.",
+      "savedEdit": "Changes saved.",
+      "deleted": "Stop deleted.",
+      "persistFailed": "Saving failed ({{keys}}) — nothing was changed. Try again.",
+      "rollbackCritical": "CRITICAL: partial write and rollback failure on {{keys}} — export a backup now.",
+      "listTitle": "Stops for {{date}}",
+      "emptyDay": "No stops recorded for this date yet.",
+      "deleteQuestion": "Delete «{{label}}»? This cannot be undone.",
+      "confirmDelete": "Yes, delete",
+      "editBtn": "Edit",
+      "deleteBtn": "Delete",
+      "fields": {
+        "customerName": "Customer / provider",
+        "reference": "Shipment reference",
+        "stopLabel": "Stop / recipient label",
+        "addressNotes": "Address notes",
+        "phone": "Phone (optional)",
+        "codAmountSar": "COD amount (SAR)",
+        "serviceWindow": "Service window"
+      },
+      "windows": {
+        "morning": "Morning",
+        "afternoon": "Afternoon",
+        "evening": "Evening"
+      },
+      "statuses": {
+        "planned": "Planned",
+        "delivered": "Delivered",
+        "failed": "Failed",
+        "returned": "Returned",
+        "pending": "Pending"
+      },
+      "errors": {
+        "required-missing": "This field is required",
+        "invalid-date": "Use a valid date (YYYY-MM-DD)",
+        "impossible-date": "That date does not exist",
+        "too-long": "Value is too long",
+        "invalid-number": "Enter a valid number",
+        "negative": "Value cannot be negative",
+        "invalid-enum": "Choose a valid option",
+        "failure-reason-required": "A failure reason is required for failed/returned stops",
+        "not-a-string": "Text expected",
+        "invalid-timestamp": "Invalid timestamp"
+      },
+      "import": {
+        "tag": "BULK IMPORT",
+        "title": "Paste or upload stops",
+        "desc": "CSV or tab-separated rows. Nothing is written until you confirm the preview.",
+        "pasteLabel": "Paste rows here",
+        "placeholder": "customer,label,cod\nنور ماركت,حي الملقا بوابة 3,25",
+        "fileLabel": "Or choose a UTF-8 CSV",
+        "parseBtn": "Preview rows",
+        "clearBtn": "Clear",
+        "fileName": "File",
+        "errEmpty": "Nothing to import yet.",
+        "errBinary": "This file is not text.",
+        "errTooLarge": "Too many rows or too large — split the file.",
+        "errMissingHeaders": "Could not find customer and stop columns in the header row.",
+        "totalRows": "Rows read",
+        "validRows": "Valid",
+        "invalidRows": "Rejected",
+        "duplicateRows": "Duplicates",
+        "codTotal": "COD total (SAR)",
+        "unknownHeader": "Ignored unknown column: {{header}}",
+        "rowN": "Row {{row}}",
+        "dup_exact": "Row {{row}} duplicates an existing stop — it will be skipped.",
+        "dup_conflict": "Row {{row}} has the same reference with different details — resolve before confirming.",
+        "dup_probable": "Row {{row}} may duplicate row {{against}} — review before confirming.",
+        "ackWarnings": "I reviewed the warnings above — import anyway.",
+        "confirmBtn": "Confirm these stops",
+        "cancelBtn": "Cancel",
+        "conflictsBlocked": "Resolve same-reference conflicts before confirming.",
+        "invalidBlocked": "Fix rejected rows in the source text, then preview again.",
+        "importSuccess": "{{count}} stops imported."
       }
     }
   }
