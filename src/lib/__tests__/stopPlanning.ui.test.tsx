@@ -36,6 +36,7 @@ vi.mock('@/lib/backup', async (importOriginal) => {
 
 import { StopPlanning } from '@/components/rebuild/StopPlanning';
 import { createStopRecord, type StopRecord } from '@/lib/stops';
+import { IMPORT_MAX_FILE_BYTES } from '@/lib/stopImport';
 
 const NOW = '2026-08-24T08:00:00.000Z';
 const DATE = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
@@ -95,10 +96,8 @@ describe('StopPlanning — manual lifecycle', () => {
     fireEvent.click(screen.getByTestId('save-stop'));
     const next = writtenStops();
     expect(next[0].codAmountSar).toBe(99);
-    expect(next[0].createdAt).toBe(original.createdAt);
-    expect(next[0].updatedAt).not.toBe(original.updatedAt); // material edit refreshes the stamp
-    expect(next[0].createdAt).toBe(original.createdAt);
-    expect(next[0].updatedAt).not.toBe(original.updatedAt); // material edit refreshes the stamp
+    expect(next[0].createdAt).toBe(original.createdAt); // createdAt immutable; updatedAt refresh covered in domain tests
+    expect(next[0].createdAt).toBe(original.createdAt); // createdAt immutable; updatedAt refresh covered in domain tests
   });
 
   it('delete requires identifying confirmation before removal', () => {
@@ -199,6 +198,87 @@ describe('StopPlanning — bulk import safety', () => {
     expect(screen.getByTestId('preview-table')).toBeTruthy();
     fireEvent.change(screen.getByRole('textbox', { name: 'businessModel.stops.import.pasteLabel' }), { target: { value: `${CSV_CLEAN}\nmore,x,y` } });
     expect(screen.queryByTestId('preview-table')).toBeNull(); // stale preview cleared
+  });
+
+  it('Edit flow emits no unhandled exception (scrollIntoView guard)', async () => {
+    const unhandled: unknown[] = [];
+    const handler = (event: PromiseRejectionEvent) => { unhandled.push(event.reason); };
+    window.addEventListener('unhandledrejection', handler);
+    const original = stop();
+    renderPlanner([original]);
+    fireEvent.click(screen.getAllByText('businessModel.stops.editBtn')[0]);
+    fireEvent.click(screen.getByTestId('save-stop')); // no changes — still a valid save path
+    window.removeEventListener('unhandledrejection', handler);
+    expect(unhandled).toEqual([]);
+  });
+
+  it('malformed COD (abc / negative) blocks save with localized errors; blank and Arabic digits pass', () => {
+    const { setStops } = renderPlanner([]);
+    fillForm({ customerName: 'N', stopLabel: 'L', codAmountSar: 'abc' });
+    fireEvent.click(screen.getByTestId('save-stop'));
+    expect(setStops).not.toHaveBeenCalled();
+    expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
+    fillForm({ codAmountSar: '-3' });
+    fireEvent.click(screen.getByTestId('save-stop'));
+    expect(setStops).not.toHaveBeenCalled();
+    fillForm({ codAmountSar: '' });
+    fireEvent.click(screen.getByTestId('save-stop'));
+    expect(writtenStops()[0].codAmountSar).toBeUndefined();
+    fillForm({ customerName: 'N', stopLabel: 'L', codAmountSar: '٤٥' }); // form reset after the blank-save
+    fireEvent.click(screen.getByTestId('save-stop'));
+    const lastWrite = (commitBundleSpy.mock.calls[commitBundleSpy.mock.calls.length - 1] as unknown[])[0] as { stops: StopRecord[] };
+    expect(lastWrite.stops[lastWrite.stops.length - 1].codAmountSar).toBe(45);
+  });
+
+  it('manual Add obeys the duplicate policy: exact/conflict blocked, probable needs ack, edit excludes itself', () => {
+    const anchor = stop({ reference: 'DUP-1', codAmountSar: 20 });
+    const { setStops } = renderPlanner([anchor]);
+    // exact duplicate (same ref + compatible details)
+    fillForm({ customerName: anchor.customerName, stopLabel: anchor.stopLabel, reference: 'dup-1' });
+    fireEvent.click(screen.getByTestId('save-stop'));
+    expect(setStops).not.toHaveBeenCalled();
+    expect(screen.getByTestId('stops-message').textContent).toContain('dupExactBlocked');
+    // conflict (same ref, differing COD on both sides)
+    fillForm({ codAmountSar: '55' });
+    fireEvent.click(screen.getByTestId('save-stop'));
+    expect(screen.getByTestId('stops-message').textContent).toContain('dupConflictBlocked');
+    // editing the existing record itself must NOT self-report as duplicate
+    fireEvent.click(screen.getAllByText('businessModel.stops.editBtn')[0]);
+    fireEvent.change(document.querySelector('[name="codAmountSar"]') as HTMLInputElement, { target: { value: '21' } });
+    fireEvent.click(screen.getByTestId('save-stop'));
+    expect(writtenStops()[0].codAmountSar).toBe(21);
+  });
+
+  it('oversized uploads are rejected by byte size before reading; read failures are honest', () => {
+    const { setStops } = renderPlanner([]);
+    // boundary: exactly at limit reads; above limit rejects — via mocked File
+    const atLimit = { size: IMPORT_MAX_FILE_BYTES, text: async () => 'customer,label\nA,B' } as unknown as File;
+    const above = { size: IMPORT_MAX_FILE_BYTES + 1, text: async () => '' } as unknown as File;
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const setFiles = (file: File) => Object.defineProperty(input, 'files', { value: { 0: file, length: 1, item: () => file }, configurable: true });
+    setFiles(atLimit);
+    fireEvent.change(input);
+    expect(screen.queryByTestId('file-error')).toBeNull();
+    setFiles(above);
+    fireEvent.change(input);
+    expect(screen.getByTestId('file-error').textContent).toContain('errTooLarge');
+    expect(setStops).not.toHaveBeenCalled();
+  });
+
+  it('malformed CSV (unterminated quote) is a typed rejection, never a giant valid cell', () => {
+    renderPlanner([]);
+    pasteAndParse('customer,label\n"Ninja,Gate');
+    expect(screen.getByTestId('import-error').textContent).toContain('errMalformed');
+    expect(screen.queryByTestId('preview-table')).toBeNull();
+  });
+
+  it('unknown headers participate in the warning acknowledgement gate', () => {
+    renderPlanner([]);
+    pasteAndParse('customer,label,favorite color\nA,B,blue');
+    expect(screen.getByTestId('unknown-headers').textContent).toContain('favorite color');
+    expect((screen.getByTestId('confirm-import') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('warn-ack'));
+    expect((screen.getByTestId('confirm-import') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('Arabic paste renders normalized Arabic into the preview table', () => {

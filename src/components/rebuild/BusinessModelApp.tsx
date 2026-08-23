@@ -11,7 +11,7 @@ import { resizeVehicleFleet } from '@/lib/fleetModel';
 import { calculateFinancials } from '@/lib/calculations';
 import { buildMonthlyRollup, buildProjection, calculateDailyMetrics, migrateDailyRecords, toDateString, FAILURE_REASON_KEYS, type DailyRecord, type FailureReasonKey } from '@/lib/operationsReporting';
 import { defaultFinancialInput } from '@/lib/mockData';
-import { type StopRecord } from '@/lib/stops';
+import { readStoredStops, type StopRecord } from '@/lib/stops';
 import { buildControlTowerSnapshot } from '@/lib/controlTower';
 import { ControlTowerView } from '@/components/rebuild/ControlTower';
 import { StopPlanning } from '@/components/rebuild/StopPlanning';
@@ -65,7 +65,14 @@ export default function BusinessModelApp() {
   const dailyRecords = useMemo(() => migrateDailyRecords(rawDailyRecords, input.fuelPricePerLiter), [rawDailyRecords, input.fuelPricePerLiter]);
   const [scenarios, setScenarios] = useLocalStorage<Scenario[]>('vega-scenarios-v1', []);
   const [rawRecoveryEntries, setRecoveryEntries] = useLocalStorage<RecoveryEntry[]>('vega-recovery-board-v1', []);
-  const [stops, setStops] = useLocalStorage<StopRecord[]>(STORAGE_KEYS.stops, []);
+  // Boot-time validation (R2-C): the UI/backups only ever see the VALIDATED
+  // collection. The raw localStorage value is NOT rewritten here — an
+  // operator with a corrupt source gets a warning and the chance to export.
+  const bootStops = useMemo(() => {
+    try { return readStoredStops(localStorage.getItem(STORAGE_KEYS.stops)); } catch { return { stops: [] as StopRecord[], dropped: 0 }; }
+  }, []);
+  const [stops, setStops] = useLocalStorage<StopRecord[]>(STORAGE_KEYS.stops, bootStops.stops);
+  const [stopsBootDropped, setStopsBootDropped] = useState(bootStops.dropped);
   const recoveryEntries = useMemo(() => validateRecoveryEntries(rawRecoveryEntries), [rawRecoveryEntries]);
   const pendingRecoveries = recoveryEntries.filter(entry => entry.status === 'pending').length;
   // Telematics seam: the demo simulator answers until a vendor is configured.
@@ -230,6 +237,12 @@ export default function BusinessModelApp() {
         )}
       <main id="bm-main" className="bm-main">
         {view === 'stops' && <StopPlanning stops={stops} setStops={setStops} />}
+        {stopsBootDropped > 0 && (
+          <p className="bm-import-warning" role="alert" data-testid="stops-boot-warning">
+            {t('businessModel.stops.bootDropped', { count: stopsBootDropped })}
+            <button onClick={() => setStopsBootDropped(0)}>{t('businessModel.stops.bootDismiss')}</button>
+          </p>
+        )}
         {view === 'tower' && <ControlTowerView snapshot={towerSnapshot} onGoto={(target: 'daily' | 'recovery' | 'scenarios') => selectView(target)} />}
         {view === 'summary' && <CoreSummary output={output} input={input} fleetCount={fleetCount} driverGap={driverGap} contribution={contribution} risks={risks} onNavigate={selectView} dailyRecords={dailyRecords} />}
         {view === 'fleet' && <Page title={t('businessModel.fleet.title')} description={t('businessModel.fleet.desc')}><div className="bm-form-card bm-combined-count"><NumberInput label={t('businessModel.fleet.carsDrivers')} value={fleetCount} onChange={setFleetCount} suffix={t('businessModel.fleet.suffixTotal')} /><Readout label={t('businessModel.fleet.payrollReadout')} value={money(fleetCount * input.driverSalary)} /></div><EditableTable columns={[t('businessModel.fleet.colVehicleType'),t('businessModel.fleet.colQuantity'),t('businessModel.fleet.colRentMonth'),t('businessModel.fleet.colInsurance'),t('businessModel.fleet.colFuelEfficiency'),t('businessModel.fleet.colDistanceDay'),'']}>

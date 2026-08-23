@@ -11,10 +11,10 @@ import { useTranslation } from 'react-i18next';
 import { commitBundle, STORAGE_KEYS, type PersistResult } from '@/lib/backup';
 import { normalizeDigits } from '@/lib/providerMessageParser';
 import {
-  createStopRecord, sortStopsForDate, updateStopRecord,
+  createStopRecord, identifyStopDuplicates, sortStopsForDate, updateStopRecord,
   validateStopRecord, type StopFieldError, type StopRecord, type StopStatus,
 } from '@/lib/stops';
-import { IMPORT_MAX_ROWS, previewStopImport, type ImportParseResult } from '@/lib/stopImport';
+import { IMPORT_MAX_FILE_BYTES, IMPORT_MAX_ROWS, previewStopImport, type ImportParseResult } from '@/lib/stopImport';
 import { toDateString } from '@/lib/operationsReporting';
 
 type Draft = Record<string, string>;
@@ -41,6 +41,9 @@ export function StopPlanning({ stops, setStops }: {
   const [fileName, setFileName] = useState('');
   const [parsed, setParsed] = useState<ImportParseResult | null>(null);
   const [warningsAcked, setWarningsAcked] = useState(false);
+  const [fileError, setFileError] = useState('');
+  const [dupAck, setDupAck] = useState(false);
+  const [dupNeedsAck, setDupNeedsAck] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -77,7 +80,10 @@ export function StopPlanning({ stops, setStops }: {
 
   function saveStop(event: React.FormEvent) {
     event.preventDefault();
-    const numericCod = draft.codAmountSar.trim() === '' ? undefined : Number(normalizeDigits(draft.codAmountSar));
+    // Non-empty input that fails numeric parsing stays NaN so validation
+    // reports it (never silently saved as 'no COD'). Blank ⇒ no COD.
+    const rawCod = normalizeDigits(draft.codAmountSar.trim());
+    const numericCod = rawCod === '' ? undefined : (Number.isFinite(Number(rawCod)) ? Number(rawCod) : Number.NaN);
     const base = editingId ? stops.find(stop => stop.id === editingId) : undefined;
     const candidateInput = {
       ...(base ?? {}),
@@ -87,7 +93,7 @@ export function StopPlanning({ stops, setStops }: {
       stopLabel: draft.stopLabel,
       addressNotes: draft.addressNotes || undefined,
       phone: draft.phone || undefined,
-      codAmountSar: numericCod === undefined || Number.isNaN(numericCod) ? undefined : numericCod,
+      codAmountSar: numericCod, // NaN survives for validation; undefined = blank
       serviceWindow: draft.serviceWindow === '' ? undefined : draft.serviceWindow,
       status: (base?.status ?? 'planned'),
     };
@@ -105,8 +111,30 @@ export function StopPlanning({ stops, setStops }: {
       const next = editingId
         ? updateStopRecord(base as StopRecord, candidateInput as Partial<StopRecord>, nowIso)
         : createStopRecord(candidateInput as never, nowIso);
+      // Manual entries obey the SAME duplicate policy as imports (contract C):
+      // the edited record excludes itself from the comparison.
+      const othersForDup = stops.filter(stop => stop.id !== next.id);
+      const dupFindings = identifyStopDuplicates([next], othersForDup.filter(stop => stop.operationDate === next.operationDate));
+      const conflict = dupFindings.find(finding => finding.kind === 'conflict');
+      const exact = dupFindings.find(finding => finding.kind === 'exact');
+      if (exact) {
+        setFieldErrors([]);
+        setMessage(t(S + 'dupExactBlocked'));
+        return;
+      }
+      if (conflict) {
+        setFieldErrors([]);
+        setMessage(t(S + 'dupConflictBlocked'));
+        return;
+      }
+      if (dupFindings.some(finding => finding.kind === 'probable') && !dupAck) {
+        setDupNeedsAck(true);
+        setMessage(t(S + 'dupProbableAck'));
+        return;
+      }
+      setDupNeedsAck(false);
       const others = stops.filter(stop => stop.id !== next.id);
-      if (persist([...others, next], t(S + editingId ? S + 'savedEdit' : S + 'savedOne'))) {
+      if (persist([...others, next], t(S + (editingId ? 'savedEdit' : 'savedOne')))) {
         setDraft(EMPTY_DRAFT);
         setEditingId(null);
       }
@@ -128,7 +156,7 @@ export function StopPlanning({ stops, setStops }: {
       codAmountSar: stop.codAmountSar === undefined ? '' : String(stop.codAmountSar),
       serviceWindow: stop.serviceWindow ?? '',
     });
-    formRef.current?.scrollIntoView({ block: 'nearest' });
+    formRef.current?.scrollIntoView?.({ block: 'nearest' });
   }
 
   function cancelEdit() { setEditingId(null); setDraft(EMPTY_DRAFT); setFieldErrors([]); }
@@ -140,7 +168,11 @@ export function StopPlanning({ stops, setStops }: {
 
   // ── bulk import ───────────────────────────────────────────────
   const preview = parsed && parsed.ok ? parsed.preview : null;
-  const warningRowCount = preview ? preview.valid.filter(row => row.warnings.length > 0).length + preview.duplicates.filter(finding => finding.kind === 'probable').length : 0;
+  const warningRowCount = preview
+    ? preview.valid.filter(row => row.warnings.length > 0).length
+      + preview.duplicates.filter(finding => finding.kind === 'probable').length
+      + (preview.unknownHeaders.length > 0 ? 1 : 0) // ignored columns ⇒ values dropped ⇒ needs ack
+    : 0;
   const exactDuplicateIndexes = new Set(preview ? preview.duplicates.filter(finding => finding.kind === 'exact').map(finding => finding.incomingIndex) : []);
   const confirmable = !!preview
     && !preview.blockingConflicts
@@ -167,8 +199,17 @@ export function StopPlanning({ stops, setStops }: {
   async function onFileChosen(file: File | undefined) {
     if (!file) return;
     setFileName(file.name);
-    const text = await file.text();
-    setRawText(text.slice(0, IMPORT_MAX_ROWS * 400)); // hard display guard; parse re-checks caps
+    if (file.size > IMPORT_MAX_FILE_BYTES) {
+      setFileError(t(S + 'import.errTooLarge'));
+      return;
+    }
+    try {
+      const text = await file.text();
+      setFileError('');
+      setRawText(text);
+    } catch {
+      setFileError(t(S + 'import.errReadFailed'));
+    }
   }
 
   const statusLabel = (status: StopStatus) => t(S + 'statuses.' + status);
@@ -230,6 +271,12 @@ export function StopPlanning({ stops, setStops }: {
             </select>
           </label>
         </div>
+        {dupNeedsAck && (
+          <label className="bm-ack" data-testid="dup-ack-row">
+            <input type="checkbox" checked={dupAck} onChange={event => setDupAck(event.target.checked)} data-testid="dup-ack" />
+            {t(S + 'dupProbableAckLabel')}
+          </label>
+        )}
         <div className="bm-import-choices">
           <button className="bm-primary" type="submit" data-testid="save-stop">{editingId ? t(S + 'updateBtn') : t(S + 'addBtn')}</button>
           {editingId && <button type="button" onClick={cancelEdit}>{t(S + 'cancelBtn')}</button>}
@@ -287,6 +334,7 @@ export function StopPlanning({ stops, setStops }: {
           <button onClick={() => { setRawText(''); setFileName(''); setParsed(null); setWarningsAcked(false); }}>{t(S + 'import.clearBtn')}</button>
         </div>
         {fileName !== '' && <p className="bm-import-note">{t(S + 'import.fileName')}: {fileName}</p>}
+        {fileError !== '' && <p className="bm-import-warning" role="alert" data-testid="file-error">{fileError}</p>}
 
         <div aria-live="polite">
           {parsed && !parsed.ok && (
@@ -294,6 +342,7 @@ export function StopPlanning({ stops, setStops }: {
               {parsed.error === 'empty' ? t(S + 'import.errEmpty')
                 : parsed.error === 'binary' ? t(S + 'import.errBinary')
                 : parsed.error === 'too-large' ? t(S + 'import.errTooLarge')
+                : parsed.error === 'malformed-csv' ? t(S + 'import.errMalformed')
                 : t(S + 'import.errMissingHeaders')}
             </p>
           )}

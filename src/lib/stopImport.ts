@@ -20,6 +20,8 @@ import {
 } from '@/lib/stops';
 
 export const IMPORT_MAX_CHARS = 400_000;
+/** Uploaded files are bounded by BYTES before reading — never silently sliced. */
+export const IMPORT_MAX_FILE_BYTES = 400_000;
 export const IMPORT_MAX_ROWS = 500;
 
 export type ImportHeaderField =
@@ -69,6 +71,7 @@ export function splitDelimited(text: string, delimiter: ',' | '\t'): string[][] 
   let row: string[] = [];
   let cell = '';
   let inQuotes = false;
+  let malformed = false;
 
   const pushCell = () => { row.push(cell); cell = ''; };
   const pushRow = () => { pushCell(); rows.push(row); row = []; };
@@ -82,15 +85,24 @@ export function splitDelimited(text: string, delimiter: ',' | '\t'): string[][] 
       } else cell += char;
       continue;
     }
-    if (char === '"' && cell === '') { inQuotes = true; continue; }
+    // A quote may only OPEN a cell (start of field). A quote appearing after
+    // cell content (like `ab"c`) is malformed — reported, never guessed.
+    if (char === '"') {
+      if (cell === '') { inQuotes = true; continue; }
+      malformed = true;
+      continue;
+    }
     if (char === delimiter) { pushCell(); continue; }
     if (char === '\r') { if (text[i + 1] === '\n') i += 1; pushRow(); continue; }
     if (char === '\n') { pushRow(); continue; }
     cell += char;
   }
-  // flush trailing content (an unterminated quote consumes to EOF — parsed,
-  // and its validity judged like any other row)
-  if (cell !== '' || row.length > 0 || inQuotes) pushRow();
+  // flush trailing content
+  if (cell !== '' || row.length > 0) pushRow();
+  // Unterminated quote: the remainder was consumed as one cell — that is a
+  // MALFORMED file, not a giant valid cell.
+  if (inQuotes) malformed = true;
+  if (malformed) throw new StopCsvMalformedError();
   return rows.filter(row => row.some(cellValue => cellValue.trim() !== ''));
 }
 
@@ -105,6 +117,11 @@ function detectDelimiter(text: string): ',' | '\t' {
     else if (!inQuotes && char === '\t') tabs += 1;
   }
   return tabs > commas ? '\t' : ',';
+}
+
+/** Typed signal for structurally broken CSV (unterminated/misplaced quotes). */
+export class StopCsvMalformedError extends Error {
+  constructor() { super('malformed-csv'); this.name = 'StopCsvMalformedError'; }
 }
 
 export interface PreviewRowValid {
@@ -135,7 +152,7 @@ export interface StopImportPreview {
 
 export type ImportParseResult =
   | { ok: true; preview: StopImportPreview }
-  | { ok: false; error: 'empty' | 'too-large' | 'binary' | 'missing-headers'; missingFields?: ImportHeaderField[] };
+  | { ok: false; error: 'empty' | 'too-large' | 'binary' | 'missing-headers' | 'malformed-csv'; missingFields?: ImportHeaderField[] };
 
 /**
  * Build the reviewable preview for a pasted/uploaded batch against the
@@ -152,7 +169,13 @@ export function previewStopImport(
   if (text.includes('\u0000')) return { ok: false, error: 'binary' };
   if (text.length > IMPORT_MAX_CHARS) return { ok: false, error: 'too-large' };
 
-  const rows = splitDelimited(text, detectDelimiter(text));
+  let rows: string[][];
+  try {
+    rows = splitDelimited(text, detectDelimiter(text));
+  } catch (error) {
+    if (error instanceof StopCsvMalformedError) return { ok: false, error: 'malformed-csv' };
+    throw error;
+  }
   if (rows.length < 1) return { ok: false, error: 'empty' };
   const dataRows = rows.slice(1);
   if (dataRows.length > IMPORT_MAX_ROWS) return { ok: false, error: 'too-large' };

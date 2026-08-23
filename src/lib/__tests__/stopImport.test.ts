@@ -129,12 +129,14 @@ describe('previewStopImport', () => {
     expect(second.ok && second.preview.duplicates[0]?.kind === 'exact').toBe(true);
   });
 
-  it('unterminated quote still parses to EOF without throwing (row judged like any other)', () => {
-    const result = previewStopImport('customer,label\n"Ninja,Gate', [], DATE);
-    // the quoted cell swallows the separator: label missing ⇒ invalid row, not crash
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.preview.invalid).toHaveLength(1);
+  it('unterminated quote is a typed malformed-csv rejection (LF and CRLF alike)', () => {
+    expect(previewStopImport('customer,label\n"Ninja,Gate', [], DATE)).toMatchObject({ ok: false, error: 'malformed-csv' });
+    expect(previewStopImport('customer,label\r\n"Ninja,Gate', [], DATE)).toMatchObject({ ok: false, error: 'malformed-csv' });
+    // misplaced quote after content is malformed too
+    expect(previewStopImport('customer,label\nab"c,Ninja', [], DATE)).toMatchObject({ ok: false, error: 'malformed-csv' });
+    // well-formed escaped quotes still parse
+    const ok = previewStopImport('customer,label\n"Ninja ""X""",Gate', [], DATE);
+    expect(ok.ok && ok.preview.valid[0]?.draft.customerName === 'Ninja "X"').toBe(true);
   });
 
   it('rows for a DIFFERENT operation date never conflict with today’s existing stops', () => {

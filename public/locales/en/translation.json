@@ -1505,8 +1505,16 @@
         "cancelBtn": "Cancel",
         "conflictsBlocked": "Resolve same-reference conflicts before confirming.",
         "invalidBlocked": "Fix rejected rows in the source text, then preview again.",
-        "importSuccess": "{{count}} stops imported."
-      }
+        "importSuccess": "{{count}} stops imported.",
+        "errMalformed": "Broken CSV: an unterminated or misplaced quote — fix the file, then preview again."
+      },
+      "bootDropped": "{{count}} saved stop(s) were corrupt and are hidden from this session — export a backup first, then re-save your stops.",
+      "bootDismiss": "Understood",
+      "dupExactBlocked": "This stop duplicates an existing saved stop — edit the existing record instead.",
+      "dupConflictBlocked": "Same shipment reference exists with different details — resolve the conflict before saving.",
+      "dupProbableAck": "This may duplicate an existing stop. Review it, then tick the acknowledgement to save anyway.",
+      "dupProbableAckLabel": "I reviewed the possible duplicate — save anyway.",
+      "import.errReadFailed": "The file could not be read — try again or paste the rows instead."
     }
   }
 }
