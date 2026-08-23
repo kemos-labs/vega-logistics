@@ -785,7 +785,8 @@
       "risks": "Risks",
       "scenarios": "Scenarios",
       "actions": "Follow-up",
-      "recovery": "Recovery board"
+      "recovery": "Recovery board",
+      "tower": "Control Tower"
     },
     "brand": {
       "subtitle": "Business model"
@@ -1388,6 +1389,33 @@
       "warn_conflict_car": "Two different car numbers appear — the first was kept.",
       "warn_conflict_plate": "Two different plate numbers appear — the first was kept.",
       "errDate": "Choose a valid record date before confirming."
+    },
+    "tower": {
+      "tag": "CONTROL TOWER",
+      "title": "Today at a glance",
+      "desc": "What happened yesterday, what needs attention now — from your recorded data only.",
+      "allClear": "Everything reconciled and backed up. No open actions.",
+      "yesterdayPlanned": "Delivered / planned — {{date}}",
+      "yesterdayMissing": "Yesterday has no recorded data yet",
+      "noData": "—",
+      "failed": "Failed",
+      "recovered": "Recovered",
+      "overdue": "overdue",
+      "none": "None",
+      "codOutstanding": "COD cash outstanding",
+      "recoveryOpen": "Recovery items open",
+      "podGapsTitle": "Days with POD gaps",
+      "goDaily": "Open daily entry",
+      "goRecovery": "Open recovery board",
+      "goBackup": "Backup & import",
+      "actions": {
+        "recoveryOverdue": "{{count}} recovery item(s) overdue (>7 days)",
+        "codOutstanding": "SAR {{amount}} collected but not remitted",
+        "failedYesterday": "{{count}} failed delivery yesterday needs follow-up",
+        "podGaps": "POD incomplete for {{count}} recent day(s)",
+        "backupStale": "Backup is overdue — export a backup file",
+        "recordYesterday": "No record for yesterday ({{date}}) — close the day"
+      }
     }
   }
 }

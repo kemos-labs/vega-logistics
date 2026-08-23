@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState , useEffect} from 'react';
-import { AlertTriangle, BarChart3, Building2, CalendarDays, Check, CircleDollarSign, ClipboardList, Download, FileText, Languages, Layers, Menu, Plus, RotateCcw, Search, Settings2, Trash2, Truck, Upload, X } from 'lucide-react';
+import { LayoutDashboard, AlertTriangle, BarChart3, Building2, CalendarDays, Check, CircleDollarSign, ClipboardList, Download, FileText, Languages, Layers, Menu, Plus, RotateCcw, Search, Settings2, Trash2, Truck, Upload, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import '@/lib/i18n';
 import { useSimulatedData } from '@/hooks/useSimulatedData';
@@ -11,6 +11,8 @@ import { resizeVehicleFleet } from '@/lib/fleetModel';
 import { calculateFinancials } from '@/lib/calculations';
 import { buildMonthlyRollup, buildProjection, calculateDailyMetrics, migrateDailyRecords, toDateString, FAILURE_REASON_KEYS, type DailyRecord, type FailureReasonKey } from '@/lib/operationsReporting';
 import { defaultFinancialInput } from '@/lib/mockData';
+import { buildControlTowerSnapshot } from '@/lib/controlTower';
+import { ControlTowerView } from '@/components/rebuild/ControlTower';
 import { buildReportModel, type ReportKind, type ReportModel } from '@/lib/reportEngine';
 import { exportBusinessModelExcel, exportDailyReportPdf } from '@/lib/reportExport';
 import ProReport, { buildReportLabels } from '@/components/rebuild/ProReport';
@@ -19,7 +21,7 @@ import ServiceWorkerRegistrar from '@/components/rebuild/ServiceWorkerRegistrar'
 import { buildWeeklyRecoveryTrend, validateRecoveryEntries, type RecoveryEntry, type RecoverySummary } from '@/lib/recoveryBoard';
 import { resolveTelematicsProvider } from '@/lib/platform/telematics';
 
-type View = 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios';
+type View = 'tower' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios';
 type RecoveryOpenRow = { id: string; createdAt: string; shipments: number; owner: string; status: 'pending' | 'recovered' | 'written_off' };
 import { applyBackupMerge, applyLegacyScopedRestore, buildBackup, commitBundle, parseBackup, replaceWithBackup, type BackupFileV2, type FollowUpAction, type PersistResult } from '@/lib/backup';
 import { BACKUP_REMINDER_DAYS, BACKUP_REMINDER_KEY, dismissForToday, evaluateBackupReminder, isDismissedToday, markBackedUpNow } from '@/lib/backupReminder';
@@ -53,7 +55,7 @@ export default function BusinessModelApp() {
   const locale = localeOf(i18n.language);
   const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
   const { financialInput: input, financialOutput: output, updateFinancialInput, applyFinancialInput, setVehicleClasses, setProviders, setDrivers, addVehicleClass, addProvider } = useSimulatedData();
-  const [view, setView] = useState<View>('summary');
+  const [view, setView] = useState<View>('tower');
   const [mobileNav, setMobileNav] = useState(false);
   const [search, setSearch] = useState('');
   const [rawDailyRecords, setDailyRecords] = useLocalStorage<Record<string, DailyRecord>>('vega-daily-reports-v2', {});
@@ -100,11 +102,19 @@ export default function BusinessModelApp() {
   const hasMeaningfulData = Object.keys(dailyRecords).length > 0 || scenarios.length > 0 || recoveryEntries.length > 0 || modelModified;
   const backupReminder = useMemo(() => evaluateBackupReminder(reminderNowMs, lastBackupAt, hasMeaningfulData), [reminderNowMs, lastBackupAt, hasMeaningfulData]);
   const bannerDismissed = useMemo(() => isDismissedToday(reminderNowMs as never), [reminderNowMs]);
+  const towerSnapshot = useMemo(() => buildControlTowerSnapshot({
+    records: dailyRecords,
+    recoveryEntries,
+    plannedShipmentsPerDay: output.totalDailyShipments,
+    nowMs: reminderNowMs,
+    backup: bannerDismissed ? null : backupReminder,
+  }), [dailyRecords, recoveryEntries, output.totalDailyShipments, reminderNowMs, bannerDismissed, backupReminder]);
   const [reportKind, setReportKind] = useState<ReportKind>('daily');
   const [reportLang, setReportLang] = useState<'en' | 'ar' | 'both'>(lng);
   const [proModel, setProModel] = useState<ReportModel | null>(null);
 
   const NAV = [
+    { id: 'tower' as const, label: t('businessModel.nav.tower'), icon: LayoutDashboard },
     { id: 'summary' as const, label: t('businessModel.nav.summary'), icon: BarChart3 },
     { id: 'fleet' as const, label: t('businessModel.nav.fleet'), icon: Truck },
     { id: 'customers' as const, label: t('businessModel.nav.customers'), icon: Building2 },
@@ -215,6 +225,7 @@ export default function BusinessModelApp() {
           />
         )}
       <main id="bm-main" className="bm-main">
+        {view === 'tower' && <ControlTowerView snapshot={towerSnapshot} onGoto={(target: 'daily' | 'recovery' | 'scenarios') => selectView(target)} />}
         {view === 'summary' && <CoreSummary output={output} input={input} fleetCount={fleetCount} driverGap={driverGap} contribution={contribution} risks={risks} onNavigate={selectView} dailyRecords={dailyRecords} />}
         {view === 'fleet' && <Page title={t('businessModel.fleet.title')} description={t('businessModel.fleet.desc')}><div className="bm-form-card bm-combined-count"><NumberInput label={t('businessModel.fleet.carsDrivers')} value={fleetCount} onChange={setFleetCount} suffix={t('businessModel.fleet.suffixTotal')} /><Readout label={t('businessModel.fleet.payrollReadout')} value={money(fleetCount * input.driverSalary)} /></div><EditableTable columns={[t('businessModel.fleet.colVehicleType'),t('businessModel.fleet.colQuantity'),t('businessModel.fleet.colRentMonth'),t('businessModel.fleet.colInsurance'),t('businessModel.fleet.colFuelEfficiency'),t('businessModel.fleet.colDistanceDay'),'']}>
           {input.vehicleClasses.map(row => <div className="bm-table-row bm-fleet-row" key={row.id}><TextInput ariaLabel={`${row.name}`} value={row.name} onChange={value => changeVehicle(row.id,{name:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.fleet.colQuantity')}`} value={row.quantity} onChange={value => changeVehicle(row.id,{quantity:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.fleet.colRentMonth')}`} value={row.monthlyRent} onChange={value => changeVehicle(row.id,{monthlyRent:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.fleet.colInsurance')}`} value={row.variableCost} onChange={value => changeVehicle(row.id,{variableCost:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.fleet.colFuelEfficiency')}`} value={row.fuelEfficiency} onChange={value => changeVehicle(row.id,{fuelEfficiency:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.fleet.colDistanceDay')}`} value={row.avgDailyDistance} onChange={value => changeVehicle(row.id,{avgDailyDistance:value})} /><button className="bm-remove" aria-label={`${t('businessModel.common.remove')} ${row.name}`} onClick={() => removeVehicle(row.id)}>{t('businessModel.common.remove')}</button></div>)}

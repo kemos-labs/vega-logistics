@@ -53,7 +53,11 @@ Batch-close the remaining parser/reminder defects in ONE commit, then freeze P1:
 - [x] governance reset (AGENTS durable-only, SESSION_MEMORY status moved out)
 **Accept:** unit+UI tests per fix; gates green; deployed. ✅
 
-### R1 — Daily Control Tower *(next)*
+### R1 — Daily Control Tower *(shipped this cycle — live verification pending owner)*
+- [x] `src/lib/controlTower.ts` pure snapshot builder (8 tests) + `ControlTower.tsx` view (4 tests)
+- [x] tower is the default landing view; nav entry «غرفة العمليات / Control Tower»
+- [x] tiles: yesterday planned/delivered/failed/recovered (honest no-data), COD outstanding, recovery open+overdue, POD gaps, backup staleness
+- [x] top-3 severity-ordered actions linking to daily/recovery/backup workflows
 One home workspace answering the promise <30s: yesterday planned/delivered/failed/recovered; unreconciled differences; today's readiness; COD outstanding; POD gaps; open exceptions + recovery aging; backup staleness; top-3 actions.
 Requirements: EN/AR; 375px mobile no overflow; honest empty/local-only states; everything derived from recorded data; every tile links to its corrective workflow.
 **Accept:** component tests per tile; RTL visual check; live deploy verify.

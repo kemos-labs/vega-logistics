@@ -722,3 +722,21 @@ html[dir='rtl'] .bm-provider-import textarea{direction:rtl;text-align:right}
 .bm-provider-row .bm-field{min-width:170px}
 .bm-ack{display:flex;gap:6px;align-items:flex-start;margin-top:6px;font-weight:600}
 @media(max-width:600px){.bm-provider-row{flex-direction:column;align-items:stretch}}
+
+/* ── R1 Control Tower ── */
+.bm-tower{display:flex;flex-direction:column;gap:14px}
+.bm-tower-actions{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.bm-tower-action{display:flex;gap:8px;align-items:center;padding:10px 12px;border-radius:8px;border:1px solid #b9b3a2;background:#fffdf6;font-weight:600}
+.bm-sev-high{border-color:#8f3b30;background:#fbeae7}
+.bm-sev-medium{background:#fbf4e4;border-color:#a89455}
+.bm-sev-dot{width:10px;height:10px;border-radius:50%;background:#57503c;flex:none}
+.bm-sev-high .bm-sev-dot{background:#8f3b30}
+.bm-sev-medium .bm-sev-dot{background:#a89455}
+.bm-tower-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:0}
+.bm-tower-grid>div,.bm-tower-empty{padding:12px;border-radius:8px;border:1px solid #d8cfb4;background:#fffdf6;display:grid;grid-template-columns:auto auto;gap:2px 12px;align-items:baseline}
+.bm-tower-grid dt{font-size:12.5px;color:#57503c;font-weight:600}
+.bm-tower-grid dt.bm-sub{margin-top:6px}
+.bm-tower-grid dd{margin:0;font-size:22px;font-weight:800;color:#1b231e;font-variant-numeric:tabular-nums;text-align:end}
+.bm-tower-grid dd small{font-size:12px;color:#57503c;font-weight:600}
+.bm-tower-empty dd{color:#8b8062}
+@media(max-width:600px){.bm-tower-grid dd{text-align:start}}
