@@ -1116,7 +1116,20 @@
       "backupDownloaded": "Backup downloaded.",
       "importFailed": "Import failed: not a valid VEGA backup file.",
       "importedMessage": "Backup imported (exported {{date}}).",
-      "loadedMessage": "Loaded \"{{name}}\" into the model. Review costs before relying on it."
+      "loadedMessage": "Loaded \"{{name}}\" into the model. Review costs before relying on it.",
+      "previewHead": "Import preview",
+      "legacyNote": "Legacy v1 file — upgraded automatically on import; recovery entries and actions were not stored in v1.",
+      "countDays": "Days recorded",
+      "countScenarios": "Scenarios",
+      "countRecovery": "Recovery entries",
+      "countActions": "Follow-up actions",
+      "mergeBtn": "Merge into current data",
+      "replaceBtn": "Replace everything",
+      "cancelBtn": "Cancel",
+      "keptInputsNote": "Merge keeps your current model inputs — choose Replace to adopt the backup's inputs instead.",
+      "previewStats": "Merge plan: {{added}} will be added · {{updated}} updated · {{conflicts}} conflicts stay local (newest wins).",
+      "mergedMessage": "Merged: {{added}} added · {{updated}} updated · {{conflicts}} kept local.",
+      "replacedMessage": "Data replaced from the backup dated {{date}}."
     },
     "charts": {
       "customersTag": "Customer concentration",

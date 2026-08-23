@@ -20,7 +20,8 @@ import { resolveTelematicsProvider } from '@/lib/platform/telematics';
 
 type View = 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios';
 type RecoveryOpenRow = { id: string; createdAt: string; shipments: number; owner: string; status: 'pending' | 'recovered' | 'written_off' };
-import { buildBackup, createScenario, parseBackup, type Scenario } from '@/lib/scenarios';
+import { applyBackupMerge, buildBackup, parseBackup, replaceWithBackup, type BackupFileV2 } from '@/lib/backup';
+import { createScenario, type Scenario } from '@/lib/scenarios';
 type NumberField = keyof Pick<FinancialInput,
   'companyDriverCount' | 'driverSalary' | 'opsTeamCount' | 'opsTeamAvgSalary' | 'salesTeamCount' |
   'salesTeamBaseSalary' | 'warehouseStaff' | 'warehouseStaffSalary' | 'warehouseRent' |
@@ -188,7 +189,7 @@ export default function BusinessModelApp() {
         {view === 'costs' && <Page title={t('businessModel.costs.title')} description={t('businessModel.costs.desc')}><CostSections input={input} output={output} setNumber={setNumber} changeVehicle={changeVehicle} /></Page>}
         {view === 'daily' && <DailyReport input={input} output={output} records={dailyRecords} setRecords={setDailyRecords} reportKind={reportKind} setReportKind={setReportKind} onOpenPro={setProModel} lng={lng} reportLang={reportLang} setReportLang={setReportLang} openActions={actions.filter(action => !action.done).slice(0, 5)} recoverySummary={recoverySummary} recoveryAll={recoveryEntries} recoveryOpen={recoveryEntries.filter(entry => entry.status === 'pending').slice(0, 8).map(({ id, createdAt, shipments, owner, status }) => ({ id, createdAt, shipments, owner, status }))} />}
         {view === 'risks' && <Page title={t('businessModel.risks.title')} description={t('businessModel.risks.desc')}><div className="bm-risk-table"><div className="bm-risk-head"><span>{t('businessModel.risks.thStatus')}</span><span>{t('businessModel.risks.thRisk')}</span><span>{t('businessModel.risks.thValue')}</span><span>{t('businessModel.risks.thReason')}</span></div>{risks.map(risk => <div className="bm-risk-row" key={risk.titleKey}><span className={risk.level === 'controlled' ? 'ok' : 'bad'}>{levelLabel[risk.level]}</span><strong>{t(`businessModel.risks.${risk.titleKey}`)}</strong><span>{risk.value}</span><p>{risk.detail}</p></div>)}</div></Page>}
-        {view === 'scenarios' && <ScenarioView input={input} output={output} scenarios={scenarios} setScenarios={setScenarios} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} applyFinancialInput={applyFinancialInput} />}
+        {view === 'scenarios' && <ScenarioView input={input} output={output} scenarios={scenarios} setScenarios={setScenarios} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} actions={actions} setActions={setActions} applyFinancialInput={applyFinancialInput} />}
         {view === 'recovery' && <Page title={t('businessModel.recovery.recovery')} description={t('businessModel.recovery.recoveryDesc')}><RecoveryBoard entries={recoveryEntries} setEntries={setRecoveryEntries} /></Page>}
         {view === 'actions' && <Page title={t('businessModel.actionsPage.title')} description={t('businessModel.actionsPage.desc')}><div className="bm-actions">{actions.map(action => <div className={action.done ? 'done' : ''} key={action.id}><button aria-label={action.done ? action.text : action.text} onClick={() => setActions(rows => rows.map(row => row.id === action.id ? {...row,done:!row.done}:row))}>{action.done ? <Check size={15}/> : null}</button><span><strong>{action.text}</strong><small>{action.owner}</small></span></div>)}</div></Page>}
       </main>
@@ -680,7 +681,7 @@ function CostSections({input,output,setNumber,changeVehicle}:{input:FinancialInp
               <small>{t(C+'ofCosts',{percent:share.toFixed(0)})}</small>
             </div>
           </section>;})}</div>; }
-function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDailyRecords,applyFinancialInput}:{input:FinancialInput;output:ReturnType<typeof useSimulatedData>['financialOutput'];scenarios:Scenario[];setScenarios:(value:Scenario[]|((prev:Scenario[])=>Scenario[]))=>void;dailyRecords:Record<string,DailyRecord>;setDailyRecords:(value:Record<string,DailyRecord>|((prev:Record<string,DailyRecord>)=>Record<string,DailyRecord>))=>void;applyFinancialInput:(next:FinancialInput)=>void}) {
+function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDailyRecords,recoveryEntries,setRecoveryEntries,actions,setActions,applyFinancialInput}:{input:FinancialInput;output:ReturnType<typeof useSimulatedData>['financialOutput'];scenarios:Scenario[];setScenarios:(value:Scenario[]|((prev:Scenario[])=>Scenario[]))=>void;dailyRecords:Record<string,DailyRecord>;setDailyRecords:(value:Record<string,DailyRecord>|((prev:Record<string,DailyRecord>)=>Record<string,DailyRecord>))=>void;recoveryEntries:RecoveryEntry[];setRecoveryEntries:(value:RecoveryEntry[]|((prev:RecoveryEntry[])=>RecoveryEntry[]))=>void;actions:{id:number;text:string;owner:string;done:boolean}[];setActions:(value:{id:number;text:string;owner:string;done:boolean}[]|((prev:{id:number;text:string;owner:string;done:boolean}[])=>{id:number;text:string;owner:string;done:boolean}[]))=>void;applyFinancialInput:(next:FinancialInput)=>void}) {
   const { t, i18n } = useTranslation();
   const locale = localeOf(i18n.language);
   const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
@@ -691,23 +692,44 @@ function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDaily
   const save=()=>{ setScenarios(prev=>[...prev, createScenario(name,input,prev)]); setName(''); setMessage(t(S+'savedMessage')); };
   const load=(scenario:Scenario)=>{ applyFinancialInput(structuredClone(scenario.input)); setMessage(t(S+'loadedMessage',{name:scenario.name})); };
   const remove=(id:string)=>setScenarios(prev=>prev.filter(s=>s.id!==id));
+  const [pendingImport,setPendingImport]=useState<{file:BackupFileV2;migratedFrom?:1}|null>(null);
+  const bundle={financialInput:input,dailyRecords,scenarios,recoveryEntries,followUpActions:actions};
+  const previewStats=useMemo(()=>{
+    if(!pendingImport) return null;
+    return applyBackupMerge({financialInput:input,dailyRecords,scenarios,recoveryEntries,followUpActions:actions},pendingImport.file).stats;
+  },[pendingImport,input,dailyRecords,scenarios,recoveryEntries,actions]);
   const downloadBackup=()=>{
-    const backup=buildBackup(input,dailyRecords,scenarios);
+    const backup=buildBackup(bundle);
     const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const anchor=document.createElement('a');
-    anchor.href=url; anchor.download=`vega-backup-${toDateString(new Date())}.json`;
+    anchor.href=url; anchor.download=`vega-backup-v2-${toDateString(new Date())}.json`;
     document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
     setMessage(t(S+'backupDownloaded'));
   };
   const importBackup=async(file:File)=>{
     const text=await file.text();
-    const backup=parseBackup(text);
-    if(!backup){ setMessage(t(S+'importFailed')); return; }
-    applyFinancialInput(backup.input);
-    setDailyRecords(backup.dailyRecords);
-    if(Array.isArray(backup.scenarios)) setScenarios(backup.scenarios);
-    setMessage(t(S+'importedMessage',{date:fmtDateMedium(locale,backup.exportedAt)}));
+    const parsed=parseBackup(text);
+    if(!parsed.ok){ setMessage(t(S+'importFailed')); return; }
+    setMessage(''); setPendingImport({file:parsed.file,migratedFrom:parsed.migratedFrom});
+  };
+  const doMerge=()=>{
+    if(!pendingImport) return;
+    const {next,stats}=applyBackupMerge(bundle,pendingImport.file);
+    applyFinancialInput(next.financialInput); // merge keeps current inputs — this is a no-op for them
+    setDailyRecords(next.dailyRecords); setScenarios(next.scenarios);
+    setRecoveryEntries(next.recoveryEntries); setActions(next.followUpActions);
+    setPendingImport(null);
+    setMessage(t(S+'mergedMessage',{added:stats.added,updated:stats.updated,conflicts:stats.conflicts}));
+  };
+  const doReplace=()=>{
+    if(!pendingImport) return;
+    const next=replaceWithBackup(bundle,pendingImport.file);
+    applyFinancialInput(next.financialInput);
+    setDailyRecords(next.dailyRecords); setScenarios(next.scenarios);
+    setRecoveryEntries(next.recoveryEntries); setActions(next.followUpActions);
+    setPendingImport(null);
+    setMessage(t(S+'replacedMessage',{date:fmtDateMedium(locale,pendingImport.file.exportedAt||new Date().toISOString())}));
   };
   return <><div className="bm-page-head"><h1>{t(S+'title')}</h1><p>{t(S+'desc')}</p></div>
     <section className="bm-form-card bm-scenario-save"><h2>{t(S+'saveHead')}</h2><div className="bm-scenario-save-row"><input aria-label={t(S+'scenarioName')} placeholder={t(S+'namePlaceholder')} value={name} maxLength={60} onChange={event=>setName(event.target.value)} onKeyDown={event=>{if(event.key==='Enter')save();}} /><button className="bm-primary" onClick={save}><Plus size={15}/> {t(S+'saveBtn')}</button></div>{message&&<output aria-live="polite">{message}</output>}</section>
@@ -728,5 +750,22 @@ function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDaily
     </section>
     <section className="bm-panel bm-export-card"><div><span>{t(S+'backupTag')}</span><h2>{t(S+'backupHead')}</h2><p>{t(S+'backupDesc')}</p></div>
       <div><button onClick={downloadBackup}><Download size={15}/> {t(S+'downloadBackup')}</button><button onClick={()=>fileRef.current?.click()}><Upload size={15}/> {t(S+'importBackup')}</button><input ref={fileRef} type="file" accept="application/json,.json" style={{display:'none'}} aria-label={t(S+'importFileAria')} onChange={event=>{const file=event.target.files?.[0]; if(file) void importBackup(file); event.target.value='';}} /></div>
+      {pendingImport&&<div className="bm-import-preview">
+        <h3>{t(S+'previewHead')}</h3>
+        {pendingImport.migratedFrom===1&&<p className="bm-import-note">{t(S+'legacyNote')}</p>}
+        <dl className="bm-import-counts">
+          <div><dt>{t(S+'countDays')}</dt><dd>{Object.keys(pendingImport.file.data.dailyRecords).length}</dd></div>
+          <div><dt>{t(S+'countScenarios')}</dt><dd>{pendingImport.file.data.scenarios.length}</dd></div>
+          <div><dt>{t(S+'countRecovery')}</dt><dd>{pendingImport.file.data.recoveryEntries.length}</dd></div>
+          <div><dt>{t(S+'countActions')}</dt><dd>{pendingImport.file.data.followUpActions.length}</dd></div>
+        </dl>
+        <p className="bm-import-note">{t(S+'keptInputsNote')}</p>
+        <div className="bm-import-choices">
+          <button className="bm-primary" onClick={doMerge}>{t(S+'mergeBtn')}</button>
+          <button onClick={doReplace}>{t(S+'replaceBtn')}</button>
+          <button onClick={()=>setPendingImport(null)}>{t(S+'cancelBtn')}</button>
+        </div>
+        {previewStats&&<p className="bm-import-stats">{t(S+'previewStats',{added:previewStats.added,updated:previewStats.updated,conflicts:previewStats.conflicts})}</p>}
+      </div>}
     </section></>;
 }
