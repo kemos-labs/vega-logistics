@@ -78,7 +78,7 @@ Nothing else matters if records die with the browser.
 - [x] Tests: 30 backup total — 20 unit + 10 browser/component jsdom (incl. exported-Blob language proof, quota-rollback UI proof, v1 scoped-restore reload proof). **Core ACCEPTED after Commit F review.**
 - [x] In-app backup-age banner after 7 days without export — pure clock-injected engine (`backupReminder.ts`), device key outside backup files, download-initiated stamp reset, day-scoped dismissal, EN/AR banner w/ CTA navigation+focus. **Complete after Commit G tests/live verification.**
 - [x] v1 duplicate-id scope corruption warns + blocks scoped restore (G1 regression tests).
-- [ ] Arabic WhatsApp paste-parser — Commit H.
+- [x] Arabic WhatsApp paste-parser — pure engine + review/confirm card in Daily view; unreconciled totals block confirmation; overwrite of an existing date requires explicit acknowledgement. **Complete after Commit H tests/live verification.**
 **Accept:** export→import deep-equality tests; corrupt file rejected without touching current data; v1 migration test; merge-conflict determinism test; malformed-import-cannot-change-state integration proof; recovery-updatedAt end-to-end survival; corrupt-v1 scoped-restore block; snapshot-read abort. ✅ delivered (all tests passing: 147).
 
 ### P2 — Compliance-lite data capture (~2 weeks)

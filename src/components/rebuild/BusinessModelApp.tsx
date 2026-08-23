@@ -22,6 +22,7 @@ type View = 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 
 type RecoveryOpenRow = { id: string; createdAt: string; shipments: number; owner: string; status: 'pending' | 'recovered' | 'written_off' };
 import { applyBackupMerge, applyLegacyScopedRestore, buildBackup, commitBundle, parseBackup, replaceWithBackup, type BackupFileV2, type FollowUpAction, type PersistResult } from '@/lib/backup';
 import { BACKUP_REMINDER_DAYS, BACKUP_REMINDER_KEY, dismissForToday, evaluateBackupReminder, isDismissedToday, markBackedUpNow } from '@/lib/backupReminder';
+import { applyPreviewToRecord, parseProviderMessage, reconcile, type ParseResult, type ProviderPreview } from '@/lib/providerMessageParser';
 import { createScenario, type Scenario } from '@/lib/scenarios';
 type NumberField = keyof Pick<FinancialInput,
   'companyDriverCount' | 'driverSalary' | 'opsTeamCount' | 'opsTeamAvgSalary' | 'salesTeamCount' |
@@ -218,7 +219,7 @@ export default function BusinessModelApp() {
           {input.providers.map(row => { const evaluation = output.providerEvaluations.find(item => item.id === row.id); return <div className="bm-table-row bm-customer-row" key={row.id}><TextInput ariaLabel={t('businessModel.customers.colCustomer')} value={row.name} onChange={value => changeProvider(row.id,{name:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.customers.colShipmentsDay')}`} value={row.shipmentsPerDay} onChange={value => changeProvider(row.id,{shipmentsPerDay:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.customers.colPriceShipment')}`} value={row.pricePerShipment} onChange={value => changeProvider(row.id,{pricePerShipment:value})} step="0.1" /><strong>{money(evaluation?.monthlyRevenue ?? 0)}</strong><button className="bm-remove" aria-label={`${t('businessModel.common.remove')} ${row.name}`} onClick={() => removeProvider(row.id)}>{t('businessModel.common.remove')}</button></div>})}
         </EditableTable><button className="bm-add" onClick={addProvider}><Plus size={15}/> {t('businessModel.common.addCustomer')}</button></Page>}
         {view === 'costs' && <Page title={t('businessModel.costs.title')} description={t('businessModel.costs.desc')}><CostSections input={input} output={output} setNumber={setNumber} changeVehicle={changeVehicle} /></Page>}
-        {view === 'daily' && <DailyReport input={input} output={output} records={dailyRecords} setRecords={setDailyRecords} reportKind={reportKind} setReportKind={setReportKind} onOpenPro={setProModel} lng={lng} reportLang={reportLang} setReportLang={setReportLang} openActions={actions.filter(action => !action.done).slice(0, 5)} recoverySummary={recoverySummary} recoveryAll={recoveryEntries} recoveryOpen={recoveryEntries.filter(entry => entry.status === 'pending').slice(0, 8).map(({ id, createdAt, shipments, owner, status }) => ({ id, createdAt, shipments, owner, status }))} />}
+        {view === 'daily' && <><DailyReport input={input} output={output} records={dailyRecords} setRecords={setDailyRecords} reportKind={reportKind} setReportKind={setReportKind} onOpenPro={setProModel} lng={lng} reportLang={reportLang} setReportLang={setReportLang} openActions={actions.filter(action => !action.done).slice(0, 5)} recoverySummary={recoverySummary} recoveryAll={recoveryEntries} recoveryOpen={recoveryEntries.filter(entry => entry.status === 'pending').slice(0, 8).map(({ id, createdAt, shipments, owner, status }) => ({ id, createdAt, shipments, owner, status }))} /><ProviderImportCard dailyRecords={dailyRecords} onApply={(date, record) => setDailyRecords(prev => ({ ...prev, [date]: record }))} /></>}
         {view === 'risks' && <Page title={t('businessModel.risks.title')} description={t('businessModel.risks.desc')}><div className="bm-risk-table"><div className="bm-risk-head"><span>{t('businessModel.risks.thStatus')}</span><span>{t('businessModel.risks.thRisk')}</span><span>{t('businessModel.risks.thValue')}</span><span>{t('businessModel.risks.thReason')}</span></div>{risks.map(risk => <div className="bm-risk-row" key={risk.titleKey}><span className={risk.level === 'controlled' ? 'ok' : 'bad'}>{levelLabel[risk.level]}</span><strong>{t(`businessModel.risks.${risk.titleKey}`)}</strong><span>{risk.value}</span><p>{risk.detail}</p></div>)}</div></Page>}
         {view === 'scenarios' && <ScenarioView input={input} output={output} scenarios={scenarios} setScenarios={setScenarios} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} actions={actions} setActions={setActions} applyFinancialInput={applyFinancialInput} onBackedUp={() => { const iso = new Date().toISOString(); markBackedUpNow(); setLastBackupAt(iso); bumpReminderClock(); }} />}
         {view === 'recovery' && <Page title={t('businessModel.recovery.recovery')} description={t('businessModel.recovery.recoveryDesc')}><RecoveryBoard entries={recoveryEntries} setEntries={setRecoveryEntries} /></Page>}
@@ -848,4 +849,93 @@ export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,s
         {previewStats&&<p className="bm-import-stats">{t(S+'previewStats',{added:previewStats.added,updated:previewStats.updated,conflicts:previewStats.conflicts})}</p>}
       </div>}
     </section></>;
+}
+
+export function ProviderImportCard({ dailyRecords, onApply }: { dailyRecords: Record<string, DailyRecord>; onApply: (date: string, record: DailyRecord) => void }) {
+  const { t } = useTranslation();
+  const S = 'businessModel.providerImport.';
+  const [rawText, setRawText] = useState('');
+  const [date, setDate] = useState(() => toDateString(new Date()));
+  const [parsed, setParsed] = useState<ParseResult | null>(null);
+  const [ackOverwrite, setAckOverwrite] = useState(false);
+
+  const preview: ProviderPreview | null = parsed && parsed.ok ? parsed.preview : null;
+  const recon = preview ? reconcile(preview) : null;
+  const existing = dailyRecords[date];
+  const hasExistingValues = !!existing && (existing.completedShipments > 0 || existing.failedShipments > 0 || !!existing.notes);
+  const confirmEnabled = !!preview && !!recon?.balanced && (!hasExistingValues || ackOverwrite);
+
+  const doParse = () => setParsed(rawText.trim() ? parseProviderMessage(rawText) : null);
+  const doConfirm = () => {
+    if (!preview || !recon?.balanced || !confirmEnabled) return;
+    onApply(date, applyPreviewToRecord(existing, preview, date, new Date().toISOString()));
+    setRawText(''); setParsed(null); setAckOverwrite(false);
+  };
+
+  return (
+    <section className="bm-panel bm-provider-import" data-testid="provider-import">
+      <div className="bm-panel-head"><div><span>{t(S + 'tag')}</span><h2>{t(S + 'title')}</h2><p>{t(S + 'desc')}</p></div></div>
+      <textarea
+        aria-label={t(S + 'inputAria')}
+        placeholder={t(S + 'placeholder')}
+        value={rawText}
+        rows={3}
+        onChange={event => { setRawText(event.target.value); }}
+        onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) doParse(); }}
+      />
+      <div className="bm-provider-row">
+        <label className="bm-field"><span>{t(S + 'date')}</span>
+          <input type="date" value={date} onChange={event => { setDate(event.target.value); setAckOverwrite(false); }} />
+        </label>
+        <button data-testid="parse-btn" onClick={doParse}>{t(S + 'parseBtn')}</button>
+      </div>
+
+      <div aria-live="polite">
+        {!parsed && rawText.trim() === '' && <p className="bm-import-note">{t(S + 'hint')}</p>}
+        {parsed && !parsed.ok && (
+          <p className="bm-import-warning" data-testid="parse-error" role="alert">
+            {parsed.error === 'empty' ? t(S + 'errEmpty') : t(S + 'errMissing')}
+          </p>
+        )}
+        {preview && recon && (
+          <dl className="bm-import-counts" data-testid="preview-grid">
+            {preview.providerName && <div><dt>{t(S + 'driver')}</dt><dd>{preview.providerName}</dd></div>}
+            {preview.carNumber && <div><dt>{t(S + 'car')}</dt><dd>{preview.carNumber}</dd></div>}
+            {preview.plateNumber && <div><dt>{t(S + 'plate')}</dt><dd>{preview.plateNumber}</dd></div>}
+            <div><dt>{t(S + 'loaded')}</dt><dd>{preview.loaded}</dd></div>
+            <div><dt>{t(S + 'delivered')}</dt><dd>{preview.delivered}</dd></div>
+            <div><dt>{t(S + 'returned')}</dt><dd>{preview.returned}</dd></div>
+          </dl>
+        )}
+        {preview && recon && !recon.balanced && (
+          <p className="bm-import-warning" data-testid="mismatch" role="alert">
+            {t(S + 'unreconciled', { difference: recon.difference })}
+          </p>
+        )}
+        {preview && warningsList(preview).length > 0 && (
+          <ul className="bm-import-note" data-testid="parser-warnings">
+            {warningsList(preview).map(w => <li key={w}>{t(S + 'warn_' + w.split(':')[0].replace(/-/g, '_'), { fallback: w })}</li>)}
+          </ul>
+        )}
+        {preview && hasExistingValues && (
+          <p className="bm-import-warning" data-testid="overwrite-note">
+            {t(S + 'overwriteWarning')}
+            <label className="bm-ack">
+              <input type="checkbox" checked={ackOverwrite} onChange={event => setAckOverwrite(event.target.checked)} data-testid="overwrite-ack" />
+              {t(S + 'ackOverwrite')}
+            </label>
+          </p>
+        )}
+      </div>
+
+      <div className="bm-import-choices">
+        <button className="bm-primary" data-testid="import-confirm" onClick={doConfirm} disabled={!confirmEnabled}>{t(S + 'confirmBtn')}</button>
+        <button data-testid="import-reset" onClick={() => { setRawText(''); setParsed(null); setAckOverwrite(false); }}>{t(S + 'resetBtn')}</button>
+      </div>
+    </section>
+  );
+}
+
+function warningsList(preview: ProviderPreview): string[] {
+  return preview.warnings ?? [];
 }

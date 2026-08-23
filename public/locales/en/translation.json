@@ -1355,6 +1355,29 @@
       "writeOff": "Write off",
       "reopen": "Reopen",
       "removeRow": "Remove"
+    },
+    "providerImport": {
+      "tag": "PROVIDER MESSAGE",
+      "title": "Import provider WhatsApp message",
+      "desc": "Paste the provider's Arabic daily summary — review the parsed numbers before they touch your records.",
+      "placeholder": "مثال: يعقوب عبدالقادر سياره10 لوحه4684 تحميل25 توصيل18 راجع2",
+      "inputAria": "Provider message text",
+      "date": "Record date",
+      "parseBtn": "Parse message",
+      "hint": "Paste the message above, then press Parse. Nothing is written until you confirm a reconciled preview.",
+      "errEmpty": "Nothing to parse yet.",
+      "errMissing": "Could not find all three required numbers (تحميل، توصيل، راجع) — nothing was written.",
+      "driver": "Driver / provider",
+      "car": "Car no.",
+      "plate": "Plate",
+      "loaded": "Loaded (تحميل)",
+      "delivered": "Delivered (توصيل)",
+      "returned": "Returned (راجع)",
+      "unreconciled": "Totals do not add up: loaded exceeds delivered + returned by {{difference}}. Fix the source text before confirming.",
+      "overwriteWarning": "This date already has recorded values. Confirming will overwrite completed/failed counts and driver fields only.",
+      "ackOverwrite": "I reviewed the existing values — overwrite them with this preview.",
+      "confirmBtn": "Confirm into daily record",
+      "resetBtn": "Clear"
     }
   }
 }

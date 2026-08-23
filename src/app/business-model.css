@@ -714,3 +714,11 @@ html[dir='rtl'] .bm-backup-banner{flex-direction:row-reverse}
 .bm-backup-banner .bm-primary{white-space:nowrap}
 @media(max-width:600px){.bm-backup-banner{flex-direction:column;align-items:stretch}.bm-backup-banner .bm-primary,.bm-backup-banner button{width:100%}}
 #bm-backup-card:focus-visible,#bm-backup-card:focus{outline:2px solid var(--gold,#c9a227);outline-offset:2px}
+
+/* ── P1 provider WhatsApp import ── */
+.bm-provider-import textarea{width:100%;margin-top:8px;padding:10px;border-radius:8px;border:1px solid #b9b3a2;background:#fff;color:#1b231e;font-family:var(--font-cairo),'Cairo',sans-serif;font-size:14px;min-height:74px}
+html[dir='rtl'] .bm-provider-import textarea{direction:rtl;text-align:right}
+.bm-provider-row{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin-top:10px}
+.bm-provider-row .bm-field{min-width:170px}
+.bm-ack{display:flex;gap:6px;align-items:flex-start;margin-top:6px;font-weight:600}
+@media(max-width:600px){.bm-provider-row{flex-direction:column;align-items:stretch}}
