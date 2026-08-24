@@ -390,7 +390,7 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
             const max = Math.max(1, ...windowRecords.map(x=>x.completedShipments), 1);
             const h = val === 0 ? 4 : Math.max(8, Math.round((val / max) * 70));
             const isEmpty = !rec;
-            return <div key={key} style={{display:'grid', justifyItems:'center', gap:4}}><div style={{width:'100%', height:h, background: isEmpty ? 'var(--line-soft)' : 'var(--pine)', borderRadius:4, opacity: isEmpty ? 0.35 : 1}} title={`${key}: ${val}`}></div><small style={{font:'7px var(--font-ibm-plex-mono)', color: isEmpty ? 'var(--faint)' : 'var(--ink)'}}>{i===0 || i===13 || (i===6 && windowRecords.length>2) ? key.slice(5) : ''}</small></div>;
+            return <div key={key} data-testid="recorded-trend-slot" data-date={key} data-value={val} style={{display:'grid', justifyItems:'center', gap:4}}><div style={{width:'100%', height:h, background: isEmpty ? 'var(--line-soft)' : 'var(--pine)', borderRadius:4, opacity: isEmpty ? 0.35 : 1}} title={`${key}: ${val}`}></div><small style={{font:'7px var(--font-ibm-plex-mono)', color: isEmpty ? 'var(--faint)' : 'var(--ink)'}}>{i===0 || i===13 || (i===6 && windowRecords.length>2) ? key.slice(5) : ''}</small></div>;
           })}
         </div>
         <p className="bm-import-note">{t('businessModel.summary.recordedTrendNote', {defaultValue:'Recorded days only — no projections.'})}</p>

@@ -94,6 +94,41 @@ export function buildOperationalWorkbookData(params: {
   return { company, runs: runRows, stopsRows };
 }
 
+export interface OperationalExcelLabels {
+  sheets: { company: string; runs: string; stops: string };
+  headers: { company: string[]; runs: string[]; stops: string[] };
+  status: (value: string) => string;
+  stopStatus: (value: string) => string;
+  reason: (value: string) => string;
+  pod: (value: string) => string;
+}
+
+/** Single label source used by the workbook writer and independently testable. */
+export function getOperationalExcelLabels(lang: 'en' | 'ar'): OperationalExcelLabels {
+  const arabic = lang === 'ar';
+  const translate = (value: string, map: Record<string, string>) => arabic ? (map[value] ?? value) : value;
+  return {
+    sheets: arabic
+      ? { company: 'الشركة', runs: 'مسارات السائقين', stops: 'الوقفات' }
+      : { company: 'Company', runs: 'Driver runs', stops: 'Stops' },
+    headers: arabic
+      ? {
+          company: ['التاريخ', 'الحالة', 'الوقفات', 'تم التوصيل', 'راجع', 'قيد الانتظار', 'COD متوقع', 'محصل', 'محول', 'مبلغ معلق', 'غير محصل', 'فائض تحويل', 'فجوات POD'],
+          runs: ['المفتاح', 'السائق', 'المركبة', 'اللوحة', 'الوقفات', 'تم التوصيل', 'راجع', 'قيد الانتظار', 'COD متوقع', 'فجوات POD'],
+          stops: ['تسلسل', 'المرجع', 'العميل', 'الوقفة', 'السائق', 'المركبة', 'الحالة', 'السبب', 'POD', 'COD'],
+        }
+      : {
+          company: ['Date', 'Status', 'Stops', 'Delivered', 'Returned', 'Pending', 'COD expected', 'Collected', 'Remitted', 'Outstanding', 'Uncollected', 'Over-remitted', 'POD gaps'],
+          runs: ['Key', 'Driver', 'Vehicle', 'Plate', 'Stops', 'Delivered', 'Returned', 'Pending', 'COD expected', 'POD gaps'],
+          stops: ['Seq', 'Reference', 'Customer', 'Stop', 'Driver', 'Vehicle', 'Status', 'Reason', 'POD', 'COD'],
+        },
+    status: value => translate(value, { reconciled: 'مطابق', legacy: 'مسجل (إرثي)', draft: 'مسودة' }),
+    stopStatus: value => translate(value, { delivered: 'تم التوصيل', returned: 'راجع', pending: 'قيد الانتظار', planned: 'مخطط', failed: 'فشل' }),
+    reason: value => translate(value, { customerUnavailable: 'العميل غير متاح', addressIssue: 'مشكلة عنوان', vehicleBreakdown: 'عطل مركبة', noDriver: 'لا يوجد سائق', refusedDelivery: 'رفض الاستلام', weatherDelay: 'تأخير طقس', other: 'أخرى' }),
+    pod: value => translate(value, { complete: 'مكتمل', partial: 'جزئي', none: 'لا يوجد' }),
+  };
+}
+
 export async function exportOperationalExcel(params: {
   date: string;
   record: DailyRecord;
@@ -106,55 +141,21 @@ export async function exportOperationalExcel(params: {
   const ExcelJS = await import('exceljs');
   const wb = new ExcelJS.Workbook();
   wb.creator = 'VEGA Logistics OS';
-  const statusLabel = (s: string) => {
-    if (lang === 'ar') {
-      if (s === 'reconciled') return 'مطابق';
-      if (s === 'legacy') return 'مسجل (إرثي)';
-      if (s === 'draft') return 'مسودة';
-      return s;
-    }
-    return s;
-  };
-  const stopStatusLabel = (s: string) => {
-    if (lang !== 'ar') return s;
-    const m: Record<string, string> = { delivered: 'تم التوصيل', returned: 'راجع', pending: 'قيد الانتظار', planned: 'مخطط', failed: 'فشل' };
-    return m[s] ?? s;
-  };
-  const reasonLabel = (k: string) => {
-    if (lang !== 'ar' || !k) return k;
-    const m: Record<string, string> = { customerUnavailable: 'العميل غير متاح', addressIssue: 'مشكلة عنوان', vehicleBreakdown: 'عطل مركبة', noDriver: 'لا يوجد سائق', refusedDelivery: 'رفض الاستلام', weatherDelay: 'تأخير طقس', other: 'أخرى' };
-    return m[k] ?? k;
-  };
-  const podLabel = (p: string) => {
-    if (lang !== 'ar' || !p) return p;
-    const m: Record<string, string> = { complete: 'مكتمل', partial: 'جزئي', none: 'لا يوجد' };
-    return m[p] ?? p;
-  };
-  const headers = lang === 'ar'
-    ? {
-        company: ['التاريخ', 'الحالة', 'الوقفات', 'تم التوصيل', 'راجع', 'قيد الانتظار', 'COD متوقع', 'محصل', 'محول', 'مبلغ معلق', 'غير محصل', 'فائض تحويل', 'فجوات POD'],
-        runs: ['المفتاح', 'السائق', 'المركبة', 'اللوحة', 'الوقفات', 'تم التوصيل', 'راجع', 'قيد الانتظار', 'COD متوقع', 'فجوات POD'],
-        stops: ['تسلسل', 'المرجع', 'العميل', 'الوقفة', 'السائق', 'المركبة', 'الحالة', 'السبب', 'POD', 'COD'],
-      }
-    : {
-        company: ['Date', 'Status', 'Stops', 'Delivered', 'Returned', 'Pending', 'COD expected', 'Collected', 'Remitted', 'Outstanding', 'Uncollected', 'Over-remitted', 'POD gaps'],
-        runs: ['Key', 'Driver', 'Vehicle', 'Plate', 'Stops', 'Delivered', 'Returned', 'Pending', 'COD expected', 'POD gaps'],
-        stops: ['Seq', 'Reference', 'Customer', 'Stop', 'Driver', 'Vehicle', 'Status', 'Reason', 'POD', 'COD'],
-      };
+  const labels = getOperationalExcelLabels(lang);
 
-  const ws1 = wb.addWorksheet(lang === 'ar' ? 'الشركة' : 'Company');
-  ws1.addRow(headers.company);
-  ws1.addRow([data.company.date, statusLabel(data.company.status), data.company.stops, data.company.delivered, data.company.returned, data.company.pending, data.company.codExpected, data.company.collected, data.company.remitted, data.company.outstanding, data.company.uncollected, data.company.overRemitted, data.company.podGaps]);
+  const ws1 = wb.addWorksheet(labels.sheets.company);
+  ws1.addRow(labels.headers.company);
+  ws1.addRow([data.company.date, labels.status(data.company.status), data.company.stops, data.company.delivered, data.company.returned, data.company.pending, data.company.codExpected, data.company.collected, data.company.remitted, data.company.outstanding, data.company.uncollected, data.company.overRemitted, data.company.podGaps]);
   ws1.getRow(1).font = { bold: true };
 
-  const ws2 = wb.addWorksheet(lang === 'ar' ? 'مسارات السائقين' : 'Driver runs');
-  ws2.addRow(headers.runs);
+  const ws2 = wb.addWorksheet(labels.sheets.runs);
+  ws2.addRow(labels.headers.runs);
   data.runs.forEach(r => ws2.addRow([r.key, r.driverName, r.carNumber, r.plateNumber, r.stops, r.delivered, r.returned, r.pending, r.codExpected, r.podGaps]));
   ws2.getRow(1).font = { bold: true };
 
-  const ws3 = wb.addWorksheet(lang === 'ar' ? 'الوقفات' : 'Stops');
-  ws3.addRow(headers.stops);
-  data.stopsRows.forEach(s => ws3.addRow([s.sequence, s.reference, s.customer, s.stopLabel, s.driver, s.car, stopStatusLabel(s.status), reasonLabel(s.reason), podLabel(s.pod), s.cod]));
+  const ws3 = wb.addWorksheet(labels.sheets.stops);
+  ws3.addRow(labels.headers.stops);
+  data.stopsRows.forEach(s => ws3.addRow([s.sequence, s.reference, s.customer, s.stopLabel, s.driver, s.car, labels.stopStatus(s.status), labels.reason(s.reason), labels.pod(s.pod), s.cod]));
   ws3.getRow(1).font = { bold: true };
 
   const buffer = await wb.xlsx.writeBuffer();

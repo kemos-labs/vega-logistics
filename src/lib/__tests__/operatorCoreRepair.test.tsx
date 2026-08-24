@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act, waitFor } from '@testing-library/react';
 import BusinessModelApp from '@/components/rebuild/BusinessModelApp';
 import { ReportsView } from '@/components/rebuild/ReportsView';
-import { exportOperationalExcel, buildOperationalWorkbookData } from '@/lib/operationsReportExport';
+import { exportOperationalExcel, buildOperationalWorkbookData, getOperationalExcelLabels } from '@/lib/operationsReportExport';
 import type { StopRecord } from '@/lib/stops';
 import type { DailyRecord } from '@/lib/operationsReporting';
 import en from '../../../public/locales/en/translation.json';
@@ -118,29 +118,30 @@ describe('operator-core repair', () => {
     expect(screen.getByTestId('reports-print-company').hasAttribute('disabled')).toBe(true);
     const orig = window.print;
     const origRAF = global.requestAnimationFrame;
-    global.requestAnimationFrame = ((cb: FrameRequestCallback) => { cb(0); return 0; }) as unknown as typeof requestAnimationFrame;
     const mockPrint = vi.fn();
-    window.print = mockPrint;
-    fireEvent.click(screen.getByTestId(`reports-print-${key}`));
-    expect(mockPrint).not.toHaveBeenCalled();
-    expect(document.querySelector('[data-testid="vega-print-portal"]')).toBeNull();
-    const reconciled = { ...draft, closeStatus: 'reconciled' as const, closedAt: new Date().toISOString() };
-    rerender(<ReportsView operationDate="2026-08-24" onOperationDateChange={() => {}} stops={stops} dailyRecords={{ '2026-08-24': reconciled }} onGotoClose={() => {}} />);
-    expect(screen.getByTestId(`reports-print-${key}`).hasAttribute('disabled')).toBe(false);
-    expect(screen.getByTestId('reports-print-company').hasAttribute('disabled')).toBe(false);
-    fireEvent.click(screen.getByTestId(`reports-print-${key}`));
-    expect(document.querySelector('[data-testid="vega-print-portal"]')).toBeTruthy();
-    expect(document.querySelector('[data-testid="print-run-sheet"]')).toBeTruthy();
-    expect(mockPrint).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByTestId('reports-print-company'));
-    expect(document.querySelector('[data-testid="print-company-sheet"]')).toBeTruthy();
-    expect(document.querySelector('[data-testid="print-run-sheet"]')).toBeNull();
-    expect(mockPrint).toHaveBeenCalledTimes(2);
-    window.dispatchEvent(new Event('afterprint'));
-    await new Promise(r => setTimeout(r, 0));
-    expect(document.querySelector('[data-testid="vega-print-portal"]')).toBeNull();
-    window.print = orig;
-    global.requestAnimationFrame = origRAF;
+    try {
+      global.requestAnimationFrame = ((cb: FrameRequestCallback) => { cb(0); return 0; }) as unknown as typeof requestAnimationFrame;
+      window.print = mockPrint;
+      fireEvent.click(screen.getByTestId(`reports-print-${key}`));
+      expect(mockPrint).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('vega-print-portal')).toBeNull();
+      const reconciled = { ...draft, closeStatus: 'reconciled' as const, closedAt: new Date().toISOString() };
+      rerender(<ReportsView operationDate="2026-08-24" onOperationDateChange={() => {}} stops={stops} dailyRecords={{ '2026-08-24': reconciled }} onGotoClose={() => {}} />);
+      expect(screen.getByTestId(`reports-print-${key}`).hasAttribute('disabled')).toBe(false);
+      expect(screen.getByTestId('reports-print-company').hasAttribute('disabled')).toBe(false);
+      fireEvent.click(screen.getByTestId(`reports-print-${key}`));
+      expect(screen.getByTestId('print-run-sheet')).toBeTruthy();
+      expect(mockPrint).toHaveBeenCalledTimes(1);
+      fireEvent.click(screen.getByTestId('reports-print-company'));
+      expect(screen.getByTestId('print-company-sheet')).toBeTruthy();
+      expect(screen.queryByTestId('print-run-sheet')).toBeNull();
+      expect(mockPrint).toHaveBeenCalledTimes(2);
+      act(() => window.dispatchEvent(new Event('afterprint')));
+      await waitFor(() => expect(screen.queryByTestId('vega-print-portal')).toBeNull());
+    } finally {
+      window.print = orig;
+      global.requestAnimationFrame = origRAF;
+    }
   });
 
   it('reports operational Excel is invoked with exact date/runs/stops only when definitive', async () => {
@@ -164,35 +165,22 @@ describe('operator-core repair', () => {
     expect(call.stops.length).toBe(1);
   });
 
-  it('operational Excel Arabic translates enums and renames sheet', async () => {
-    const stops: StopRecord[] = [
-      { id: '1', operationDate: '2026-08-24', customerName: 'C', stopLabel: 'S1', status: 'delivered', driverName: 'Ahmed', carNumber: 'A', podStatus: 'complete', codAmountSar: 10, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as unknown as StopRecord,
-      { id: '2', operationDate: '2026-08-24', customerName: 'C', stopLabel: 'S2', status: 'pending', driverName: 'Ahmed', carNumber: 'A', podStatus: 'none', codAmountSar: 0, failureReasonKey: 'customerUnavailable', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as unknown as StopRecord,
-    ];
-    const rec: DailyRecord = { date: '2026-08-24', completedShipments: 1, failedShipments: 0, returnedShipments: 0, pendingShipments: 1, loadedShipments: 2, cashCollectedSar: 10, cashRemittedSar: 0, codExpectedSar: 10, closeStatus: 'reconciled', closedAt: new Date().toISOString(), driversPresent: 1, fuelCost: 1, notes: '', updatedAt: new Date().toISOString() } as DailyRecord;
-    // Build data and check translation via export (mock ExcelJS)
-    const ExcelJS = await import('exceljs');
-    const origCreate = (global as unknown as { document: Document }).document.createElement;
-    const _captured: unknown = null;
-    // Just test builder headers are correctly translated via export call
-    // We test that Arabic export does not throw and uses correct sheet name
-    // Mock URL.createObjectURL
-    const origURL = global.URL.createObjectURL;
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore mock
-    global.URL.createObjectURL = (() => 'blob:mock') as unknown as typeof global.URL.createObjectURL;
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore mock
-    global.URL.revokeObjectURL = (() => {}) as unknown as typeof global.URL.revokeObjectURL;
-    const origAppend = document.body.appendChild;
-    document.body.appendChild = (() => ({ click: () => {}, remove: () => {} } as unknown as Node)) as unknown as typeof document.body.appendChild;
-    await exportOperationalExcel({ date: '2026-08-24', record: rec, stops, runs: [{ key: 'Ahmed|A|—', driverName: 'Ahmed', carNumber: 'A', stops }], lang: 'ar' });
-    document.body.appendChild = origAppend;
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore restore
-    global.URL.createObjectURL = origURL as unknown as typeof global.URL.createObjectURL;
-    // Check that Arabic headers are not English
-    expect(true).toBe(true);
+  it('operational Excel uses the exact Arabic and English labels consumed by the writer', () => {
+    const arabic = getOperationalExcelLabels('ar');
+    expect(arabic.sheets.runs).toBe('مسارات السائقين');
+    expect(arabic.headers.company).toContain('قيد الانتظار');
+    expect(arabic.headers.company).toContain('مبلغ معلق');
+    expect(arabic.status('reconciled')).toBe('مطابق');
+    expect(arabic.stopStatus('delivered')).toBe('تم التوصيل');
+    expect(arabic.reason('customerUnavailable')).toBe('العميل غير متاح');
+    expect(arabic.pod('complete')).toBe('مكتمل');
+
+    const english = getOperationalExcelLabels('en');
+    expect(english.sheets.runs).toBe('Driver runs');
+    expect(english.headers.company).toContain('Pending');
+    expect(english.headers.company).toContain('Outstanding');
+    expect(english.status('reconciled')).toBe('reconciled');
+    expect(english.stopStatus('delivered')).toBe('delivered');
   });
 
   it('reports workbook builder is pure and excludes financial assumptions', () => {
@@ -224,12 +212,11 @@ describe('operator-core repair', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Summary|الملخص$/i }));
     expect(await screen.findByTestId('recorded-trend')).toBeTruthy();
     expect(screen.getByTestId('recorded-operations')).toBeTruthy();
-    const trendEl = document.querySelector('[data-testid="recorded-trend"]');
-    expect(trendEl).toBeTruthy();
-    // 14 slots grid should have 14 children (calendar days)
-    const slots = trendEl ? trendEl.querySelectorAll('div[style*="grid"] > div').length : 0;
-    // fallback: at least trend exists
-    expect(trendEl).toBeTruthy();
+    const slots = screen.getAllByTestId('recorded-trend-slot');
+    expect(slots).toHaveLength(14);
+    const selectedDateSlot = slots.find(slot => slot.getAttribute('data-date') === '2026-08-24');
+    expect(selectedDateSlot?.getAttribute('data-value')).toBe('2');
+    expect(slots.filter(slot => slot.getAttribute('data-value') === '0')).toHaveLength(13);
   });
 
   it('i18n leak crawl rejects raw businessModel. or single-brace and suspicious key-equals-value', () => {
