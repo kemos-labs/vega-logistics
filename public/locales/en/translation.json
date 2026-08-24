@@ -1477,6 +1477,12 @@
       "confirmDelete": "Yes, delete",
       "editBtn": "Edit",
       "deleteBtn": "Delete",
+      "map": {
+        "show": "Show map",
+        "hide": "Hide map",
+        "open": "Open in Google Maps",
+        "frameTitle": "Map of {{label}}"
+      },
       "fields": {
         "customerName": "Customer / provider",
         "reference": "Shipment reference",

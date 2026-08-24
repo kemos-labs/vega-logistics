@@ -7,6 +7,11 @@ const pagesBasePath = isGitHubPages && repositoryName ? `/${repositoryName}` : "
 // Turbopack dev needs eval for HMR; production builds do not.
 // Fonts are self-hosted via next/font; no external origins are required.
 const devUnsafeEval = process.env.NODE_ENV !== "production" ? " 'unsafe-eval'" : "";
+// R6: the keyless Google Maps embed (maps.google.com/…&output=embed iframe)
+// is opt-in at build time via NEXT_PUBLIC_MAPS_EMBED=on. With the flag off
+// (default) frame-src stays closed and nothing ever loads from google.com.
+// The iframe is frame-src traffic only — connect-src stays 'self'.
+const mapsEmbedOn = process.env.NEXT_PUBLIC_MAPS_EMBED === "on";
 const csp = [
   `default-src 'self'`,
   `script-src 'self' 'unsafe-inline'${devUnsafeEval}`,
@@ -14,6 +19,7 @@ const csp = [
   `font-src 'self'`,
   `img-src 'self' data: blob:`,
   `connect-src 'self'`,
+  ...(mapsEmbedOn ? [`frame-src https://www.google.com https://maps.google.com`] : []),
   `frame-ancestors 'none'`,
 ].join("; ");
 

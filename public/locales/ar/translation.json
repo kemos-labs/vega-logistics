@@ -1477,6 +1477,12 @@
       "confirmDelete": "نعم، احذف",
       "editBtn": "تعديل",
       "deleteBtn": "حذف",
+      "map": {
+        "show": "اعرض الخريطة",
+        "hide": "إخفِ الخريطة",
+        "open": "افتح في خرائط Google",
+        "frameTitle": "خريطة {{label}}"
+      },
       "fields": {
         "customerName": "العميل / المزوّد",
         "reference": "رقم الشحنة",

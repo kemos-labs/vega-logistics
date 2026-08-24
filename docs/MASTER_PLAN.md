@@ -74,6 +74,7 @@ Requirements: EN/AR; 375px mobile no overflow; honest empty/local-only states; e
 - [x] DispatchBoard view: date selector, unassigned queue w/ accessible assign selects (aria-labels), per-run sections w/ keyboard-operable ▲/▼ + unassign, workload lines, transactional writes
 - [x] Print-first bilingual driver sheet: ordered stops w/ all operational fields, per-run totals, signature/notes area, mandatory disclaimer «مستند تشغيلي داخلي — ليس مستند نقل نظامياً ولا يثبت صحة العنوان الوطني» + English equivalent on every page; no government seals/compliance styling; print CSS (repeating headers, unsplit rows, app chrome hidden)
 - [x] Persistence through the existing stops key + v3 backups (assignments/sequence round-trip; no schema change, no version bump)
+- [x] Opt-in keyless Maps aid on stop rows (this cycle): free Google embed iframe (`maps.google.com/…&output=embed`, no API key/billing) + always-present "open in Google Maps" fallback link; iframe renders only with build-time `NEXT_PUBLIC_MAPS_EMBED=on` (default OFF = zero network, CSP frame-src stays closed); lazy load on tap; bilingual labels
 **Accept:** dispatcher prints a practical day plan <1 min, zero network calls.
 
 ### R4 — Evening close & exception loop *(R4-C stabilization this commit; owner review pending — NOT marked shipped until accepted)*

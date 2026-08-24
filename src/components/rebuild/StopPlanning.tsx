@@ -16,6 +16,7 @@ import {
 } from '@/lib/stops';
 import { IMPORT_MAX_FILE_BYTES, IMPORT_MAX_ROWS, previewStopImport, type ImportParseResult } from '@/lib/stopImport';
 import { toDateString } from '@/lib/operationsReporting';
+import StopMap from '@/components/rebuild/StopMap';
 
 type Draft = Record<string, string>;
 
@@ -305,6 +306,7 @@ export function StopPlanning({ stops, setStops, operationDate: controlledDate, o
                   {stop.codAmountSar !== undefined && <small> · COD {fmt(stop.codAmountSar)} SAR</small>}
                   <em className={`bm-chip bm-chip-${stop.status}`}>{statusLabel(stop.status)}</em>
                 </span>
+                <StopMap stopLabel={stop.stopLabel} addressNotes={stop.addressNotes} />
                 {deleteCandidate === stop.id
                   ? (
                     <span className="bm-delete-confirm" data-testid="delete-confirm">
