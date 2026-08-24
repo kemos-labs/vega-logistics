@@ -20,9 +20,11 @@ import type { FailureReasonKey } from '@/lib/operationsReporting';
 
 type Outcome = 'delivered' | 'returned' | 'pending' | 'failed';
 
-export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, setDailyRecords, recoveryEntries, setRecoveryEntries }: {
+export function EveningCloseView({ initialDate, operationDate: controlledDate, onOperationDateChange, stops, setStops, dailyRecords, setDailyRecords, recoveryEntries, setRecoveryEntries }: {
   /** Optional starting operation date; defaults to today (local law). */
   initialDate?: string;
+  operationDate?: string;
+  onOperationDateChange?: (d:string)=>void;
   stops: StopRecord[];
   setStops: (value: StopRecord[] | ((prev: StopRecord[]) => StopRecord[])) => void;
   dailyRecords: Record<string, DailyRecord>;
@@ -35,7 +37,12 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
   const ar = i18n.language === 'ar';
   const fmt = (value: number) => new Intl.NumberFormat(ar ? 'ar-SA-u-nu-latn' : 'en-US').format(value);
 
-  const [date, setDate] = useState(() => initialDate ?? toDateString(new Date()));
+  const [internalDate, setInternalDate] = useState(() => initialDate ?? controlledDate ?? toDateString(new Date()));
+  const date = controlledDate ?? internalDate;
+  const setDateInternal = (d:string)=> {
+    if (onOperationDateChange) onOperationDateChange(d);
+    else setInternalDate(d);
+  };
   // EVERY date-scoped form state lives here and is reset ONLY through this
   // one helper — switching dates can never leak values in either direction.
   function formStateFor(nextDate: string): {
@@ -75,7 +82,7 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
   const changeDate = (next: string) => {
     if (next === date || next === '') return;
     const nextForm = formStateFor(next);
-    setDate(next);
+    setDateInternal(next);
     setLoaded(nextForm.loaded);
     setCodCollected(nextForm.codCollected);
     setCodRemitted(nextForm.codRemitted);
@@ -254,6 +261,7 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
                         : outcome === 'pending' ? (stop.status === 'pending' || stop.status === 'planned') && !stop.failureReasonKey
                         : (stop.status === 'pending' || stop.status === 'failed') && stop.failureReasonKey !== undefined
                       }
+                      disabled={isReconciled}
                       onClick={() => setOutcome(stop, outcome)}
                     >
                       {t(S + 'outcomes.' + outcome)}
@@ -280,7 +288,7 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
       <h3>{t(S + 'reconTitle')}</h3>
       <dl className="bm-import-counts" data-testid="close-recon">
         <div><dt>{t(S + 'loaded')} <small>({t(S + 'manual')})</small></dt>
-          <dd><input name="loaded-shipments" aria-label={t(S + 'loaded')} inputMode="numeric" value={loaded} onChange={event => setLoaded(event.target.value)} /></dd></div>
+          <dd><input name="loaded-shipments" aria-label={t(S + 'loaded')} inputMode="numeric" value={loaded} onChange={event => setLoaded(event.target.value)} disabled={isReconciled} /></dd></div>
         <div><dt>{t(S + 'outcomes.delivered')} <small>({t(S + 'derived')})</small></dt><dd>{fmt(summary.delivered)}</dd></div>
         <div><dt>{t(S + 'outcomes.returned')} <small>({t(S + 'derived')})</small></dt><dd>{fmt(summary.returned)}</dd></div>
         <div><dt>{t(S + 'outcomes.pending')} <small>({t(S + 'derived')})</small></dt><dd>{fmt(summary.pending)}</dd></div>
@@ -308,10 +316,10 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
           <output data-testid="cod-expected">{fmt(cod?.expectedSar ?? 0)}</output>
         </label>
         <label className="bm-field"><span>{t(S + 'codCollected')} <small>({t(S + 'manual')})</small></span>
-          <input name="cod-collected" inputMode="decimal" value={codCollected} onChange={event => setCodCollected(event.target.value)} />
+          <input name="cod-collected" inputMode="decimal" value={codCollected} onChange={event => setCodCollected(event.target.value)} disabled={isReconciled} />
         </label>
         <label className="bm-field"><span>{t(S + 'codRemitted')} <small>({t(S + 'manual')})</small></span>
-          <input name="cod-remitted" inputMode="decimal" value={codRemitted} onChange={event => setCodRemitted(event.target.value)} />
+          <input name="cod-remitted" inputMode="decimal" value={codRemitted} onChange={event => setCodRemitted(event.target.value)} disabled={isReconciled} />
         </label>
         <label className="bm-field"><span>{t(S + 'codRemittedOn')}</span>
           <input name="cod-remitted-on" type="date" value={codRemittedOn} onChange={event => setCodRemittedOn(event.target.value)} />
@@ -335,7 +343,7 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
       </div>
       {cod && (
         <dl className="bm-import-counts" data-testid="cod-results">
-          <div><dt>{t(S + 'codExpected')}</dt><dd>{fmt(cod.expectedSar)} <small>{t(S + cod.expectedSource === 'stop-derived' ? 'derived' : 'manual')}</small></dd></div>
+          <div><dt>{t(S + 'codExpected')}</dt><dd>{fmt(cod.expectedSar)} <small>{t(S + (cod.expectedSource === 'stop-derived' ? 'derived' : 'manual'))}</small></dd></div>
           <div><dt>{t(S + 'codCollected')}</dt><dd>{fmt(cod.collectedSar)}</dd></div>
           <div><dt>{t(S + 'codRemitted')}</dt><dd>{fmt(cod.remittedSar)}</dd></div>
           <div><dt>{t(S + 'codOutstanding')}</dt><dd data-testid="cod-outstanding">{fmt(cod.outstandingSar)}</dd></div>

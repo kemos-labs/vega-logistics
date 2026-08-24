@@ -38,7 +38,7 @@ describe('UI stress', () => {
     console.log(`big-model mount: ${(performance.now() - t0).toFixed(0)}ms`);
 
     // Navigate every section; each must render its heading without crashing.
-    const labels = ['Cars & drivers', 'Customers & revenue', 'Company costs', 'Daily report', 'Risks'];
+    const labels = ['Drivers & vehicles', 'Customers & revenue', 'Company costs', 'Reports', 'Risks'];
     for (const label of labels) {
       const t1 = performance.now();
       const btn = screen.getAllByRole('button', { name: new RegExp(label.replace('&', '&'), 'i') })[0]

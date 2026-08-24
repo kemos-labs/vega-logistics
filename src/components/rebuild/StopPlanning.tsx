@@ -21,16 +21,24 @@ type Draft = Record<string, string>;
 
 const EMPTY_DRAFT: Draft = { customerName: '', reference: '', stopLabel: '', addressNotes: '', phone: '', codAmountSar: '', serviceWindow: '' };
 
-export function StopPlanning({ stops, setStops }: {
+export function StopPlanning({ stops, setStops, operationDate: controlledDate, onOperationDateChange }: {
   stops: StopRecord[];
   setStops: (value: StopRecord[] | ((prev: StopRecord[]) => StopRecord[])) => void;
+  operationDate?: string;
+  onOperationDateChange?: (d:string)=>void;
 }) {
   const { t, i18n } = useTranslation();
   const S = 'businessModel.stops.';
   const ar = i18n.language === 'ar';
   const fmt = (value: number) => new Intl.NumberFormat(ar ? 'ar-SA-u-nu-latn' : 'en-US').format(value);
 
-  const [date, setDate] = useState(() => toDateString(new Date()));
+  const [internalDate, setInternalDate] = useState(() => toDateString(new Date()));
+  const date = controlledDate ?? internalDate;
+  const setDate = (d:string) => {
+    if (onOperationDateChange) onOperationDateChange(d);
+    else setInternalDate(d);
+    setParsed(null);
+  };
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [editingId, setEditingId] = useState<string | null>(null);

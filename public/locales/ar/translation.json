@@ -778,10 +778,10 @@
   "businessModel": {
     "nav": {
       "summary": "الملخص",
-      "fleet": "السيارات والسائقون",
+      "fleet": "السائقون والمركبات",
       "customers": "العملاء والإيرادات",
       "costs": "تكاليف الشركة",
-      "daily": "التقرير اليومي",
+      "daily": "التقارير",
       "risks": "المخاطر",
       "scenarios": "السيناريوهات",
       "actions": "المتابعة",
@@ -789,7 +789,10 @@
       "tower": "غرفة العمليات",
       "stops": "الوقفات",
       "dispatch": "التوزيع",
-      "close": "إغلاق اليوم"
+      "close": "إغلاق اليوم",
+      "groupDaily": "العمليات اليومية",
+      "groupSetup": "الإعداد والتخطيط",
+      "groupExceptions": "الاستثناءات"
     },
     "brand": {
       "subtitle": "نموذج العمل"
@@ -816,7 +819,7 @@
       "inactive": "غير نشط"
     },
     "fleet": {
-      "title": "السيارات والسائقون",
+      "title": "السائقون والمركبات",
       "desc": "كل سيارة تعادل سائقاً واحداً. تغيير عدد المركبات أو الإجمالي يحافظ على تزامن كليهما.",
       "carsDrivers": "السيارات والسائقون",
       "suffixTotal": "سيارة + سائق",
@@ -835,9 +838,15 @@
       "colPhone": "الهاتف",
       "colAssignedVehicle": "المركبة المعينة",
       "colStatus": "الحالة",
-      "syncTotal": "الإجمالي المتزامن",
-      "totals": "{{cars}} سيارة + {{drivers}} سائق",
-      "monthlyFleetCost": "تكلفة الأسطول الشهرية"
+      "syncTotal": "مركبات في افتراضات التكلفة",
+      "totals": "{{cars}} مركبة · {{drivers}} سائق نشط",
+      "monthlyFleetCost": "تكلفة الأسطول الشهرية",
+      "newDesc": "كشف أفراد قابل للتحرير أولاً. أضف السائقين بشكل مستقل؛ تكاليف المركبات افتراضات تخطيط أدناه.",
+      "rosterAddBtn": "إضافة سائق",
+      "fleetCostTitle": "افتراضات تكلفة الأسطول — تخطيط",
+      "fleetCostDesc": "جدول كمية/تكلفة فئة المركبة — غير مرتبط بعدد السائقين.",
+      "vehiclesInAssumptions": "مركبة في افتراضات التكلفة",
+      "activeDriversCount": "سائق نشط"
     },
     "customers": {
       "title": "العملاء والإيرادات",
@@ -1003,8 +1012,8 @@
       "cashDetail": "المدرج التقديري: {{months}} أشهر."
     },
     "summary": {
-      "title": "لوحة العمليات والمالية",
-      "subtitle": "مؤشرات تشغيلية مبنية على مدخلاتك. النقاط المتقطعة تمثّل توقّعات النموذج، والتقارير اليومية المحفوظة هي الأرقام الفعلية.",
+      "title": "ملخص العمليات",
+      "subtitle": "العمليات المسجلة هي الأساس؛ افتراضات التخطيط منفصلة أدناه.",
       "recordToday": "تسجيل اليوم",
       "editCosts": "تعديل تكاليف الشركة",
       "kpiRevenue": "الإيراد الشهري",
@@ -1087,7 +1096,29 @@
       "catVehicleOwnership": "إيجار / تملك المركبات",
       "catVehicleRunning": "تشغيل المركبات",
       "problemsToFix": "مشاكل يجب إصلاحها",
-      "viewRiskDetails": "عرض تفاصيل المخاطر"
+      "viewRiskDetails": "عرض تفاصيل المخاطر",
+      "recordedTag": "العمليات المسجلة",
+      "recordedHead": "العمليات المسجلة",
+      "recordedDesc": "مشتقة فقط من السجلات اليومية النهائية والوقفات.",
+      "businessPlanTag": "افتراضات نموذج العمل",
+      "businessPlanHead": "افتراضات نموذج العمل — عينة",
+      "emptyRecorded": "لا توجد سجلات نهائية — ابدأ بوقفات اليوم.",
+      "estimated": "مقدّر",
+      "goClose": "اذهب إلى إغلاق اليوم",
+      "recordedDelivered": "تم التوصيل — التاريخ المحدد",
+      "recordedReturned": "راجع — التاريخ المحدد",
+      "recordedPending": "معلق — التاريخ المحدد",
+      "recordedCompletion": "نسبة الإنجاز — آخر 14 يومًا مسجلاً",
+      "recordedCodCollected": "COD المحصل — آخر 14 يومًا",
+      "recordedCodOutstanding": "COD المعلق — آخر 14 يومًا",
+      "sample": "افتراضات عينة",
+      "sampleNote": "مشتق من النموذج، غير مسجل",
+      "recordedTrendTag": "مسجل 14 يومًا",
+      "recordedTrendHead": "تم التوصيل يوميًا (مسجل فقط)",
+      "recordedTrendNote": "أيام مسجلة فقط — بلا توقعات.",
+      "viewReport": "عرض التقرير",
+      "closeSelectedDate": "إغلاق التاريخ المحدد",
+      "recordedTrendSub": "آخر 14 يومًا تقويميًا حتى التاريخ المحدد"
     },
     "actionsPage": {
       "title": "المتابعة",
@@ -1423,13 +1454,13 @@
     },
     "stops": {
       "tag": "تخطيط الوقفات",
-      "title": "خطّط وقفات الغد",
+      "title": "خطط الوقفات",
       "desc": "أضف وقفات الشحنات يدوياً أو الصقها — وراجع كل شيء قبل الحفظ.",
       "localNote": "البيانات محفوظة في هذا المتصفح فقط. صدّر نسخة احتياطية من تبويب السيناريوهات لحفظها.",
       "privacyNote": "بيانات شخصية (أسماء، جوالات، عناوين) — أدخل ما تحتاجه العملية فقط.",
       "dateLabel": "تاريخ التشغيل",
       "searchLabel": "بحث برقم الشحنة / العميل / الوجهة",
-      "totals": "{{count}} وقفة · تحصيل {{cod}} ريال",
+      "totals": "{{count}} وقفة · COD {{cod}} ر.س",
       "addTitle": "إضافة وقفة",
       "editTitle": "تعديل الوقفة",
       "addBtn": "أضف الوقفة",
@@ -1525,14 +1556,14 @@
       "title": "وزّع تشغيلة اليوم",
       "desc": "أسند الوقفات المخططة للسائقين ورتّب كل تشغيلة واطبع ورقة السائق.",
       "dateLabel": "تاريخ التشغيل",
-      "unassignedCount": "غير مسندة: {count}",
+      "unassignedCount": "غير مسندة: {{count}}",
       "unassignedTitle": "قائمة الانتظار",
       "unassignedEmpty": "كل وقفات هذا التاريخ مُسندة.",
       "providerReported": "مُبلّغ عنه من المزوّد",
       "assignPlaceholder": "أسند إلى…",
-      "assignAria": "أسند الوقفة {label} إلى سائق",
-      "moveUpAria": "حرّك الوقفة {label} للأعلى",
-      "moveDownAria": "حرّك الوقفة {label} للأسفل",
+      "assignAria": "أسند الوقفة {{label}} إلى سائق",
+      "moveUpAria": "انقل الوقفة {{label}} لأعلى",
+      "moveDownAria": "انقل الوقفة {{label}} لأسفل",
       "unassignBtn": "إلغاء الإسناد",
       "printBtn": "اطبع الورقة",
       "persistFailed": "فشل الحفظ ({{keys}}) — لم يتغير أي شيء. حاول مجدداً.",
@@ -1562,6 +1593,11 @@
         "cod": "التحصيل (ريال)",
         "window": "الفترة",
         "signature": "توقيع السائق: ______________    ملاحظات: ______________________________"
+      },
+      "windows": {
+        "morning": "صباحاً",
+        "afternoon": "ظهراً",
+        "evening": "مساءً"
       }
     },
     "close": {
@@ -1577,7 +1613,7 @@
       "reopenFirst": "أعد فتح الإغلاق المُطابَق أولاً.",
       "outcomesTitle": "نتائج الوقفات",
       "noStops": "لا وقفات مخططة لهذا التاريخ.",
-      "outcomeAria": "حدد نتيجة الوقفة {label}",
+      "outcomeAria": "حدد نتيجة الوقفة {{label}}",
       "outcomes": {
         "delivered": "موصّلة",
         "returned": "مرتجعة",
@@ -1586,7 +1622,7 @@
       },
       "pickReason": "اختر سبب الفشل أولاً.",
       "applyReason": "تطبيق",
-      "reasonFor": "سبب {label}",
+      "reasonFor": "سبب {{label}}",
       "reasons": {
         "vehicleBreakdown": "عطل مركبة",
         "noDriver": "لا يوجد سائق",
@@ -1601,17 +1637,17 @@
       "derived": "محسوب",
       "manual": "مُدخل",
       "difference": "الفرق غير المفسّر",
-      "positiveDiff": "+{difference} شحنة محمّلة بلا تفسير — ابحث عنها قبل التأكيد.",
-      "negativeDiff": "−{difference}: النتائج تتجاوز التحميل المُعلن — صحّح التحميل أو النتائج.",
+      "positiveDiff": "+{{difference}} شحنة محمّلة غير موضّحة — ابحث عنها قبل التأكيد.",
+      "negativeDiff": "−{{difference}}: النتائج تتجاوز التحميل المعلن — صحّح التحميل أو النتائج.",
       "reasonsTitle": "أسباب الفشل",
-      "failedCount": "فوات/مرتجع: {count}",
-      "missingReasonCount": "بدون سبب: {count}",
+      "failedCount": "محاولات فاشلة: {{count}}",
+      "missingReasonCount": "بدون سبب: {{count}}",
       "codTitle": "إغلاق التحصيل (ريال)",
       "codExpected": "المتوقع",
       "codCollected": "المحصّل",
       "codRemitted": "المُحوّل",
       "invalidMoney": "أدخل مبالغ صحيحة غير سالبة.",
-      "codUncollectedWarning": "{amount} ريال متوقعة لم تُحصّل بعد — مسموح في المسودة؛ عالجها قبل التأكيد إن لم تكن مقصودة.",
+      "codUncollectedWarning": "{{amount}} ر.س متوقع ولم يُحصّل بعد — مسموح في المسودة؛ عالج قبل التأكيد.",
       "blockers": {
         "shipment-mismatch": "التحميل ≠ توصيل + راجع + معلّق — عالِج الفرق",
         "missing-reasons": "وقفات مرتجعة/فاشلة بلا سبب",
@@ -1632,7 +1668,7 @@
       "reopenNo": "إلغاء",
       "draftSaved": "حُفظت المسودة — هذا التاريخ NOT مُغلق بعد.",
       "reconciledSaved": "تمت المطابقة والإغلاق ✓",
-      "reconciledWithRecovery": "تم الإغلاق ✓ · أُنشئ {count} بند استرداد.",
+      "reconciledWithRecovery": "تم التأكيد ✓ · {{count}} إدخال متابعة مغلق.",
       "reopened": "أُعيد فتح الإغلاق كمسودة. بنود الاسترداد محفوظة.",
       "persistFailed": "فشل الحفظ ({{keys}}) — لم يتغير أي شيء. حاول مجدداً.",
       "rollbackCritical": "تحذير حرج: كتابة جزئية وفشل استرجاع في {{keys}} — صدّر نسخة احتياطية الآن.",
@@ -1646,6 +1682,49 @@
       "codOutstanding": "مبالغ قائمة لدى الطاقم",
       "codUncollected": "لم تُحصَّل بعد",
       "codOverRemitted": "رصيد مُسلَّم زيادة"
+    },
+    "a11y": {
+      "skipToMain": "تخطي إلى المحتوى",
+      "openNavigation": "افتح التنقل",
+      "closeNavigation": "أغلق التنقل",
+      "sectionsNav": "الأقسام"
+    },
+    "header": {
+      "subtitle": "نموذج محلي",
+      "subtitleDaily": "العمليات اليومية — الحقيقة المسجلة",
+      "subtitlePlanning": "افتراضات التخطيط — غير مسجلة"
+    },
+    "reports": {
+      "tag": "التقارير",
+      "title": "التقارير",
+      "desc": "تقارير الشركة ولكل سائق مشتقة من الإغلاق.",
+      "companyTitle": "تقرير الشركة",
+      "perDriverTitle": "تقارير السائقين",
+      "assigned": "الوقفات",
+      "delivered": "تم التوصيل",
+      "returned": "راجع",
+      "pending": "قيد الانتظار",
+      "codExpected": "التحصيل المتوقع (الوقفات المسلمة)",
+      "collected": "المحصّل",
+      "remitted": "المحوّل",
+      "outstanding": "مبلغ معلق",
+      "podGaps": "فجوات إثبات التسليم",
+      "cashNote": "المحصّل/المحوّل قيم مسجلة؛ المتوقع مشتق من الوقفات المسلمة.",
+      "notAttributable": "التحصيل غير قابل للنسبة لكل سائق من البيانات المسجلة",
+      "draft": "DRAFT / غير مطابق",
+      "legacy": "مسجل (إرثي)",
+      "reconciled": "مطابق ✓",
+      "draftGuard": "مسودة — غير نهائي. لا يوجد تصدير. طابق في إغلاق اليوم.",
+      "empty": "أغلق هذا التاريخ لإنشاء تقرير",
+      "goClose": "اذهب إلى إغلاق اليوم",
+      "noStops": "لا توجد وقفات لهذا التاريخ",
+      "unassignedOnly": "جميع الوقفات غير مسندة — أسند في التوزيع.",
+      "stops": "وقفات",
+      "exportPdf": "تصدير PDF الشركة",
+      "exportExcel": "تصدير Excel",
+      "noExportDraft": "لا تصدير نهائي في حالة المسودة.",
+      "statusHeader": "الحالة",
+      "status": "الحالة"
     }
   }
 }

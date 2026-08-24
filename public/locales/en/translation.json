@@ -778,10 +778,10 @@
   "businessModel": {
     "nav": {
       "summary": "Summary",
-      "fleet": "Cars & drivers",
+      "fleet": "Drivers & vehicles",
       "customers": "Customers & revenue",
       "costs": "Company costs",
-      "daily": "Daily report",
+      "daily": "Reports",
       "risks": "Risks",
       "scenarios": "Scenarios",
       "actions": "Follow-up",
@@ -789,7 +789,10 @@
       "tower": "Control Tower",
       "stops": "Stops",
       "dispatch": "Dispatch",
-      "close": "Evening close"
+      "close": "Evening close",
+      "groupDaily": "Daily operations",
+      "groupSetup": "Setup & planning",
+      "groupExceptions": "Exceptions"
     },
     "brand": {
       "subtitle": "Business model"
@@ -816,7 +819,7 @@
       "inactive": "Inactive"
     },
     "fleet": {
-      "title": "Cars & drivers",
+      "title": "Drivers & vehicles",
       "desc": "One car equals one driver. Changing either vehicle quantity or the total keeps both synchronized.",
       "carsDrivers": "Cars & drivers",
       "suffixTotal": "cars + drivers",
@@ -835,9 +838,15 @@
       "colPhone": "Phone",
       "colAssignedVehicle": "Assigned vehicle",
       "colStatus": "Status",
-      "syncTotal": "Synchronized total",
-      "totals": "{{cars}} cars + {{drivers}} drivers",
-      "monthlyFleetCost": "Monthly fleet cost"
+      "syncTotal": "vehicles in cost assumptions",
+      "totals": "{{cars}} vehicles · {{drivers}} active drivers",
+      "monthlyFleetCost": "Monthly fleet cost",
+      "newDesc": "Editable individual roster first. Add drivers independently; vehicle costs are planning assumptions below.",
+      "rosterAddBtn": "Add driver",
+      "fleetCostTitle": "Fleet cost assumptions — planning",
+      "fleetCostDesc": "Vehicle-class quantity/cost table — not tied to driver count.",
+      "vehiclesInAssumptions": "vehicles in cost assumptions",
+      "activeDriversCount": "active drivers"
     },
     "customers": {
       "title": "Customers & revenue",
@@ -1003,8 +1012,8 @@
       "cashDetail": "Estimated runway: {{months}} months."
     },
     "summary": {
-      "title": "Operations & financial overview",
-      "subtitle": "Useful operating indicators from your inputs. Dashed points are model projections; saved daily reports are actual records.",
+      "title": "Operations summary",
+      "subtitle": "Recorded operations are primary; planning assumptions are separate below.",
       "recordToday": "Record today",
       "editCosts": "Edit company costs",
       "kpiRevenue": "Monthly revenue",
@@ -1087,7 +1096,29 @@
       "catVehicleOwnership": "Vehicle rent / ownership",
       "catVehicleRunning": "Vehicle running",
       "problemsToFix": "Problems to fix",
-      "viewRiskDetails": "View risk details"
+      "viewRiskDetails": "View risk details",
+      "recordedTag": "Recorded operations",
+      "recordedHead": "Recorded operations",
+      "recordedDesc": "Derived only from definitive daily records and stops.",
+      "businessPlanTag": "Business plan assumptions",
+      "businessPlanHead": "Business plan assumptions — sample",
+      "emptyRecorded": "No definitive records — start with today stops.",
+      "estimated": "estimated",
+      "goClose": "Go to Evening Close",
+      "recordedDelivered": "Delivered — selected date",
+      "recordedReturned": "Returned — selected date",
+      "recordedPending": "Pending — selected date",
+      "recordedCompletion": "Completion — last 14 recorded days",
+      "recordedCodCollected": "COD collected — last 14 days",
+      "recordedCodOutstanding": "COD outstanding — last 14 days",
+      "sample": "sample assumptions",
+      "sampleNote": "Model-derived, not recorded",
+      "recordedTrendTag": "14-day recorded",
+      "recordedTrendHead": "Delivered per day (recorded only)",
+      "recordedTrendNote": "Recorded days only — no projections.",
+      "viewReport": "View report",
+      "closeSelectedDate": "Close selected date",
+      "recordedTrendSub": "Last 14 calendar days ending selected date"
     },
     "actionsPage": {
       "title": "Follow-up",
@@ -1423,13 +1454,13 @@
     },
     "stops": {
       "tag": "STOP PLANNING",
-      "title": "Plan tomorrow's stops",
+      "title": "Plan stops",
       "desc": "Create shipment stops by hand or paste them in — review everything before it is saved.",
       "localNote": "Data is saved in THIS browser only. Export a backup from the Scenarios tab to keep it safe.",
       "privacyNote": "Personal data (names, phones, addresses) — enter only what the operation needs.",
       "dateLabel": "Operation date",
       "searchLabel": "Search reference / customer / stop",
-      "totals": "{count} stops · COD {cod} SAR",
+      "totals": "{{count}} stops · COD {{cod}} SAR",
       "addTitle": "Add a stop",
       "editTitle": "Edit stop",
       "addBtn": "Add stop",
@@ -1525,14 +1556,14 @@
       "title": "Dispatch today's runs",
       "desc": "Assign planned stops to drivers, order each run, print the driver sheet.",
       "dateLabel": "Operation date",
-      "unassignedCount": "Unassigned: {count}",
+      "unassignedCount": "Unassigned: {{count}}",
       "unassignedTitle": "Unassigned queue",
       "unassignedEmpty": "Every stop for this date is assigned.",
       "providerReported": "provider-reported",
       "assignPlaceholder": "Assign to…",
-      "assignAria": "Assign stop {label} to a driver",
-      "moveUpAria": "Move stop {label} up",
-      "moveDownAria": "Move stop {label} down",
+      "assignAria": "Assign stop {{label}} to a driver",
+      "moveUpAria": "Move stop {{label}} up",
+      "moveDownAria": "Move stop {{label}} down",
       "unassignBtn": "Unassign",
       "printBtn": "Print sheet",
       "persistFailed": "Saving failed ({{keys}}) — nothing was changed. Try again.",
@@ -1562,6 +1593,11 @@
         "cod": "COD (SAR)",
         "window": "Window",
         "signature": "Driver signature: ______________    Notes: ______________________________"
+      },
+      "windows": {
+        "morning": "Morning",
+        "afternoon": "Afternoon",
+        "evening": "Evening"
       }
     },
     "close": {
@@ -1577,7 +1613,7 @@
       "reopenFirst": "Reopen the reconciled close first.",
       "outcomesTitle": "Stop outcomes",
       "noStops": "No stops planned for this date.",
-      "outcomeAria": "Set outcome for stop {label}",
+      "outcomeAria": "Set outcome for stop {{label}}",
       "outcomes": {
         "delivered": "Delivered",
         "returned": "Returned",
@@ -1586,7 +1622,7 @@
       },
       "pickReason": "Pick a failure reason first.",
       "applyReason": "Apply",
-      "reasonFor": "Reason for {label}",
+      "reasonFor": "Reason for {{label}}",
       "reasons": {
         "vehicleBreakdown": "Vehicle breakdown",
         "noDriver": "No driver",
@@ -1601,17 +1637,17 @@
       "derived": "derived",
       "manual": "entered",
       "difference": "Unexplained difference",
-      "positiveDiff": "+{difference} loaded shipments are unaccounted for — find them before confirming.",
-      "negativeDiff": "−{difference}: outcomes exceed the declared loaded — correct loaded or the outcomes.",
+      "positiveDiff": "+{{difference}} loaded shipments are unaccounted for — find them before confirming.",
+      "negativeDiff": "−{{difference}}: outcomes exceed the declared loaded — correct loaded or the outcomes.",
       "reasonsTitle": "Failure reasons",
-      "failedCount": "Failed/returned: {count}",
-      "missingReasonCount": "Missing reason: {count}",
+      "failedCount": "Failed attempts: {{count}}",
+      "missingReasonCount": "Missing reason: {{count}}",
       "codTitle": "COD close (SAR)",
       "codExpected": "Expected",
       "codCollected": "Collected",
       "codRemitted": "Remitted",
       "invalidMoney": "Enter valid non-negative amounts.",
-      "codUncollectedWarning": "{amount} SAR expected but not collected yet — allowed in a draft; resolve before confirming if unintended.",
+      "codUncollectedWarning": "{{amount}} SAR expected but not collected yet — allowed in a draft; resolve before confirming if unintended.",
       "blockers": {
         "shipment-mismatch": "Loaded ≠ delivered + returned + pending — resolve the difference",
         "missing-reasons": "Some returned/failed stops have no reason",
@@ -1632,7 +1668,7 @@
       "reopenNo": "Cancel",
       "draftSaved": "Draft saved — this date is NOT closed yet.",
       "reconciledSaved": "Close reconciled ✓",
-      "reconciledWithRecovery": "Close reconciled ✓ · {count} recovery entries created.",
+      "reconciledWithRecovery": "Close reconciled ✓ · {{count}} recovery entries created.",
       "reopened": "Close reopened as draft. Recovery entries kept.",
       "persistFailed": "Saving failed ({{keys}}) — nothing was changed. Try again.",
       "rollbackCritical": "CRITICAL: partial write and rollback failure on {{keys}} — export a backup now.",
@@ -1646,6 +1682,49 @@
       "codOutstanding": "Outstanding with crew",
       "codUncollected": "Not yet collected",
       "codOverRemitted": "Over-remitted credit"
+    },
+    "a11y": {
+      "skipToMain": "Skip to main content",
+      "openNavigation": "Open navigation",
+      "closeNavigation": "Close navigation",
+      "sectionsNav": "Sections"
+    },
+    "header": {
+      "subtitle": "Local model",
+      "subtitleDaily": "Daily operations — recorded truth",
+      "subtitlePlanning": "Planning assumptions — not recorded"
+    },
+    "reports": {
+      "tag": "REPORTS",
+      "title": "Reports",
+      "desc": "Company and per-driver reports derived from the close.",
+      "companyTitle": "Company report",
+      "perDriverTitle": "Per-driver runs",
+      "assigned": "Stops",
+      "delivered": "Delivered",
+      "returned": "Returned",
+      "pending": "Pending",
+      "codExpected": "COD expected (delivered stops)",
+      "collected": "Collected",
+      "remitted": "Remitted",
+      "outstanding": "Outstanding",
+      "podGaps": "POD gaps",
+      "cashNote": "Collected / remitted are recorded values; COD expected derives from delivered stops.",
+      "notAttributable": "Cash not attributable per driver from recorded data",
+      "draft": "DRAFT / غير مطابق",
+      "legacy": "Recorded (legacy)",
+      "reconciled": "Reconciled ✓",
+      "draftGuard": "DRAFT — not definitive. No export. Reconcile in Evening Close.",
+      "empty": "Close this date to create a report",
+      "goClose": "Go to Evening Close",
+      "noStops": "No stops for this date",
+      "unassignedOnly": "All stops unassigned — assign in Dispatch.",
+      "stops": "stops",
+      "exportPdf": "Export company PDF",
+      "exportExcel": "Export Excel",
+      "noExportDraft": "No definitive export while draft.",
+      "statusHeader": "Status",
+      "status": "Status"
     }
   }
 }

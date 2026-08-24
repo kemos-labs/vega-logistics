@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { useMemo, useRef, useState , useEffect} from 'react';
 import { ClipboardCheck, Route, MapPin, LayoutDashboard, AlertTriangle, BarChart3, Building2, CalendarDays, Check, CircleDollarSign, ClipboardList, Download, FileText, Languages, Layers, Menu, Plus, RotateCcw, Search, Settings2, Trash2, Truck, Upload, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +10,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import type { DriverRecord, FinancialInput, Provider, VehicleClass } from '@/lib/types';
 import { resizeVehicleFleet } from '@/lib/fleetModel';
 import { calculateFinancials } from '@/lib/calculations';
-import { buildMonthlyRollup, buildProjection, calculateDailyMetrics, migrateDailyRecords, toDateString, FAILURE_REASON_KEYS, type DailyRecord, type FailureReasonKey } from '@/lib/operationsReporting';
+import { buildMonthlyRollup, buildProjection, calculateDailyMetrics, migrateDailyRecords, toDateString, FAILURE_REASON_KEYS, isDefinitiveDailyRecord, type DailyRecord, type FailureReasonKey } from '@/lib/operationsReporting';
 import { defaultFinancialInput } from '@/lib/mockData';
 import { readStoredStops, type StopRecord } from '@/lib/stops';
 import { buildControlTowerSnapshot } from '@/lib/controlTower';
@@ -23,6 +24,7 @@ import ProReport, { buildReportLabels } from '@/components/rebuild/ProReport';
 import RecoveryBoard from '@/components/rebuild/RecoveryBoard';
 import ServiceWorkerRegistrar from '@/components/rebuild/ServiceWorkerRegistrar';
 import { buildWeeklyRecoveryTrend, validateRecoveryEntries, type RecoveryEntry, type RecoverySummary } from '@/lib/recoveryBoard';
+import { ReportsView } from '@/components/rebuild/ReportsView';
 import { resolveTelematicsProvider } from '@/lib/platform/telematics';
 
 type View = 'tower' | 'stops' | 'dispatch' | 'close' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios';
@@ -60,7 +62,15 @@ export default function BusinessModelApp() {
   const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
   const { financialInput: input, financialOutput: output, updateFinancialInput, applyFinancialInput, setVehicleClasses, setProviders, setDrivers, addVehicleClass, addProvider } = useSimulatedData();
   const [view, setView] = useState<View>('tower');
+  const [operationDate, setOperationDate] = useState(() => toDateString(new Date()));
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__setOperationDate = setOperationDate;
+    return () => { delete (window as unknown as Record<string, unknown>).__setOperationDate; };
+  }, [setOperationDate]);
   const [mobileNav, setMobileNav] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration gate for localStorage badge
+  useEffect(() => { setHydrated(true); }, []);
   const [search, setSearch] = useState('');
   const [rawDailyRecords, setDailyRecords] = useLocalStorage<Record<string, DailyRecord>>('vega-daily-reports-v2', {});
   // v2 records stored fuel as litres; drivers now log cash — convert on read.
@@ -114,13 +124,16 @@ export default function BusinessModelApp() {
   const hasMeaningfulData = Object.keys(dailyRecords).length > 0 || scenarios.length > 0 || recoveryEntries.length > 0 || modelModified;
   const backupReminder = useMemo(() => evaluateBackupReminder(reminderNowMs, lastBackupAt, hasMeaningfulData), [reminderNowMs, lastBackupAt, hasMeaningfulData]);
   const bannerDismissed = useMemo(() => isDismissedToday(reminderNowMs as never), [reminderNowMs]);
-  const towerSnapshot = useMemo(() => buildControlTowerSnapshot({
+  const towerSnapshot = useMemo(() => {
+    if (!hydrated) return buildControlTowerSnapshot({ records: {}, recoveryEntries: [], plannedShipmentsPerDay: output.totalDailyShipments, nowMs: reminderNowMs, backup: null });
+    return buildControlTowerSnapshot({
     records: dailyRecords,
     recoveryEntries,
     plannedShipmentsPerDay: output.totalDailyShipments,
     nowMs: reminderNowMs,
     backup: bannerDismissed ? null : backupReminder,
-  }), [dailyRecords, recoveryEntries, output.totalDailyShipments, reminderNowMs, bannerDismissed, backupReminder]);
+  });
+  }, [hydrated, dailyRecords, recoveryEntries, output.totalDailyShipments, reminderNowMs, bannerDismissed, backupReminder]);
   const [reportKind, setReportKind] = useState<ReportKind>('daily');
   const [reportLang, setReportLang] = useState<'en' | 'ar' | 'both'>(lng);
   const [proModel, setProModel] = useState<ReportModel | null>(null);
@@ -130,15 +143,15 @@ export default function BusinessModelApp() {
     { id: 'stops' as const, label: t('businessModel.nav.stops'), icon: MapPin },
     { id: 'dispatch' as const, label: t('businessModel.nav.dispatch'), icon: Route },
     { id: 'close' as const, label: t('businessModel.nav.close'), icon: ClipboardCheck },
+    { id: 'daily' as const, label: t('businessModel.nav.daily'), icon: CalendarDays },
     { id: 'summary' as const, label: t('businessModel.nav.summary'), icon: BarChart3 },
     { id: 'fleet' as const, label: t('businessModel.nav.fleet'), icon: Truck },
     { id: 'customers' as const, label: t('businessModel.nav.customers'), icon: Building2 },
     { id: 'costs' as const, label: t('businessModel.nav.costs'), icon: CircleDollarSign },
-    { id: 'daily' as const, label: t('businessModel.nav.daily'), icon: CalendarDays },
-    { id: 'risks' as const, label: t('businessModel.nav.risks'), icon: AlertTriangle },
     { id: 'scenarios' as const, label: t('businessModel.nav.scenarios'), icon: Layers },
     { id: 'recovery' as const, label: t('businessModel.nav.recovery'), icon: RotateCcw },
     { id: 'actions' as const, label: t('businessModel.nav.actions'), icon: ClipboardList },
+    { id: 'risks' as const, label: t('businessModel.nav.risks'), icon: AlertTriangle },
   ];
 
   const switchLanguage = () => {
@@ -146,6 +159,7 @@ export default function BusinessModelApp() {
     try { localStorage.setItem('language', next); } catch { /* private mode */ }
     void i18n.changeLanguage(next);
     window.dispatchEvent(new CustomEvent('vega:set-language', { detail: next }));
+    setMobileNav(false);
   };
 
   const fleetCount = input.vehicleClasses.filter(item => item.enabled).reduce((sum, item) => sum + item.quantity, 0);
@@ -196,20 +210,43 @@ export default function BusinessModelApp() {
   const changeVehicle = (id: string, patch: Partial<VehicleClass>) => {
     const next = input.vehicleClasses.map(row => row.id === id ? { ...row, ...patch } : row);
     setVehicleClasses(() => next);
-    updateFinancialInput({ companyDriverCount: enabledTotal(next) });
   };
   const changeProvider = (id: string, patch: Partial<Provider>) => setProviders(rows => rows.map(row => row.id === id ? { ...row, ...patch } : row));
-  const changeDriver = (id: string, patch: Partial<DriverRecord>) => setDrivers(rows => rows.map(row => row.id === id ? { ...row, ...patch } : row));
+  const changeDriver = (id: string, patch: Partial<DriverRecord>) => {
+    setDrivers(rows => {
+      const next = rows.map(row => row.id === id ? { ...row, ...patch } : row);
+      const active = next.filter(d => d.status === 'active').length;
+      updateFinancialInput({ companyDriverCount: active });
+      return next;
+    });
+  };
+  const addDriver = () => {
+    const id = `driver-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+    const next: DriverRecord = { id, fullName: '', phone: '', nationalId: '', assignedVehicle: '', status: 'active' };
+    setDrivers(rows => {
+      const updated = [...rows, next];
+      const active = updated.filter(d => d.status === 'active').length;
+      updateFinancialInput({ companyDriverCount: active });
+      return updated;
+    });
+  };
+  const removeDriver = (id: string) => {
+    setDrivers(rows => {
+      const updated = rows.filter(r => r.id !== id);
+      const active = updated.filter(d => d.status === 'active').length;
+      updateFinancialInput({ companyDriverCount: active });
+      return updated;
+    });
+  };
+  const [driverConfirmId, setDriverConfirmId] = useState<string | null>(null);
   const removeVehicle = (id: string) => {
     const next = input.vehicleClasses.filter(item => item.id !== id);
     setVehicleClasses(() => next);
-    updateFinancialInput({ companyDriverCount: enabledTotal(next) });
   };
   const removeProvider = (id: string) => setProviders(rows => rows.filter(item => item.id !== id));
   const setFleetCount = (raw: string) => {
     const target = Math.max(0, Math.round(Number(raw) || 0));
     setVehicleClasses(rows => resizeVehicleFleet(rows, target));
-    updateFinancialInput({ companyDriverCount: target });
   };
   const selectView = (next: View) => { setView(next === 'drivers' ? 'fleet' : next); setMobileNav(false); };
   const goToBackupSection = () => {
@@ -225,13 +262,20 @@ export default function BusinessModelApp() {
     {mobileNav && <button className="bm-scrim" aria-label={t('businessModel.a11y.closeNavigation')} onClick={() => setMobileNav(false)} />}
     <aside className={`bm-sidebar ${mobileNav ? 'open' : ''}`}>
       <div className="bm-brand"><div><strong>VEGA</strong><span>{t('businessModel.brand.subtitle')}</span></div><button aria-label={t('businessModel.a11y.closeNavigation')} onClick={() => setMobileNav(false)}><X size={18} /></button></div>
-      <nav aria-label={t('businessModel.a11y.sectionsNav')}>{NAV.map(item => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => selectView(item.id)}><Icon size={16} /><span>{item.label}</span>{item.id === 'risks' && <em>{risks.filter(r => r.level !== 'controlled').length}</em>}{item.id === 'recovery' && pendingRecoveries > 0 && <em>{pendingRecoveries}</em>}</button>; })}</nav>
+      <nav aria-label={t('businessModel.a11y.sectionsNav')}>
+        <div className="bm-nav-group-label">{t('businessModel.nav.groupDaily', { defaultValue: 'Daily operations' })}</div>
+        {NAV.filter(i => ['tower','stops','dispatch','close','daily','summary'].includes(i.id)).map(item => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => selectView(item.id)}><Icon size={16} /><span>{item.label}</span></button>; })}
+        <div className="bm-nav-group-label">{t('businessModel.nav.groupSetup', { defaultValue: 'Setup & planning' })}</div>
+        {NAV.filter(i => ['fleet','customers','costs','scenarios'].includes(i.id)).map(item => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => selectView(item.id)}><Icon size={16} /><span>{item.label}</span></button>; })}
+        <div className="bm-nav-group-label">{t('businessModel.nav.groupExceptions', { defaultValue: 'Exceptions' })}</div>
+        {NAV.filter(i => ['recovery','actions','risks'].includes(i.id)).map(item => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => selectView(item.id)}><Icon size={16} /><span>{item.label}</span>{item.id === 'risks' && hydrated && risks.filter(r => r.level !== 'controlled').length > 0 && <em>{risks.filter(r => r.level !== 'controlled').length}</em>}{item.id === 'recovery' && hydrated && pendingRecoveries > 0 && <em>{pendingRecoveries}</em>}</button>; })}
+      </nav>
       <div className="bm-source"><span>{t('businessModel.sidebar.savedLocal')}</span><small>{t(telematicsProvider.isLive ? 'businessModel.sidebar.noConnections' : 'businessModel.sidebar.telemetryDemo')}</small></div>
     </aside>
 
     <div className="bm-shell">
-      <header className="bm-top"><button className="bm-menu" aria-label={t('businessModel.a11y.openNavigation')} onClick={() => setMobileNav(true)}><Menu size={19} /></button><div><strong>{NAV.find(item => item.id === view)?.label}</strong><span>{t('businessModel.header.subtitle')}</span></div><div className="bm-search"><Search size={14}/><input aria-label={t('businessModel.search.placeholder')} placeholder={t('businessModel.search.placeholder')} value={search} onChange={event=>setSearch(event.target.value)}/>{search&&<div className="bm-search-results">{NAV.filter(item=>item.label.toLowerCase().includes(search.toLowerCase())).map(item=><button key={item.id} onClick={()=>{selectView(item.id);setSearch('');}}>{item.label}</button>)}{input.drivers.filter(driver=>driver.fullName.toLowerCase().includes(search.toLowerCase())).map(driver=><button key={driver.id} onClick={()=>{selectView('fleet');setSearch('');}}>{t('businessModel.search.driverResult',{name:driver.fullName})}</button>)}{input.providers.filter(provider=>provider.name.toLowerCase().includes(search.toLowerCase())).map(provider=><button key={provider.id} onClick={()=>{selectView('customers');setSearch('');}}>{t('businessModel.search.customerResult',{name:provider.name})}</button>)}</div>}</div><button className="bm-lang" onClick={switchLanguage} aria-label={lng === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}><Languages size={14}/>{lng === 'ar' ? 'English' : 'العربية'}</button><div className="bm-status"><i /> {t('businessModel.status.localModel')}</div></header>
-        {backupReminder.visible && !bannerDismissed && (
+      <header className="bm-top"><button className="bm-menu" aria-label={t('businessModel.a11y.openNavigation')} onClick={() => setMobileNav(true)}><Menu size={19} /></button><div><strong>{NAV.find(item => item.id === view)?.label}</strong><span>{view === 'tower' || view === 'stops' || view === 'dispatch' || view === 'close' || view === 'daily' || view === 'summary' ? t('businessModel.header.subtitleDaily', {defaultValue: 'Daily operations — recorded truth'}) : view === 'fleet' || view === 'customers' || view === 'costs' || view === 'scenarios' ? t('businessModel.header.subtitlePlanning', {defaultValue: 'Planning assumptions — not recorded'}) : t('businessModel.header.subtitle')}</span></div><div className="bm-search"><Search size={14}/><input aria-label={t('businessModel.search.placeholder')} placeholder={t('businessModel.search.placeholder')} value={search} onChange={event=>setSearch(event.target.value)}/>{search&&<div className="bm-search-results">{NAV.filter(item=>item.label.toLowerCase().includes(search.toLowerCase())).map(item=><button key={item.id} onClick={()=>{selectView(item.id);setSearch('');}}>{item.label}</button>)}{input.drivers.filter(driver=>driver.fullName.toLowerCase().includes(search.toLowerCase())).map(driver=><button key={driver.id} onClick={()=>{selectView('fleet');setSearch('');}}>{t('businessModel.search.driverResult',{name:driver.fullName})}</button>)}{input.providers.filter(provider=>provider.name.toLowerCase().includes(search.toLowerCase())).map(provider=><button key={provider.id} onClick={()=>{selectView('customers');setSearch('');}}>{t('businessModel.search.customerResult',{name:provider.name})}</button>)}</div>}</div><button className="bm-lang" onClick={switchLanguage} aria-label={lng === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}><Languages size={14}/>{lng === 'ar' ? 'English' : 'العربية'}</button><div className="bm-status"><i /> {t('businessModel.status.localModel')}</div></header>
+        {hydrated && backupReminder.visible && !bannerDismissed && (
           <BackupBanner
             reason={backupReminder.reason}
             days={backupReminder.daysSince ?? BACKUP_REMINDER_DAYS}
@@ -240,9 +284,9 @@ export default function BusinessModelApp() {
           />
         )}
       <main id="bm-main" className="bm-main">
-        {view === 'close' && <EveningCloseView initialDate={toDateString(new Date())} stops={stops} setStops={setStops} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} />}
-        {view === 'dispatch' && <DispatchBoardView stops={stops} setStops={setStops} drivers={input.drivers} />}
-        {view === 'stops' && <StopPlanning stops={stops} setStops={setStops} />}
+        {view === 'close' && <EveningCloseView initialDate={operationDate} operationDate={operationDate} onOperationDateChange={setOperationDate} stops={stops} setStops={setStops} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} />}
+        {view === 'dispatch' && <DispatchBoardView operationDate={operationDate} onOperationDateChange={setOperationDate} stops={stops} setStops={setStops} drivers={input.drivers} />}
+        {view === 'stops' && <StopPlanning operationDate={operationDate} onOperationDateChange={setOperationDate} stops={stops} setStops={setStops} />}
         {stopsBootDropped > 0 && (
           <p className="bm-import-warning" role="alert" data-testid="stops-boot-warning">
             {t('businessModel.stops.bootDropped', { count: stopsBootDropped })}
@@ -250,15 +294,24 @@ export default function BusinessModelApp() {
           </p>
         )}
         {view === 'tower' && <ControlTowerView snapshot={towerSnapshot} onGoto={(target: 'daily' | 'recovery' | 'scenarios') => selectView(target)} />}
-        {view === 'summary' && <CoreSummary output={output} input={input} fleetCount={fleetCount} driverGap={driverGap} contribution={contribution} risks={risks} onNavigate={selectView} dailyRecords={dailyRecords} />}
-        {view === 'fleet' && <Page title={t('businessModel.fleet.title')} description={t('businessModel.fleet.desc')}><div className="bm-form-card bm-combined-count"><NumberInput label={t('businessModel.fleet.carsDrivers')} value={fleetCount} onChange={setFleetCount} suffix={t('businessModel.fleet.suffixTotal')} /><Readout label={t('businessModel.fleet.payrollReadout')} value={money(fleetCount * input.driverSalary)} /></div><EditableTable columns={[t('businessModel.fleet.colVehicleType'),t('businessModel.fleet.colQuantity'),t('businessModel.fleet.colRentMonth'),t('businessModel.fleet.colInsurance'),t('businessModel.fleet.colFuelEfficiency'),t('businessModel.fleet.colDistanceDay'),'']}>
+        {view === 'summary' && <CoreSummary output={output} input={input} fleetCount={fleetCount} driverGap={driverGap} contribution={contribution} risks={risks} onNavigate={selectView} dailyRecords={dailyRecords} stops={stops} operationDate={operationDate} onOperationDateChange={setOperationDate} />}
+        {view === 'fleet' && <Page title={t('businessModel.fleet.title')} description={t('businessModel.fleet.newDesc')}><div className="bm-roster"><div className="bm-roster-head"><h2>{t('businessModel.fleet.rosterTitle')}</h2><span>{t('businessModel.fleet.rosterCount',{count:input.drivers.length})}</span></div><EditableTable columns={[t('businessModel.fleet.colDriverName'),t('businessModel.fleet.colPhone'),t('businessModel.fleet.colAssignedVehicle'),t('businessModel.fleet.colStatus'),'']}>
+{input.drivers.map(driver => <div className="bm-table-row bm-driver-row" key={driver.id}><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colDriverName')}`} value={driver.fullName} onChange={value => changeDriver(driver.id,{fullName:value})} /><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colPhone')}`} value={driver.phone} onChange={value => changeDriver(driver.id,{phone:value})} /><input aria-label={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colAssignedVehicle')}`} list="bm-vehicle-names" value={driver.assignedVehicle} onChange={event => changeDriver(driver.id,{assignedVehicle:event.target.value})} /><select aria-label={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colStatus')}`} value={driver.status} onChange={event => changeDriver(driver.id,{status:event.target.value as DriverRecord['status']})}><option value="active">{t('businessModel.common.active')}</option><option value="inactive">{t('businessModel.common.inactive')}</option></select>{driverConfirmId === driver.id ? (
+                  <span className="bm-delete-confirm" data-testid={`confirm-remove-${driver.id}`}>
+                    <span>{t('businessModel.fleet.confirmRemove', {defaultValue:'Remove?'})}</span>
+                    <button className="bm-remove" aria-label={`${t('businessModel.common.confirm', {defaultValue:'Confirm'})} ${driver.fullName || driver.id}`} onClick={() => { removeDriver(driver.id); setDriverConfirmId(null); }} data-testid={`confirm-yes-${driver.id}`}>{t('businessModel.common.confirm', {defaultValue:'Confirm'})}</button>
+                    <button className="bm-remove" aria-label={`${t('businessModel.common.cancel', {defaultValue:'Cancel'})}`} onClick={() => setDriverConfirmId(null)} data-testid={`confirm-no-${driver.id}`}>{t('businessModel.common.cancel', {defaultValue:'Cancel'})}</button>
+                  </span>
+                ) : (
+                  <button className="bm-remove" aria-label={`${t('businessModel.common.remove')} ${driver.fullName || driver.id}`} onClick={() => setDriverConfirmId(driver.id)} data-testid={`remove-${driver.id}`}>{t('businessModel.common.remove')}</button>
+                )}</div>)}</EditableTable><button className="bm-add" onClick={addDriver} data-testid="add-driver"><Plus size={15}/> {t('businessModel.fleet.rosterAddBtn')}</button><p className="bm-import-note">{t('businessModel.fleet.rosterCount',{count:input.drivers.length})} · {t('businessModel.fleet.payrollReadout')} {money(input.drivers.filter(d=>d.status==='active').length * input.driverSalary)} (active drivers)</p></div><div className="bm-panel" style={{marginTop:16}}><div className="bm-panel-head"><div><span>{t('businessModel.fleet.fleetCostTitle')}</span><h2>{t('businessModel.fleet.fleetCostTitle')}</h2><p>{t('businessModel.fleet.fleetCostDesc')}</p></div></div><EditableTable columns={[t('businessModel.fleet.colVehicleType'),t('businessModel.fleet.colQuantity'),t('businessModel.fleet.colRentMonth'),t('businessModel.fleet.colInsurance'),t('businessModel.fleet.colFuelEfficiency'),t('businessModel.fleet.colDistanceDay'),'']}>
           {input.vehicleClasses.map(row => <div className="bm-table-row bm-fleet-row" key={row.id}><TextInput ariaLabel={`${row.name}`} value={row.name} onChange={value => changeVehicle(row.id,{name:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.fleet.colQuantity')}`} value={row.quantity} onChange={value => changeVehicle(row.id,{quantity:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.fleet.colRentMonth')}`} value={row.monthlyRent} onChange={value => changeVehicle(row.id,{monthlyRent:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.fleet.colInsurance')}`} value={row.variableCost} onChange={value => changeVehicle(row.id,{variableCost:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.fleet.colFuelEfficiency')}`} value={row.fuelEfficiency} onChange={value => changeVehicle(row.id,{fuelEfficiency:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.fleet.colDistanceDay')}`} value={row.avgDailyDistance} onChange={value => changeVehicle(row.id,{avgDailyDistance:value})} /><button className="bm-remove" aria-label={`${t('businessModel.common.remove')} ${row.name}`} onClick={() => removeVehicle(row.id)}>{t('businessModel.common.remove')}</button></div>)}
-        </EditableTable><button className="bm-add" onClick={addVehicleClass}><Plus size={15}/> {t('businessModel.common.addVehicleType')}</button><div className="bm-inline-total"><span>{t('businessModel.fleet.syncTotal')}</span><strong>{t('businessModel.fleet.totals',{cars:fleetCount,drivers:input.companyDriverCount})}</strong><span>{t('businessModel.fleet.monthlyFleetCost')}</span><strong>{money(output.fleetMonthlyCost)}</strong></div><div className="bm-roster"><div className="bm-roster-head"><h2>{t('businessModel.fleet.rosterTitle')}</h2><span>{t('businessModel.fleet.rosterCount',{count:input.drivers.length})}</span></div><EditableTable columns={[t('businessModel.fleet.colDriverName'),t('businessModel.fleet.colPhone'),t('businessModel.fleet.colAssignedVehicle'),t('businessModel.fleet.colStatus')]}>{input.drivers.map(driver => <div className="bm-table-row bm-driver-row" key={driver.id}><TextInput ariaLabel={`${driver.fullName} ${t('businessModel.fleet.colDriverName')}`} value={driver.fullName} onChange={value => changeDriver(driver.id,{fullName:value})} /><TextInput ariaLabel={`${driver.fullName} ${t('businessModel.fleet.colPhone')}`} value={driver.phone} onChange={value => changeDriver(driver.id,{phone:value})} /><input aria-label={`${driver.fullName} ${t('businessModel.fleet.colAssignedVehicle')}`} list="bm-vehicle-names" value={driver.assignedVehicle} onChange={event => changeDriver(driver.id,{assignedVehicle:event.target.value})} /><select aria-label={`${driver.fullName} ${t('businessModel.fleet.colStatus')}`} value={driver.status} onChange={event => changeDriver(driver.id,{status:event.target.value as DriverRecord['status']})}><option value="active">{t('businessModel.common.active')}</option><option value="inactive">{t('businessModel.common.inactive')}</option></select></div>)}</EditableTable></div></Page>}
+        </EditableTable><button className="bm-add" onClick={addVehicleClass}><Plus size={15}/> {t('businessModel.common.addVehicleType')}</button><div className="bm-inline-total"><span>{t('businessModel.fleet.vehiclesInAssumptions', {defaultValue: 'vehicles in cost assumptions'})} {fleetCount}</span><span>·</span><span>{t('businessModel.fleet.activeDriversCount', {defaultValue: 'active drivers'})} {input.drivers.filter(d=>d.status==='active').length}</span><span>{t('businessModel.fleet.monthlyFleetCost')}</span><strong>{money(output.fleetMonthlyCost)}</strong></div></div></Page>}
         {view === 'customers' && <Page title={t('businessModel.customers.title')} description={t('businessModel.customers.desc')}><EditableTable columns={[t('businessModel.customers.colCustomer'),t('businessModel.customers.colShipmentsDay'),t('businessModel.customers.colPriceShipment'),t('businessModel.customers.colMonthlyRevenue'),'']}>
           {input.providers.map(row => { const evaluation = output.providerEvaluations.find(item => item.id === row.id); return <div className="bm-table-row bm-customer-row" key={row.id}><TextInput ariaLabel={t('businessModel.customers.colCustomer')} value={row.name} onChange={value => changeProvider(row.id,{name:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.customers.colShipmentsDay')}`} value={row.shipmentsPerDay} onChange={value => changeProvider(row.id,{shipmentsPerDay:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.customers.colPriceShipment')}`} value={row.pricePerShipment} onChange={value => changeProvider(row.id,{pricePerShipment:value})} step="0.1" /><strong>{money(evaluation?.monthlyRevenue ?? 0)}</strong><button className="bm-remove" aria-label={`${t('businessModel.common.remove')} ${row.name}`} onClick={() => removeProvider(row.id)}>{t('businessModel.common.remove')}</button></div>})}
         </EditableTable><button className="bm-add" onClick={addProvider}><Plus size={15}/> {t('businessModel.common.addCustomer')}</button></Page>}
         {view === 'costs' && <Page title={t('businessModel.costs.title')} description={t('businessModel.costs.desc')}><CostSections input={input} output={output} setNumber={setNumber} changeVehicle={changeVehicle} /></Page>}
-        {view === 'daily' && <><DailyReport input={input} output={output} records={dailyRecords} setRecords={setDailyRecords} reportKind={reportKind} setReportKind={setReportKind} onOpenPro={setProModel} lng={lng} reportLang={reportLang} setReportLang={setReportLang} openActions={actions.filter(action => !action.done).slice(0, 5)} recoverySummary={recoverySummary} recoveryAll={recoveryEntries} recoveryOpen={recoveryEntries.filter(entry => entry.status === 'pending').slice(0, 8).map(({ id, createdAt, shipments, owner, status }) => ({ id, createdAt, shipments, owner, status }))} /><ProviderImportCard dailyRecords={dailyRecords} onApply={(date, record) => setDailyRecords(prev => ({ ...prev, [date]: record }))} /></>}
+        {view === 'daily' && <ReportsView operationDate={operationDate} onOperationDateChange={setOperationDate} stops={stops} dailyRecords={dailyRecords} onGotoClose={() => selectView('close')} />}
         {view === 'risks' && <Page title={t('businessModel.risks.title')} description={t('businessModel.risks.desc')}><div className="bm-risk-table"><div className="bm-risk-head"><span>{t('businessModel.risks.thStatus')}</span><span>{t('businessModel.risks.thRisk')}</span><span>{t('businessModel.risks.thValue')}</span><span>{t('businessModel.risks.thReason')}</span></div>{risks.map(risk => <div className="bm-risk-row" key={risk.titleKey}><span className={risk.level === 'controlled' ? 'ok' : 'bad'}>{levelLabel[risk.level]}</span><strong>{t(`businessModel.risks.${risk.titleKey}`)}</strong><span>{risk.value}</span><p>{risk.detail}</p></div>)}</div></Page>}
         {view === 'scenarios' && <ScenarioView input={input} output={output} scenarios={scenarios} setScenarios={setScenarios} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} actions={actions} setActions={setActions} stops={stops} setStops={setStops} applyFinancialInput={applyFinancialInput} onBackedUp={() => { const iso = new Date().toISOString(); markBackedUpNow(); setLastBackupAt(iso); bumpReminderClock(); }} />}
         {view === 'recovery' && <Page title={t('businessModel.recovery.recovery')} description={t('businessModel.recovery.recoveryDesc')}><RecoveryBoard entries={recoveryEntries} setEntries={setRecoveryEntries} /></Page>}
@@ -271,7 +324,10 @@ export default function BusinessModelApp() {
 }
 
 function Page({ title, description, children }: { title:string; description:string; children:React.ReactNode }) { return <><div className="bm-page-head"><h1>{title}</h1><p>{description}</p></div>{children}</>; }
-function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNavigate,dailyRecords }: { output:ReturnType<typeof useSimulatedData>['financialOutput']; input:FinancialInput; fleetCount:number; driverGap:number; contribution:number; risks:RiskItem[]; onNavigate:(view:View)=>void; dailyRecords:Record<string,DailyRecord> }) {
+function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNavigate,dailyRecords,stops,operationDate,onOperationDateChange }: { output:ReturnType<typeof useSimulatedData>['financialOutput']; input:FinancialInput; fleetCount:number; driverGap:number; contribution:number; risks:RiskItem[]; onNavigate:(view:View)=>void; dailyRecords:Record<string,DailyRecord>; stops: StopRecord[]; operationDate: string; onOperationDateChange: (d:string)=>void }) {
+  const [hydrated, setHydrated] = React.useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration gate
+  React.useEffect(() => { setHydrated(true); }, []);
   const { t, i18n } = useTranslation();
   const locale = localeOf(i18n.language);
   const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
@@ -279,13 +335,74 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
   const trend=buildProjection(output,14,dailyRecords);
   const categories=Object.entries(output.costBreakdown).filter(([key])=>!['costPerShipment','total'].includes(key)) as [string,number][];
   const shipmentsPerCar=output.totalDailyShipments/Math.max(1,fleetCount);
-  return <><div className="bm-page-head bm-summary-head"><div><h1>{t('businessModel.summary.title')}</h1><p>{t('businessModel.summary.subtitle')}</p></div><div className="bm-head-actions"><button onClick={()=>onNavigate('daily')}><FileText size={15}/> {t('businessModel.summary.recordToday')}</button><button onClick={()=>onNavigate('costs')}><Settings2 size={15}/> {t('businessModel.summary.editCosts')}</button></div></div>
+  const definitive = Object.values(dailyRecords).filter(r => isDefinitiveDailyRecord(r));
+  const hasRecorded = hydrated && definitive.length > 0;
+  const dayStopsForSummary = stops.filter(s => s.operationDate === operationDate);
+  const sumDelivered = dayStopsForSummary.filter(s=>s.status==='delivered').length;
+  const sumReturned = dayStopsForSummary.filter(s=>s.status==='returned').length;
+  const sumPending = dayStopsForSummary.filter(s=>s.status==='pending' || s.status==='planned' || s.status==='failed').length;
+  // Bound to last 14 calendar days ending selected operation date
+  const endDate = new Date(`${operationDate}T12:00:00`);
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - 13);
+  const startKey = toDateString(startDate);
+  const windowRecords = definitive.filter(r => r.date >= startKey && r.date <= operationDate);
+  const aggDel = windowRecords.reduce((a,r)=>a+(r.completedShipments||0),0);
+  const aggFailed = windowRecords.reduce((a,r)=>a+(r.failedShipments||0),0);
+  const completion = aggDel+aggFailed>0 ? (aggDel/(aggDel+aggFailed)*100).toFixed(1) : '—';
+  const codCollected = windowRecords.reduce((a,r)=>a+(r.cashCollectedSar||0),0);
+  const codRemitted = windowRecords.reduce((a,r)=>a+(r.cashRemittedSar||0),0);
+  const codOutstanding = Math.max(0, codCollected - codRemitted);
+  const hasRecordForSelected = definitive.some(r => r.date === operationDate);
+  return <><div className="bm-page-head bm-summary-head"><div><h1>{t('businessModel.summary.title')}</h1><p>{t('businessModel.summary.subtitle')}</p></div><div className="bm-head-actions"><label className="bm-field" style={{minWidth:160}}><span>{t('businessModel.close.dateLabel')}</span><input type="date" value={operationDate} onChange={e=>onOperationDateChange(e.target.value)} data-testid="summary-date" /></label><button onClick={()=>onNavigate(hasRecordForSelected ? 'daily' : 'close')}><FileText size={15}/> {hasRecordForSelected ? t('businessModel.summary.viewReport', {defaultValue:'View report'}) : t('businessModel.summary.closeSelectedDate', {defaultValue:'Close selected date'})}</button><button onClick={()=>onNavigate('costs')}><Settings2 size={15}/> {t('businessModel.summary.editCosts')}</button></div></div>
+    <section className="bm-panel" data-testid="recorded-operations" style={{borderLeft: '4px solid var(--pine)', marginBottom:12}}>
+      <div className="bm-panel-head"><div><span>{t('businessModel.summary.recordedTag')}</span><h2>{t('businessModel.summary.recordedHead')}</h2><p>{t('businessModel.summary.recordedDesc')}</p></div></div>
+      {!hasRecorded ? (
+        <div data-testid="summary-empty" style={{padding:16, textAlign:'center', background:'var(--paper-2)', borderRadius:8}}>
+          <p>{t('businessModel.summary.emptyRecorded')}</p>
+          <button className="bm-primary" onClick={()=>onNavigate('close')} data-testid="summary-cta-close">{t('businessModel.summary.goClose')}</button>
+        </div>
+      ) : (
+        <div>
+          <dl className="bm-import-counts" data-testid="summary-recorded-kpis">
+            <div><dt>{t('businessModel.summary.recordedDelivered', { defaultValue: 'Delivered (selected date)' })}</dt><dd data-testid="summary-selected-delivered">{sumDelivered}</dd></div>
+            <div><dt>{t('businessModel.summary.recordedReturned', { defaultValue: 'Failed+Returned (selected)' })}</dt><dd>{sumReturned}</dd></div>
+            <div><dt>{t('businessModel.summary.recordedPending', { defaultValue: 'Pending (selected)' })}</dt><dd>{sumPending}</dd></div>
+            <div><dt>{t('businessModel.summary.recordedCompletion', { defaultValue: 'Completion (all recorded)' })}</dt><dd>{completion}%</dd></div>
+            <div><dt>{t('businessModel.summary.recordedCodCollected', { defaultValue: 'COD collected' })}</dt><dd>{codCollected} SAR</dd></div>
+            <div><dt>{t('businessModel.summary.recordedCodOutstanding', { defaultValue: 'Outstanding' })}</dt><dd>{codOutstanding} SAR</dd></div>
+          </dl>
+
+        </div>
+      )}
+    </section>
+    {/* Recorded 14-day visual: 14 calendar slots ending selected date, zero-height for missing */}
+    {hydrated && hasRecorded && (
+      <section className="bm-panel" data-testid="recorded-trend" style={{marginTop:12}}>
+        <div className="bm-panel-head"><div><span>{t('businessModel.summary.recordedTrendTag', {defaultValue:'14-DAY RECORDED'})}</span><h2>{t('businessModel.summary.recordedTrendHead', {defaultValue:'Delivered per day (recorded only)'})}</h2><p>{t('businessModel.summary.recordedTrendSub', {defaultValue:'Last 14 calendar days ending selected date'})} — {startKey} → {operationDate}</p></div></div>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(14,1fr)', gap:6, alignItems:'end', height:90, marginTop:12}}>
+          {Array.from({length:14}, (_, i) => {
+            const d = new Date(startDate);
+            d.setDate(startDate.getDate() + i);
+            const key = toDateString(d);
+            const rec = windowRecords.find(r => r.date === key);
+            const val = rec ? rec.completedShipments : 0;
+            const max = Math.max(1, ...windowRecords.map(x=>x.completedShipments), 1);
+            const h = val === 0 ? 4 : Math.max(8, Math.round((val / max) * 70));
+            const isEmpty = !rec;
+            return <div key={key} style={{display:'grid', justifyItems:'center', gap:4}}><div style={{width:'100%', height:h, background: isEmpty ? 'var(--line-soft)' : 'var(--pine)', borderRadius:4, opacity: isEmpty ? 0.35 : 1}} title={`${key}: ${val}`}></div><small style={{font:'7px var(--font-ibm-plex-mono)', color: isEmpty ? 'var(--faint)' : 'var(--ink)'}}>{i===0 || i===13 || (i===6 && windowRecords.length>2) ? key.slice(5) : ''}</small></div>;
+          })}
+        </div>
+        <p className="bm-import-note">{t('businessModel.summary.recordedTrendNote', {defaultValue:'Recorded days only — no projections.'})}</p>
+      </section>
+    )}
+    <details className="bm-detail-model" data-testid="business-plan-assumptions"><summary>{t('businessModel.summary.businessPlanTag')}</summary><div style={{padding:16}}><p className="bm-import-note">{t('businessModel.summary.businessPlanHead')} — {t('businessModel.summary.estimated', {defaultValue:'estimated'})} {t('businessModel.summary.sample', {defaultValue: 'sample assumptions'})} — {t('businessModel.summary.sampleNote', {defaultValue:'Model-derived, not recorded'})}</p>
     <section className="bm-kpis bm-decision-kpis"><Kpi label={t('businessModel.summary.kpiRevenue')} value={money(output.totalRevenue)} /><Kpi label={t('businessModel.summary.kpiProfitLoss')} value={money(output.netMargin)} tone={output.netMargin<0?'bad':'good'} /><Kpi label={t('businessModel.summary.kpiMargin')} value={`${output.netMarginPercent.toFixed(1)}%`} tone={output.netMargin<0?'bad':'good'} /><Kpi label={t('businessModel.summary.kpiBreakeven')} value={`${num(output.operationalBreakeven)} ${t('businessModel.summary.perMonth')}`} /></section>
     <div className="bm-dashboard-grid"><TrendChart data={trend}/><section className="bm-panel bm-unit-card"><div className="bm-panel-head"><div><span>{t('businessModel.summary.unitTag')}</span><h2>{t('businessModel.summary.unitHead')}</h2></div></div><div className="bm-unit-values"><Metric label={t('businessModel.summary.revPerShipment')} value={money(output.avgRevenuePerShipment,2)}/><Metric label={t('businessModel.summary.costPerShipment')} value={money(output.costPerShipment,2)}/><Metric label={t('businessModel.summary.profitPerShipment')} value={money(output.avgRevenuePerShipment-output.costPerShipment,2)} tone={output.avgRevenuePerShipment<output.costPerShipment?'bad':'good'}/><Metric label={t('businessModel.summary.shipmentsPerCar')} value={shipmentsPerCar.toFixed(1)}/></div><button className="bm-link-button" onClick={()=>onNavigate('customers')}>{t('businessModel.summary.reviewPricing')}</button></section></div>
     <div className="bm-dashboard-grid"><CustomerChart output={output}/><CostChart categories={categories} total={output.totalCost}/></div>
     <div className="bm-dashboard-grid"><Waterfall output={output}/><CapacityGauges output={output} fleetCount={fleetCount}/></div>
     <SensitivityGrid input={input}/>
-    <MonthlyTotals input={input} output={output} fleetCount={fleetCount}/><details className="bm-detail-model"><summary>{t('businessModel.summary.detailToggle')}</summary><Summary output={output} input={input} fleetCount={fleetCount} driverGap={driverGap} contribution={contribution} risks={risks} onNavigate={onNavigate}/></details></>;
+    <MonthlyTotals input={input} output={output} fleetCount={fleetCount}/><Summary output={output} input={input} fleetCount={fleetCount} driverGap={driverGap} contribution={contribution} risks={risks} onNavigate={onNavigate}/></div></details></>;
 }
 function MonthlyVariance({records,output}:{records:Record<string,DailyRecord>;output:ReturnType<typeof useSimulatedData>['financialOutput']}) {
   const { t, i18n } = useTranslation();

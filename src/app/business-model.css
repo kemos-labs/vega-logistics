@@ -67,6 +67,10 @@
 
 /* ── Shell + top bar ────────────────────────────────────────── */
 .bm-shell{margin-left:236px;min-height:100vh}
+[dir="rtl"] .bm-sidebar{left:auto;right:0;inset:0 0 0 auto}
+[dir="rtl"] .bm-shell{margin-left:0;margin-right:236px}
+[dir="rtl"] .bm-top{flex-direction:row-reverse}
+
 .bm-top{display:flex;align-items:center;height:68px;padding:0 32px;border-bottom:1px solid var(--line);background:rgba(251,250,244,.82);backdrop-filter:blur(14px)}
 .bm-top>div:first-of-type{display:grid;gap:2px}
 .bm-top strong{font-size:13px;font-weight:700;letter-spacing:-.01em}
@@ -204,7 +208,7 @@
 .bm-roster-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .bm-roster-head h2{margin:0;font-size:15.5px;font-weight:700;letter-spacing:-.02em}
 .bm-roster-head span{color:var(--pine);font:600 10.5px 'IBM Plex Mono',monospace}
-.bm-driver-row,.bm-table-head:has(+.bm-driver-row){grid-template-columns:1.4fr 1fr 1fr .7fr}
+.bm-driver-row,.bm-table-head:has(+.bm-driver-row){grid-template-columns:1.4fr 1fr 1fr .7fr .6fr}
 .bm-driver-row select{width:100%;height:34px;padding:0 7px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--ink);font-size:12px}
 .bm-driver-row select:hover{border-color:#d5cfba;background:#fff}
 .bm-combined-count{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:12px}
@@ -334,7 +338,7 @@
 [dir="rtl"] .bm-search-results{right:auto;left:0}
 [dir="rtl"] .bm-report-history>div>button,[dir="rtl"] .bm-search-results button{text-align:right}
 [dir="rtl"] .bm-sidebar nav button.active::before{left:auto;right:-12px;border-radius:2px 0 0 2px}
-@media(max-width:700px){[dir="rtl"] .bm-sidebar{transform:translateX(100%)}[dir="rtl"] .bm-sidebar.open{transform:translateX(0)}[dir="rtl"] .bm-shell{margin-left:0}}
+@media(max-width:700px){[dir="rtl"] .bm-sidebar{transform:translateX(100%)}[dir="rtl"] .bm-sidebar.open{transform:translateX(0)}[dir="rtl"] .bm-shell{margin-left:0;margin-right:0}}
 
 /* ── Customer chart / waterfall / gauges / sensitivity ─────── */
 .bm-empty-note{margin:14px 0 0;color:var(--muted);font-size:11.5px}
@@ -708,9 +712,9 @@ html[lang='ar'] .bm-import-counts dt{letter-spacing:normal}
 .bm-import-warning{font-size:11.5px;color:#a4541f;background:#a4541f14;border:1px solid #a4541f33;border-radius:8px;padding:7px 9px;line-height:1.5;margin:0 0 8px}
 
 /* ── P1 backup-age banner ── */
-.bm-backup-banner{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px;padding:12px 14px;border-radius:10px;background:#c9a22714;border:1px solid #c9a22755}
+.bm-backup-banner{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px;padding:12px 14px;border-radius:10px;background:#fffdf6;border:1px solid #c9a22788}
 html[dir='rtl'] .bm-backup-banner{flex-direction:row-reverse}
-.bm-backup-banner-text{flex:1 1 260px;font-size:13px;line-height:1.6;color:#e8e2d2}
+.bm-backup-banner-text{flex:1 1 260px;font-size:13px;line-height:1.6;color:#1b231e}
 .bm-backup-banner .bm-primary{white-space:nowrap}
 @media(max-width:600px){.bm-backup-banner{flex-direction:column;align-items:stretch}.bm-backup-banner .bm-primary,.bm-backup-banner button{width:100%}}
 #bm-backup-card:focus-visible,#bm-backup-card:focus{outline:2px solid var(--gold,#c9a227);outline-offset:2px}
@@ -780,3 +784,54 @@ html[dir='rtl'] .bm-stop-row .bm-stop-main{flex-direction:row-reverse;text-align
 .bm-close .bm-import-counts input{width:90px;font-size:16px;font-weight:700}
 .bm-close dd.bm-import-warning{color:#8f3b30}
 @media(max-width:600px){.bm-close .bm-import-counts{grid-template-columns:1fr 1fr}}
+
+/* ── Operator-core repair: touch targets, borders, RTL, typography ── */
+.bm-field input, .bm-field select, .bm-field textarea { border: 1px solid #b9b3a2 !important; background: #fff !important; min-height: 44px; border-radius: 7px; }
+.bm-stops-form input, .bm-close input, .bm-dispatch select, .bm-dispatch input { min-height: 44px; border-radius: 7px; }
+.bm-stop-actions button, .bm-run-head button, .bm-panel-head button { min-height: 44px; min-width: 44px; }
+.bm-nav-group-label { padding: 10px 12px 4px; color: var(--rail-muted); font: 600 9px var(--font-ibm-plex-mono), monospace; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+html[lang='ar'] .bm-nav-group-label { letter-spacing: 0; }
+@media(max-width:375px){
+  .bm-app { font-size: 16px; }
+  .bm-page-head h1 { font-size: 20px; }
+  .bm-panel, .bm-form-card { padding: 14px; }
+  .bm-field>span { font-size: 13px; }
+  .bm-stops-totals { font-size: 14px; }
+}
+/* RTL drawer fix: ensure hidden state */
+.bm-sidebar { visibility: visible; }
+@media(max-width:700px){
+  .bm-sidebar:not(.open) { pointer-events: none; }
+  [dir="rtl"] .bm-sidebar:not(.open) { transform: translateX(100%) !important; }
+}
+/* No body overflow concealment */
+html, body { overflow: visible !important; }
+.bm-shell { overflow: visible; }
+
+/* Ensure dispatch/stops/close inputs have visible borders */
+.bm-stops input, .bm-dispatch input, .bm-dispatch select, .bm-close input, .bm-close select { border: 1px solid #b9b3a2; background: #fff; }
+
+/* Cairo for AR, no letter-spacing on AR */
+html[lang='ar'] * { letter-spacing: 0 !important; }
+
+.bm-scrim{pointer-events:auto}
+
+/* ── Reports print portal — clean A4, Cairo, no chrome ── */
+.vega-print-portal{display:none}
+.vega-print-sheet{font-family:var(--font-cairo),'Cairo',sans-serif;color:#000;background:#fff;padding:12mm}
+.vega-print-sheet h1{font-size:18px;margin:0 0 6px}
+.vega-print-sheet h2{font-size:14px;margin:14px 0 6px}
+.vega-print-sheet h3{font-size:12px;margin:8px 0 4px}
+.vega-print-sheet table{width:100%;border-collapse:collapse;font-size:11px;margin:8px 0}
+.vega-print-sheet th,.vega-print-sheet td{border:1px solid #444;padding:4px 6px;text-align:start}
+.vega-print-sheet thead{display:table-header-group}
+.vega-print-sheet tr{page-break-inside:avoid}
+.vega-print-sheet .vega-print-disclaimer{margin-top:10px;border-top:1.5px solid #000;padding-top:6px;font-weight:700;font-size:10px}
+@media print{
+  @page{size:A4;margin:12mm}
+  body{background:#fff !important}
+  body:has(.vega-print-portal) > *:not(.vega-print-portal){display:none !important}
+  .vega-print-portal{display:block !important;position:static !important;background:#fff !important;color:#000 !important}
+  .vega-print-portal *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body{overflow:visible !important}
+}

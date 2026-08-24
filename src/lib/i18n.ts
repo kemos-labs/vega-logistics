@@ -8,16 +8,9 @@ const resources = {
   ar: { translation: arTranslation },
 };
 
-// Read persisted language on the client. On the server, this is a no-op
-// (no localStorage), so the initial server render stays as English.
+// Hydration-safe: initial language is always 'en' on both server and first client render.
+// Persisted language is applied after mount via ClientLayout/useEffect to avoid mismatch.
 function getInitialLanguage(): string {
-  if (typeof window === 'undefined') return 'en';
-  try {
-    const saved = window.localStorage.getItem('language');
-    if (saved === 'ar' || saved === 'en') return saved;
-  } catch {
-    // localStorage can throw in private mode or sandboxed contexts
-  }
   return 'en';
 }
 
@@ -38,7 +31,8 @@ i18n
   });
 
 // Apply the initial language to <html> immediately on the client so RTL/LTR
-// is correct even before the React tree mounts.
+// is correct even before the React tree mounts — but only after hydration gate.
+// For now keep as en; ClientLayout will set correct dir after mount.
 if (typeof document !== 'undefined') {
   document.documentElement.lang = initialLng;
   document.documentElement.dir = initialLng === 'ar' ? 'rtl' : 'ltr';

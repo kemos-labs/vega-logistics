@@ -15,17 +15,21 @@ import { toDateString } from '@/lib/operationsReporting';
 import type { StopRecord } from '@/lib/stops';
 import type { DriverRecord } from '@/lib/types';
 
-export function DispatchBoardView({ stops, setStops, drivers }: {
+export function DispatchBoardView({ stops, setStops, drivers, operationDate: controlledDate, onOperationDateChange }: {
   stops: StopRecord[];
   setStops: (value: StopRecord[] | ((prev: StopRecord[]) => StopRecord[])) => void;
   drivers: DriverRecord[];
+  operationDate?: string;
+  onOperationDateChange?: (d:string)=>void;
 }) {
   const { t, i18n } = useTranslation();
   const S = 'businessModel.dispatch.';
   const ar = i18n.language === 'ar';
   const fmt = (value: number) => new Intl.NumberFormat(ar ? 'ar-SA-u-nu-latn' : 'en-US').format(value);
 
-  const [date, setDate] = useState(() => toDateString(new Date()));
+  const [internalDate, setInternalDate] = useState(() => toDateString(new Date()));
+  const date = controlledDate ?? internalDate;
+  const setDate = (d:string) => { if (onOperationDateChange) onOperationDateChange(d); else setInternalDate(d); };
   const [message, setMessage] = useState('');
   const [printRun, setPrintRun] = useState<string | null>(null);
 
