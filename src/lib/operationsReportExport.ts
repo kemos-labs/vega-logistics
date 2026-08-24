@@ -109,13 +109,13 @@ export function getOperationalExcelLabels(lang: 'en' | 'ar'): OperationalExcelLa
   const translate = (value: string, map: Record<string, string>) => arabic ? (map[value] ?? value) : value;
   return {
     sheets: arabic
-      ? { company: 'الشركة', runs: 'مسارات السائقين', stops: 'الوقفات' }
+      ? { company: 'الشركة', runs: 'جولات السائقين', stops: 'المحطات' }
       : { company: 'Company', runs: 'Driver runs', stops: 'Stops' },
     headers: arabic
       ? {
-          company: ['التاريخ', 'الحالة', 'الوقفات', 'تم التوصيل', 'راجع', 'قيد الانتظار', 'COD متوقع', 'محصل', 'محول', 'مبلغ معلق', 'غير محصل', 'فائض تحويل', 'فجوات POD'],
-          runs: ['المفتاح', 'السائق', 'المركبة', 'اللوحة', 'الوقفات', 'تم التوصيل', 'راجع', 'قيد الانتظار', 'COD متوقع', 'فجوات POD'],
-          stops: ['تسلسل', 'المرجع', 'العميل', 'الوقفة', 'السائق', 'المركبة', 'الحالة', 'السبب', 'POD', 'COD'],
+          company: ['التاريخ', 'الحالة', 'المحطات', 'تم التوصيل', 'راجع', 'قيد الانتظار', 'التحصيل المتوقع', 'المحصّل', 'المحوّل', 'مبلغ معلّق', 'غير محصّل', 'فائض تحويل', 'فجوات إثبات التسليم'],
+          runs: ['المفتاح', 'السائق', 'المركبة', 'اللوحة', 'المحطات', 'تم التوصيل', 'راجع', 'قيد الانتظار', 'التحصيل المتوقع', 'فجوات إثبات التسليم'],
+          stops: ['تسلسل', 'المرجع', 'العميل', 'المحطة', 'السائق', 'المركبة', 'الحالة', 'السبب', 'إثبات التسليم', 'التحصيل'],
         }
       : {
           company: ['Date', 'Status', 'Stops', 'Delivered', 'Returned', 'Pending', 'COD expected', 'Collected', 'Remitted', 'Outstanding', 'Uncollected', 'Over-remitted', 'POD gaps'],

@@ -15,12 +15,12 @@ import { calculateFinancials } from './calculations';
 
 // ─── Default Vehicle Classes (editable fleet composition) ─────────────
 const defaultVehicleClasses: VehicleClass[] = [
-  { id: 'vc-car', name: 'Car', quantity: 4, monthlyRent: 0, variableCost: 0, enabled: true, driverSalary: 2500, fuelType: 'petrol', fuelEfficiency: 9.5, avgDailyDistance: 180, purchasePrice: 0, depreciationMonths: 0 },
+  { id: 'vc-car', name: 'Car', quantity: 4, monthlyRent: 0, variableCost: 0, enabled: true, driverSalary: 3500, fuelType: 'petrol', fuelEfficiency: 9.5, avgDailyDistance: 220, purchasePrice: 0, depreciationMonths: 0 },
 ];
 
 // ─── Default Shipment Providers ────────────────────────────────────────
 const defaultProviders: Provider[] = [
-  { id: 'customer-1', name: 'Customer 1', shipmentsPerDay: 200, pricePerShipment: 10, enabled: true },
+  { id: 'customer-1', name: 'Customer 1', shipmentsPerDay: 100, pricePerShipment: 10, enabled: true },
 ];
 
 // ─── Default Maintenance Entries (anchored to vehicle classes) ─────────
@@ -47,7 +47,7 @@ export const defaultFinancialInput: FinancialInput = {
   freelancerRate: 9.5,         // we pay the freelancer SAR 9.50 (we keep 0.50)
 
   // Driver & staff
-  driverSalary: 2500,
+  driverSalary: 3500,
   opsTeamCount: 1,
   opsTeamAvgSalary: 5000,
   salesTeamCount: 2,
@@ -82,7 +82,7 @@ export const defaultFinancialInput: FinancialInput = {
   // Fuel
   fuelPricePerLiter: 2.13,
   fuelEfficiencyL100km: 9.5,
-  avgDistancePerVehiclePerDay: 180,
+  avgDistancePerVehiclePerDay: 220,
 
   // Operational metrics
   failedDeliveryRate: 5.5,

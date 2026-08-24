@@ -67,7 +67,7 @@ describe('operator-core repair', () => {
 
   it('shared operation date propagates to stops/dispatch/close/reports/summary', () => {
     render(<BusinessModelApp />);
-    fireEvent.click(screen.getByRole('button', { name: /Stops|الوقفات/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Stops|المحطات/i }));
     const stopsDate = document.querySelector('input[name="operation-date"]') as HTMLInputElement;
     expect(stopsDate).toBeTruthy();
     const newDate = '2026-08-20';
@@ -167,9 +167,11 @@ describe('operator-core repair', () => {
 
   it('operational Excel uses the exact Arabic and English labels consumed by the writer', () => {
     const arabic = getOperationalExcelLabels('ar');
-    expect(arabic.sheets.runs).toBe('مسارات السائقين');
+    expect(arabic.sheets.runs).toBe('جولات السائقين');
     expect(arabic.headers.company).toContain('قيد الانتظار');
-    expect(arabic.headers.company).toContain('مبلغ معلق');
+    expect(arabic.headers.company).toContain('مبلغ معلّق');
+    expect(arabic.headers.company).toContain('التحصيل المتوقع');
+    expect(arabic.headers.stops).toContain('المحطة');
     expect(arabic.status('reconciled')).toBe('مطابق');
     expect(arabic.stopStatus('delivered')).toBe('تم التوصيل');
     expect(arabic.reason('customerUnavailable')).toBe('العميل غير متاح');
