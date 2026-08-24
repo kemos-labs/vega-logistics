@@ -84,8 +84,13 @@ Requirements: EN/AR; 375px mobile no overflow; honest empty/local-only states; e
 - [x] KPI protection: drafts excluded from definitive metrics; tower prompts unfinished drafts (draft indicator on close screen; tower action lands with R6 polish)
 **Accept:** invariant tests incl. impossible dates/timezones; blocked-unresolved-difference UI test.
 
-### R5 — Compliance-lite data readiness
-Short Address format validation; National Address completeness flag; document-expiry reminders where justified; configurable-VAT receipt drafts (default 15 now [REG-backed]) + Phase-1-shaped QR payload; disclaimers everywhere; PDPL minimization labels.
+### R5 — Compliance-lite data readiness *(code shipped this cycle — owner live review pending)*
+- [x] Primary sources rechecked live: SPL short-address page (4 letters + 4 digits) [PRIMARY]; ZATCA QR guide PDF (TLV tags 1–5, base64, UTF-8) [PRIMARY]
+- [x] `src/lib/compliance.ts` pure domain: format-only Short Address validator; National Address completeness flag; draft receipt builder (configurable `vatRate`, default 15 [REG]); Phase-1-shaped QR TLV payload reproducing the official ZATCA worked example byte-for-byte (15 tests)
+- [x] Compliance-lite workspace view (`ComplianceLiteView.tsx`) wired into nav («جاهزية البيانات / Compliance-lite»); EN/AR locale parity; Arabic copy native (no calque), Latin digits; disclaimers on every surface
+- [x] R8 lint-time grep test: prohibited claim strings absent from both locale trees (7 UI tests)
+- [x] Rust migration evaluated and REJECTED (see §5.5 note below Future evaluation)
+Short Address format validation; National Address completeness flag; document-expiry reminders where justified *(deferred within R5 — no expiry-bearing document class recorded yet)*; configurable-VAT receipt drafts (default 15 now [REG-backed]) + Phase-1-shaped QR payload; disclaimers everywhere; PDPL minimization labels.
 **Accept:** no prohibited claim strings (lint-time locale grep); validator tests; EN/AR receipt render.
 
 ### R6 — Operational analytics
@@ -100,6 +105,9 @@ Supabase free tier behind `NEXT_PUBLIC_SYNC=supabase`: magic-link auth, RLS owne
 
 ### Future evaluation — do NOT implement until justified
 Traccar telemetry; maintenance work orders; customer tracking portal; WhatsApp Business outbound (pricing NOT RESEARCHED); vehicle inspections; AI assistant; predictive maintenance; carbon reporting; full ZATCA Phase-2 integration; multi-company tenancy. Seams stay clean; none distract from daily operations.
+
+### Rejected alternative — Rust migration (decided this cycle)
+"Run the app in Rust" reviewed against all options; **full rewrite rejected**. (1) Rewrite of TS/React UI+logic: discards 325 passing tests, backup v2/v3 migrations, and RTL/parity work for zero operator outcome — fails simplicity budget. (2) Domain logic → WASM: no measurable gain at 5–50 vehicle scale; adds a second toolchain and native-binary fragility class (NTFS mount hazard). (3) Rust backend server: contradicts local-first / zero-infrastructure thesis pre-R8. (4) **Tauri desktop shell** (Rust webview host around existing app, zero code rewrite): the only acceptable path *if* true offline-desktop distribution is ever needed — deferred as a post-R8 candidate requiring explicit owner approval before planning.
 
 ## 6. Free-stack decisions (locked)
 

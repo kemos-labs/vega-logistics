@@ -792,7 +792,8 @@
       "close": "Evening close",
       "groupDaily": "Daily operations",
       "groupSetup": "Setup & planning",
-      "groupExceptions": "Exceptions"
+      "groupExceptions": "Exceptions",
+      "compliance": "Compliance-lite"
     },
     "brand": {
       "subtitle": "Business model"
@@ -1731,6 +1732,42 @@
       "noExportDraft": "No definitive export while draft.",
       "statusHeader": "Status",
       "status": "Status"
+    },
+    "compliance": {
+      "tag": "Data readiness",
+      "title": "Compliance-lite data readiness",
+      "desc": "Format checks and draft data only — recorded locally, nothing is verified with any authority.",
+      "disclaimer": "تنسيق فقط / Format check only — these tools check data shapes; they never verify addresses or register anything with SPL, ZATCA or TGA.",
+      "addressTitle": "National Address fields (completeness flag)",
+      "addressComplete": "All address fields present",
+      "addressIncomplete": "Missing: {{fields}}",
+      "shortOk": "Short Address format OK",
+      "shortBad": "Short Address format invalid",
+      "formatOnly": "format check only / تنسيق فقط",
+      "receiptTitle": "Draft receipt data (simplified tax invoice shape)",
+      "fields": {
+        "buildingNumber": "Building number",
+        "street": "Street",
+        "district": "District",
+        "city": "City",
+        "postalCode": "Postal code",
+        "shortAddress": "Short Address (4 letters + 4 digits)",
+        "issueDate": "Issue date (YYYY-MM-DD)",
+        "supplierName": "Supplier name",
+        "supplierAddress": "Supplier address",
+        "vatNumber": "VAT registration number",
+        "description": "Description of goods/services",
+        "totalWithVatSar": "Total incl. VAT (SAR)"
+      },
+      "fieldError": "{{field}} is missing or invalid",
+      "rIssueDate": "Issue date",
+      "rNet": "Net amount",
+      "rVat": "VAT {{rate}}%",
+      "rTotal": "Total incl. VAT",
+      "qrLabel": "QR payload (Phase-1-shaped TLV, base64) — draft only"
+    },
+    "receipt": {
+      "draftDisclaimer": "Draft invoice data for internal records — not an issued tax document, not reported to ZATCA, no compliance representation."
     }
   }
 }

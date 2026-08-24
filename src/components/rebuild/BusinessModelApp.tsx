@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useMemo, useRef, useState , useEffect} from 'react';
-import { ClipboardCheck, Route, MapPin, LayoutDashboard, AlertTriangle, BarChart3, Building2, CalendarDays, Check, CircleDollarSign, ClipboardList, Download, FileText, Languages, Layers, Menu, Plus, RotateCcw, Search, Settings2, Trash2, Truck, Upload, X } from 'lucide-react';
+import { ClipboardCheck, Route, MapPin, LayoutDashboard, AlertTriangle, BadgeCheck, BarChart3, Building2, CalendarDays, Check, CircleDollarSign, ClipboardList, Download, FileText, Languages, Layers, Menu, Plus, RotateCcw, Search, Settings2, Trash2, Truck, Upload, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import '@/lib/i18n';
 import { useSimulatedData } from '@/hooks/useSimulatedData';
@@ -25,9 +25,10 @@ import RecoveryBoard from '@/components/rebuild/RecoveryBoard';
 import ServiceWorkerRegistrar from '@/components/rebuild/ServiceWorkerRegistrar';
 import { buildWeeklyRecoveryTrend, validateRecoveryEntries, type RecoveryEntry, type RecoverySummary } from '@/lib/recoveryBoard';
 import { ReportsView } from '@/components/rebuild/ReportsView';
+import { ComplianceLiteView } from '@/components/rebuild/ComplianceLiteView';
 import { resolveTelematicsProvider } from '@/lib/platform/telematics';
 
-type View = 'tower' | 'stops' | 'dispatch' | 'close' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios';
+type View = 'tower' | 'stops' | 'dispatch' | 'close' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios' | 'compliance';
 type RecoveryOpenRow = { id: string; createdAt: string; shipments: number; owner: string; status: 'pending' | 'recovered' | 'written_off' };
 import { applyBackupMerge, applyLegacyScopedRestore, buildBackup, commitBundle, parseBackup, replaceWithBackup, STORAGE_KEYS, type BackupFileV2, type FollowUpAction, type PersistResult } from '@/lib/backup';
 import { BACKUP_REMINDER_DAYS, BACKUP_REMINDER_KEY, dismissForToday, evaluateBackupReminder, isDismissedToday, markBackedUpNow } from '@/lib/backupReminder';
@@ -152,6 +153,7 @@ export default function BusinessModelApp() {
     { id: 'recovery' as const, label: t('businessModel.nav.recovery'), icon: RotateCcw },
     { id: 'actions' as const, label: t('businessModel.nav.actions'), icon: ClipboardList },
     { id: 'risks' as const, label: t('businessModel.nav.risks'), icon: AlertTriangle },
+    { id: 'compliance' as const, label: t('businessModel.nav.compliance'), icon: BadgeCheck },
   ];
 
   const switchLanguage = () => {
@@ -264,7 +266,7 @@ export default function BusinessModelApp() {
       <div className="bm-brand"><div><strong>VEGA</strong><span>{t('businessModel.brand.subtitle')}</span></div><button aria-label={t('businessModel.a11y.closeNavigation')} onClick={() => setMobileNav(false)}><X size={18} /></button></div>
       <nav aria-label={t('businessModel.a11y.sectionsNav')}>
         <div className="bm-nav-group-label">{t('businessModel.nav.groupDaily', { defaultValue: 'Daily operations' })}</div>
-        {NAV.filter(i => ['tower','stops','dispatch','close','daily','summary'].includes(i.id)).map(item => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => selectView(item.id)}><Icon size={16} /><span>{item.label}</span></button>; })}
+        {NAV.filter(i => ['tower','stops','dispatch','close','daily','summary','compliance'].includes(i.id)).map(item => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => selectView(item.id)}><Icon size={16} /><span>{item.label}</span></button>; })}
         <div className="bm-nav-group-label">{t('businessModel.nav.groupSetup', { defaultValue: 'Setup & planning' })}</div>
         {NAV.filter(i => ['fleet','customers','costs','scenarios'].includes(i.id)).map(item => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => selectView(item.id)}><Icon size={16} /><span>{item.label}</span></button>; })}
         <div className="bm-nav-group-label">{t('businessModel.nav.groupExceptions', { defaultValue: 'Exceptions' })}</div>
@@ -274,7 +276,7 @@ export default function BusinessModelApp() {
     </aside>
 
     <div className="bm-shell">
-      <header className="bm-top"><button className="bm-menu" aria-label={t('businessModel.a11y.openNavigation')} onClick={() => setMobileNav(true)}><Menu size={19} /></button><div><strong>{NAV.find(item => item.id === view)?.label}</strong><span>{view === 'tower' || view === 'stops' || view === 'dispatch' || view === 'close' || view === 'daily' || view === 'summary' ? t('businessModel.header.subtitleDaily', {defaultValue: 'Daily operations — recorded truth'}) : view === 'fleet' || view === 'customers' || view === 'costs' || view === 'scenarios' ? t('businessModel.header.subtitlePlanning', {defaultValue: 'Planning assumptions — not recorded'}) : t('businessModel.header.subtitle')}</span></div><div className="bm-search"><Search size={14}/><input aria-label={t('businessModel.search.placeholder')} placeholder={t('businessModel.search.placeholder')} value={search} onChange={event=>setSearch(event.target.value)}/>{search&&<div className="bm-search-results">{NAV.filter(item=>item.label.toLowerCase().includes(search.toLowerCase())).map(item=><button key={item.id} onClick={()=>{selectView(item.id);setSearch('');}}>{item.label}</button>)}{input.drivers.filter(driver=>driver.fullName.toLowerCase().includes(search.toLowerCase())).map(driver=><button key={driver.id} onClick={()=>{selectView('fleet');setSearch('');}}>{t('businessModel.search.driverResult',{name:driver.fullName})}</button>)}{input.providers.filter(provider=>provider.name.toLowerCase().includes(search.toLowerCase())).map(provider=><button key={provider.id} onClick={()=>{selectView('customers');setSearch('');}}>{t('businessModel.search.customerResult',{name:provider.name})}</button>)}</div>}</div><button className="bm-lang" onClick={switchLanguage} aria-label={lng === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}><Languages size={14}/>{lng === 'ar' ? 'English' : 'العربية'}</button><div className="bm-status"><i /> {t('businessModel.status.localModel')}</div></header>
+      <header className="bm-top"><button className="bm-menu" aria-label={t('businessModel.a11y.openNavigation')} onClick={() => setMobileNav(true)}><Menu size={19} /></button><div><strong>{NAV.find(item => item.id === view)?.label}</strong><span>{view === 'tower' || view === 'stops' || view === 'dispatch' || view === 'close' || view === 'daily' || view === 'summary' || view === 'compliance' ? t('businessModel.header.subtitleDaily', {defaultValue: 'Daily operations — recorded truth'}) : view === 'fleet' || view === 'customers' || view === 'costs' || view === 'scenarios' ? t('businessModel.header.subtitlePlanning', {defaultValue: 'Planning assumptions — not recorded'}) : t('businessModel.header.subtitle')}</span></div><div className="bm-search"><Search size={14}/><input aria-label={t('businessModel.search.placeholder')} placeholder={t('businessModel.search.placeholder')} value={search} onChange={event=>setSearch(event.target.value)}/>{search&&<div className="bm-search-results">{NAV.filter(item=>item.label.toLowerCase().includes(search.toLowerCase())).map(item=><button key={item.id} onClick={()=>{selectView(item.id);setSearch('');}}>{item.label}</button>)}{input.drivers.filter(driver=>driver.fullName.toLowerCase().includes(search.toLowerCase())).map(driver=><button key={driver.id} onClick={()=>{selectView('fleet');setSearch('');}}>{t('businessModel.search.driverResult',{name:driver.fullName})}</button>)}{input.providers.filter(provider=>provider.name.toLowerCase().includes(search.toLowerCase())).map(provider=><button key={provider.id} onClick={()=>{selectView('customers');setSearch('');}}>{t('businessModel.search.customerResult',{name:provider.name})}</button>)}</div>}</div><button className="bm-lang" onClick={switchLanguage} aria-label={lng === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}><Languages size={14}/>{lng === 'ar' ? 'English' : 'العربية'}</button><div className="bm-status"><i /> {t('businessModel.status.localModel')}</div></header>
         {hydrated && backupReminder.visible && !bannerDismissed && (
           <BackupBanner
             reason={backupReminder.reason}
@@ -312,6 +314,7 @@ export default function BusinessModelApp() {
         </EditableTable><button className="bm-add" onClick={addProvider}><Plus size={15}/> {t('businessModel.common.addCustomer')}</button></Page>}
         {view === 'costs' && <Page title={t('businessModel.costs.title')} description={t('businessModel.costs.desc')}><CostSections input={input} output={output} setNumber={setNumber} changeVehicle={changeVehicle} /></Page>}
         {view === 'daily' && <ReportsView operationDate={operationDate} onOperationDateChange={setOperationDate} stops={stops} dailyRecords={dailyRecords} onGotoClose={() => selectView('close')} />}
+        {view === 'compliance' && <Page title={t('businessModel.compliance.title')} description={t('businessModel.compliance.desc')}><ComplianceLiteView /></Page>}
         {view === 'risks' && <Page title={t('businessModel.risks.title')} description={t('businessModel.risks.desc')}><div className="bm-risk-table"><div className="bm-risk-head"><span>{t('businessModel.risks.thStatus')}</span><span>{t('businessModel.risks.thRisk')}</span><span>{t('businessModel.risks.thValue')}</span><span>{t('businessModel.risks.thReason')}</span></div>{risks.map(risk => <div className="bm-risk-row" key={risk.titleKey}><span className={risk.level === 'controlled' ? 'ok' : 'bad'}>{levelLabel[risk.level]}</span><strong>{t(`businessModel.risks.${risk.titleKey}`)}</strong><span>{risk.value}</span><p>{risk.detail}</p></div>)}</div></Page>}
         {view === 'scenarios' && <ScenarioView input={input} output={output} scenarios={scenarios} setScenarios={setScenarios} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} actions={actions} setActions={setActions} stops={stops} setStops={setStops} applyFinancialInput={applyFinancialInput} onBackedUp={() => { const iso = new Date().toISOString(); markBackedUpNow(); setLastBackupAt(iso); bumpReminderClock(); }} />}
         {view === 'recovery' && <Page title={t('businessModel.recovery.recovery')} description={t('businessModel.recovery.recoveryDesc')}><RecoveryBoard entries={recoveryEntries} setEntries={setRecoveryEntries} /></Page>}
