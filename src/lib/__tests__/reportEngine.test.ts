@@ -182,7 +182,7 @@ describe('report engine — miss reasons & narrative facts', () => {
     };
     const withMisses: Array<{ key: NarrativeKey; params: Record<string, string | number> }> = buildNarrativeFacts({
       ...base,
-      totals: fullTotalsShared({ missed: 12, attempts: 212, missRate: 5.7 }),
+      totals: fullTotalsShared({ missed: 12, attempts: 212, missRate: 5.7, delivered: 90, targetAchievedPercent: 90 }),
       topReason: { key: 'noDriver', count: 7 },
     });
     expect(withMisses.map(fact => fact.key)).toEqual(['lead', 'targetGap', 'missReasons', 'fuelLine', 'crewLine']);

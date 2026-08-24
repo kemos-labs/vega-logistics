@@ -4,25 +4,25 @@ import { defaultFinancialInput } from '../mockData';
 import { buildProjection, calculateDailyMetrics, type DailyRecord } from '../operationsReporting';
 
 describe('company baseline', () => {
-  it('models 200 shipments per day with one driver for each of 4 cars', () => {
+  it('models 100 shipments per day (25 per vehicle — field-realistic) with one driver for each of 4 cars', () => {
     const result = calculateFinancials(structuredClone(defaultFinancialInput));
     const cars = defaultFinancialInput.vehicleClasses.reduce((sum, row) => sum + row.quantity, 0);
 
     expect(cars).toBe(4);
     expect(defaultFinancialInput.companyDriverCount).toBe(4);
     expect(defaultFinancialInput.drivers).toHaveLength(4);
-    expect(result.totalDailyShipments).toBe(200);
-    expect(result.totalMonthlyShipments).toBe(5_200);
+    expect(result.totalDailyShipments).toBe(100);
+    expect(result.totalMonthlyShipments).toBe(2_600);
   });
 
   it('uses only the supplied baseline costs with no hidden insurance or software charges', () => {
     const result = calculateFinancials(structuredClone(defaultFinancialInput));
 
-    expect(result.fuelMonthlyCost).toBeCloseTo(3_787.992, 3);
-    expect(result.costBreakdown.people).toBe(20_000);
+    expect(result.fuelMonthlyCost).toBeCloseTo(4_629.768, 3);
+    expect(result.costBreakdown.people).toBe(24_000);
     expect(result.costBreakdown.facilities).toBe(7_500);
     expect(result.costBreakdown.other).toBe(0);
-    expect(result.totalCost).toBeCloseTo(31_287.992, 3);
+    expect(result.totalCost).toBeCloseTo(36_129.768, 3);
   });
 
   it('calculates a recorded daily report without counting fuel twice', () => {
