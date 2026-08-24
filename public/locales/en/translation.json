@@ -789,7 +789,11 @@
       "tower": "Control Tower",
       "stops": "Stops",
       "dispatch": "Dispatch",
-      "close": "Evening close"
+      "close": "Evening close",
+      "today": "Today",
+      "operations": "Operations",
+      "reports": "Reports",
+      "more": "More"
     },
     "brand": {
       "subtitle": "Business model"
@@ -1646,6 +1650,140 @@
       "codOutstanding": "Outstanding with crew",
       "codUncollected": "Not yet collected",
       "codOverRemitted": "Over-remitted credit"
+    },
+    "today": {
+      "title": "Today’s Operations",
+      "subtitle": "Everything you need to run today — in one place",
+      "selectedDate": "Operation date",
+      "badges": {
+        "localOnly": "Saved in this browser only — no sync",
+        "draft": "Draft — excluded from definitive reports",
+        "reconciled": "Reconciled",
+        "legacy": "Previously recorded",
+        "open": "Not closed yet"
+      },
+      "lastSaved": "Last saved",
+      "yesterday": {
+        "missing": "Yesterday {{date}} has no reconciled close",
+        "draft": "Yesterday {{date}} is still draft",
+        "open": "Yesterday {{date}} is not closed",
+        "go": "Review yesterday",
+        "legacy": "Yesterday {{date}} recorded (legacy) — not a reconciled close"
+      },
+      "primary": {
+        "addStops": "Add stops for today",
+        "addStopsDesc": "No stops planned yet — start with today’s plan.",
+        "reviewAddress": "Review {{count}} stop(s) missing address notes",
+        "reviewAddressDesc": "Some stops are missing address notes.",
+        "dispatch": "Dispatch {{count}} unassigned stops",
+        "dispatchDesc": "Assign stops to drivers and order each run.",
+        "closeBlockers": "Resolve close blockers",
+        "closeBlockersDesc": "Shipment difference or missing reasons need attention.",
+        "close": "Close today",
+        "closeDesc": "Finish today’s close and reconciliation.",
+        "closeCod": "Reconcile COD",
+        "closeCodDesc": "COD outstanding or over-remitted needs attention.",
+        "report": "View daily report",
+        "reportDesc": "Today is reconciled — review the report."
+      },
+      "steps": {
+        "plan": "Plan",
+        "dispatch": "Dispatch",
+        "close": "Close",
+        "report": "Report"
+      },
+      "stepStatus": {
+        "complete": "Done",
+        "in-progress": "In progress",
+        "not-started": "Not started",
+        "legacy": "Recorded",
+        "blocked": "Needs attention"
+      },
+      "railAria": "Plan Dispatch Close Report workflow",
+      "tiles": {
+        "planned": "Planned stops",
+        "assigned": "Assigned",
+        "delivered": "Delivered",
+        "codOutstanding": "COD outstanding",
+        "needsAction": "Needs action"
+      },
+      "provenance": {
+        "recorded": "recorded",
+        "derived": "derived",
+        "reconciled": "reconciled",
+        "manual": "adjusted",
+        "notRecorded": "not recorded"
+      },
+      "loadedStrip": "Planned {{planned}} · Loaded {{loaded}}",
+      "shipmentDiff": "{{sign}}{{diff}} difference",
+      "balanced": "balanced",
+      "unbalanced": "unbalanced",
+      "exceptions": {
+        "title": "Needs attention",
+        "none": "No open exceptions for this date.",
+        "noneReconciled": "All clear — day is reconciled.",
+        "missing-address": "{{count}} missing address notes",
+        "missing-phone": "{{count}} missing phone (optional)",
+        "unassigned": "{{count}} unassigned stops",
+        "missing-reason": "{{count}} missing failure reasons",
+        "shipment-gap": "Shipment gap {{count}}",
+        "cod-uncollected": "{{count}} SAR uncollected",
+        "cod-overremitted": "{{count}} SAR over-remitted — cash remitted in excess",
+        "draft-close": "Draft close — not in definitive reports",
+        "pending-recovery": "{{count}} pending recoveries"
+      },
+      "runs": {
+        "title": "Driver runs",
+        "openDispatch": "Open dispatch",
+        "empty": "No runs assigned yet.",
+        "stops": "{{count}} stops",
+        "cod": "COD {{amount}}",
+        "missingAddress": "{{count}} missing address notes"
+      },
+      "empty": {
+        "title": "Plan today’s stops first",
+        "desc": "Add stops or import them to start the day."
+      },
+      "complete": {
+        "title": "Close reconciled ✓",
+        "desc": "Reconciled report is ready.",
+        "withWarnings": "Day is reconciled — optional warnings still need review.",
+        "withRemaining": "Close is reconciled; remaining follow-ups still need review."
+      },
+      "exportBlocked": "Draft — excluded from definitive reports until reconciled. Reconcile the close to enable exports."
+    },
+    "operations": {
+      "desc": "Plan, dispatch, close and recover — the daily operational loop."
+    },
+    "reports": {
+      "desc": "Daily and summary reports from definitive recorded data — reconciled or legacy."
+    },
+    "more": {
+      "desc": "Fleet, customers, costs, scenarios, risks and follow-up."
+    },
+    "landing": {
+      "stops": "Create and review stops for the selected operation date.",
+      "dispatch": "Assign and order driver runs for the day.",
+      "close": "Reconcile shipments, COD and outcomes.",
+      "recovery": "Track and close pending recoveries.",
+      "daily": "Record and review the daily report for the selected date.",
+      "summary": "Monthly overview and model health.",
+      "fleet": "Vehicles and drivers — one vehicle equals one driver.",
+      "customers": "Customer contracts and pricing.",
+      "costs": "Company cost assumptions.",
+      "scenarios": "What-if scenarios and backup/restore.",
+      "risks": "Operational risk flags.",
+      "actions": "Follow-up actions and owners."
+    },
+    "a11y": {
+      "skipToMain": "Skip to main content",
+      "openNavigation": "Open navigation",
+      "closeNavigation": "Close navigation",
+      "sectionsNav": "Primary sections",
+      "mobileNav": "Primary navigation — mobile"
+    },
+    "header": {
+      "subtitle": "Local-first operations"
     }
   }
 }

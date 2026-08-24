@@ -37,13 +37,30 @@ describe('UI stress', () => {
     render(<BusinessModelApp />);
     console.log(`big-model mount: ${(performance.now() - t0).toFixed(0)}ms`);
 
-    // Navigate every section; each must render its heading without crashing.
-    const labels = ['Cars & drivers', 'Customers & revenue', 'Company costs', 'Daily report', 'Risks'];
+    // Navigate every section; exercise all Operations/Reports/More destinations that replaced the flat nav.
+    const nav = (label: string) => {
+      const esc = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const direct = screen.queryAllByRole('button', { name: new RegExp(esc, 'i') })[0];
+      if (direct) return direct;
+      const groupFor: Record<string, string> = {
+        'Stops': 'Operations', 'Dispatch': 'Operations', 'Evening close': 'Operations', 'Recovery board': 'Operations',
+        'Daily report': 'Reports', 'Summary': 'Reports',
+        'Cars & drivers': 'More', 'Customers & revenue': 'More', 'Company costs': 'More', 'Scenarios': 'More', 'Risks': 'More', 'Follow-up': 'More',
+      };
+      const primary = groupFor[label];
+      if (primary) {
+        const pBtn = screen.getByTestId(`primary-nav-${primary.toLowerCase()}`);
+        act(() => { (pBtn as HTMLElement).click(); });
+        const sub = screen.queryAllByRole('button', { name: new RegExp(esc, 'i') })[0];
+        if (sub) return sub;
+      }
+      return screen.getByText(label) as HTMLElement;
+    };
+    const labels = ['Stops', 'Dispatch', 'Evening close', 'Recovery board', 'Daily report', 'Summary', 'Cars & drivers', 'Customers & revenue', 'Company costs', 'Scenarios', 'Risks', 'Follow-up'];
     for (const label of labels) {
       const t1 = performance.now();
-      const btn = screen.getAllByRole('button', { name: new RegExp(label.replace('&', '&'), 'i') })[0]
-        ?? screen.getByText(label, { selector: 'button span, button' });
-      act(() => { btn.click(); });
+      const btn = nav(label);
+      act(() => { (btn as HTMLElement).click(); });
       console.log(`  view "${label}": ${(performance.now() - t1).toFixed(0)}ms`);
     }
     expect(document.body.textContent).toBeTruthy();
@@ -57,7 +74,14 @@ describe('UI stress', () => {
       render(<BusinessModelApp />);
       expect(performance.now() - t0).toBeLessThan(1500);
       // Interact — writes will fail silently (warned), UI must keep working
-      act(() => { screen.getByText('Risks').click(); });
+      act(() => {
+        const more = screen.getByTestId('primary-nav-more');
+        (more as HTMLElement).click();
+      });
+      act(() => {
+        const risksBtn = screen.getAllByRole('button', { name: /Risks/i })[0];
+        risksBtn.click();
+      });
       expect(screen.getByText(/rules based on your entered numbers/i)).toBeTruthy();
     } finally {
       Storage.prototype.setItem = setItem;

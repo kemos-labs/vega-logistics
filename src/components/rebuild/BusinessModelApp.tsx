@@ -17,6 +17,7 @@ import { ControlTowerView } from '@/components/rebuild/ControlTower';
 import { StopPlanning } from '@/components/rebuild/StopPlanning';
 import { DispatchBoardView } from '@/components/rebuild/DispatchBoard';
 import { EveningCloseView } from '@/components/rebuild/EveningClose';
+import { TodayOperations } from '@/components/rebuild/TodayOperations';
 import { buildReportModel, type ReportKind, type ReportModel } from '@/lib/reportEngine';
 import { exportBusinessModelExcel, exportDailyReportPdf } from '@/lib/reportExport';
 import ProReport, { buildReportLabels } from '@/components/rebuild/ProReport';
@@ -25,7 +26,8 @@ import ServiceWorkerRegistrar from '@/components/rebuild/ServiceWorkerRegistrar'
 import { buildWeeklyRecoveryTrend, validateRecoveryEntries, type RecoveryEntry, type RecoverySummary } from '@/lib/recoveryBoard';
 import { resolveTelematicsProvider } from '@/lib/platform/telematics';
 
-type View = 'tower' | 'stops' | 'dispatch' | 'close' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios';
+type View = 'today' | 'tower' | 'stops' | 'dispatch' | 'close' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios' | 'operations' | 'reports' | 'more';
+type PrimaryId = 'today' | 'operations' | 'reports' | 'more';
 type RecoveryOpenRow = { id: string; createdAt: string; shipments: number; owner: string; status: 'pending' | 'recovered' | 'written_off' };
 import { applyBackupMerge, applyLegacyScopedRestore, buildBackup, commitBundle, parseBackup, replaceWithBackup, STORAGE_KEYS, type BackupFileV2, type FollowUpAction, type PersistResult } from '@/lib/backup';
 import { BACKUP_REMINDER_DAYS, BACKUP_REMINDER_KEY, dismissForToday, evaluateBackupReminder, isDismissedToday, markBackedUpNow } from '@/lib/backupReminder';
@@ -59,7 +61,8 @@ export default function BusinessModelApp() {
   const locale = localeOf(i18n.language);
   const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
   const { financialInput: input, financialOutput: output, updateFinancialInput, applyFinancialInput, setVehicleClasses, setProviders, setDrivers, addVehicleClass, addProvider } = useSimulatedData();
-  const [view, setView] = useState<View>('tower');
+  const [view, setView] = useState<View>('today');
+  const [selectedDate, setSelectedDate] = useState<string>(() => toDateString(new Date()));
   const [mobileNav, setMobileNav] = useState(false);
   const [search, setSearch] = useState('');
   const [rawDailyRecords, setDailyRecords] = useLocalStorage<Record<string, DailyRecord>>('vega-daily-reports-v2', {});
@@ -125,7 +128,15 @@ export default function BusinessModelApp() {
   const [reportLang, setReportLang] = useState<'en' | 'ar' | 'both'>(lng);
   const [proModel, setProModel] = useState<ReportModel | null>(null);
 
+  const PRIMARY_NAV = [
+    { id: 'today' as const, label: t('businessModel.nav.today'), icon: LayoutDashboard },
+    { id: 'operations' as const, label: t('businessModel.nav.operations'), icon: Route },
+    { id: 'reports' as const, label: t('businessModel.nav.reports'), icon: BarChart3 },
+    { id: 'more' as const, label: t('businessModel.nav.more'), icon: Settings2 },
+  ] as const;
+  // legacy flat NAV for search indexing only
   const NAV = [
+    { id: 'today' as const, label: t('businessModel.nav.today'), icon: LayoutDashboard },
     { id: 'tower' as const, label: t('businessModel.nav.tower'), icon: LayoutDashboard },
     { id: 'stops' as const, label: t('businessModel.nav.stops'), icon: MapPin },
     { id: 'dispatch' as const, label: t('businessModel.nav.dispatch'), icon: Route },
@@ -140,6 +151,31 @@ export default function BusinessModelApp() {
     { id: 'recovery' as const, label: t('businessModel.nav.recovery'), icon: RotateCcw },
     { id: 'actions' as const, label: t('businessModel.nav.actions'), icon: ClipboardList },
   ];
+  const OPS_SUB = [
+    { id: 'stops' as const, label: t('businessModel.nav.stops') },
+    { id: 'dispatch' as const, label: t('businessModel.nav.dispatch') },
+    { id: 'close' as const, label: t('businessModel.nav.close') },
+    { id: 'recovery' as const, label: t('businessModel.nav.recovery') },
+  ];
+  const REPORTS_SUB = [
+    { id: 'daily' as const, label: t('businessModel.nav.daily') },
+    { id: 'summary' as const, label: t('businessModel.nav.summary') },
+  ];
+  const MORE_SUB = [
+    { id: 'fleet' as const, label: t('businessModel.nav.fleet') },
+    { id: 'customers' as const, label: t('businessModel.nav.customers') },
+    { id: 'costs' as const, label: t('businessModel.nav.costs') },
+    { id: 'scenarios' as const, label: t('businessModel.nav.scenarios') },
+    { id: 'risks' as const, label: t('businessModel.nav.risks') },
+    { id: 'actions' as const, label: t('businessModel.nav.actions') },
+  ];
+  const primaryForView = (v: View): PrimaryId => {
+    if (v === 'today') return 'today';
+    if (v === 'operations' || ['stops','dispatch','close','recovery'].includes(v)) return 'operations';
+    if (v === 'reports' || ['daily','summary','tower'].includes(v)) return 'reports';
+    return 'more';
+  };
+  const activePrimary: PrimaryId = primaryForView(view);
 
   const switchLanguage = () => {
     const next = lng === 'ar' ? 'en' : 'ar';
@@ -212,6 +248,22 @@ export default function BusinessModelApp() {
     updateFinancialInput({ companyDriverCount: target });
   };
   const selectView = (next: View) => { setView(next === 'drivers' ? 'fleet' : next); setMobileNav(false); };
+  const selectPrimary = (pid: PrimaryId) => {
+    if (pid === 'today') setView('today');
+    else if (pid === 'operations') setView('operations');
+    else if (pid === 'reports') setView('reports');
+    else setView('more');
+    setMobileNav(false);
+  };
+  const handleTodayNavigate = (target: string, date?: string) => {
+    if (date) setSelectedDate(date);
+    if (target === 'stops') setView('stops');
+    else if (target === 'dispatch') setView('dispatch');
+    else if (target === 'close') setView('close');
+    else if (target === 'daily') setView('daily');
+    else if (target === 'recovery') setView('recovery');
+    else setView(target as View);
+  };
   const goToBackupSection = () => {
     selectView('scenarios');
     requestAnimationFrame(() => {
@@ -225,12 +277,15 @@ export default function BusinessModelApp() {
     {mobileNav && <button className="bm-scrim" aria-label={t('businessModel.a11y.closeNavigation')} onClick={() => setMobileNav(false)} />}
     <aside className={`bm-sidebar ${mobileNav ? 'open' : ''}`}>
       <div className="bm-brand"><div><strong>VEGA</strong><span>{t('businessModel.brand.subtitle')}</span></div><button aria-label={t('businessModel.a11y.closeNavigation')} onClick={() => setMobileNav(false)}><X size={18} /></button></div>
-      <nav aria-label={t('businessModel.a11y.sectionsNav')}>{NAV.map(item => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => selectView(item.id)}><Icon size={16} /><span>{item.label}</span>{item.id === 'risks' && <em>{risks.filter(r => r.level !== 'controlled').length}</em>}{item.id === 'recovery' && pendingRecoveries > 0 && <em>{pendingRecoveries}</em>}</button>; })}</nav>
+      <nav className="bm-primary-nav" aria-label={t('businessModel.a11y.sectionsNav')}>{PRIMARY_NAV.map(item => { const Icon = item.icon; const isActive = activePrimary === item.id; return <button key={item.id} className={isActive ? 'active' : ''} aria-current={isActive ? 'page' : undefined} onClick={() => selectPrimary(item.id as PrimaryId)} data-testid={`primary-nav-${item.id}`}><Icon size={16} /><span>{item.label}</span>{item.id === 'more' && risks.filter(r=>r.level!=='controlled').length>0 && <em>{risks.filter(r=>r.level!=='controlled').length}</em>}</button>; })}</nav>
+      {activePrimary === 'operations' && <nav className="bm-subgroup-nav" aria-label={t('businessModel.nav.operations')} data-testid="subgroup-operations">{OPS_SUB.map(item => <button key={item.id} className={view===item.id?'active':''} aria-current={view===item.id?'page':undefined} onClick={()=>selectView(item.id)}>{item.label}{item.id==='recovery' && pendingRecoveries>0 && <em>{pendingRecoveries}</em>}</button>)}</nav>}
+      {activePrimary === 'reports' && <nav className="bm-subgroup-nav" aria-label={t('businessModel.nav.reports')} data-testid="subgroup-reports">{REPORTS_SUB.map(item => <button key={item.id} className={view===item.id?'active':''} aria-current={view===item.id?'page':undefined} onClick={()=>selectView(item.id)}>{item.label}</button>)}</nav>}
+      {activePrimary === 'more' && <nav className="bm-subgroup-nav" aria-label={t('businessModel.nav.more')} data-testid="subgroup-more">{MORE_SUB.map(item => <button key={item.id} className={view===item.id?'active':''} aria-current={view===item.id?'page':undefined} onClick={()=>selectView(item.id)}>{item.label}{item.id==='risks' && risks.filter(r=>r.level!=='controlled').length>0 && <em>{risks.filter(r=>r.level!=='controlled').length}</em>}</button>)}</nav>}
       <div className="bm-source"><span>{t('businessModel.sidebar.savedLocal')}</span><small>{t(telematicsProvider.isLive ? 'businessModel.sidebar.noConnections' : 'businessModel.sidebar.telemetryDemo')}</small></div>
     </aside>
 
     <div className="bm-shell">
-      <header className="bm-top"><button className="bm-menu" aria-label={t('businessModel.a11y.openNavigation')} onClick={() => setMobileNav(true)}><Menu size={19} /></button><div><strong>{NAV.find(item => item.id === view)?.label}</strong><span>{t('businessModel.header.subtitle')}</span></div><div className="bm-search"><Search size={14}/><input aria-label={t('businessModel.search.placeholder')} placeholder={t('businessModel.search.placeholder')} value={search} onChange={event=>setSearch(event.target.value)}/>{search&&<div className="bm-search-results">{NAV.filter(item=>item.label.toLowerCase().includes(search.toLowerCase())).map(item=><button key={item.id} onClick={()=>{selectView(item.id);setSearch('');}}>{item.label}</button>)}{input.drivers.filter(driver=>driver.fullName.toLowerCase().includes(search.toLowerCase())).map(driver=><button key={driver.id} onClick={()=>{selectView('fleet');setSearch('');}}>{t('businessModel.search.driverResult',{name:driver.fullName})}</button>)}{input.providers.filter(provider=>provider.name.toLowerCase().includes(search.toLowerCase())).map(provider=><button key={provider.id} onClick={()=>{selectView('customers');setSearch('');}}>{t('businessModel.search.customerResult',{name:provider.name})}</button>)}</div>}</div><button className="bm-lang" onClick={switchLanguage} aria-label={lng === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}><Languages size={14}/>{lng === 'ar' ? 'English' : 'العربية'}</button><div className="bm-status"><i /> {t('businessModel.status.localModel')}</div></header>
+      <header className="bm-top"><button className="bm-menu" aria-label={t('businessModel.a11y.openNavigation')} onClick={() => setMobileNav(true)}><Menu size={19} /></button><div><strong>{NAV.find(item => item.id === view)?.label ?? PRIMARY_NAV.find(item=>item.id===activePrimary)?.label}</strong><span>{t('businessModel.header.subtitle')}</span></div><div className="bm-search"><Search size={14}/><input aria-label={t('businessModel.search.placeholder')} placeholder={t('businessModel.search.placeholder')} value={search} onChange={event=>setSearch(event.target.value)}/>{search&&<div className="bm-search-results">{NAV.filter(item=>item.label.toLowerCase().includes(search.toLowerCase())).map(item=><button key={item.id} onClick={()=>{selectView(item.id as View);setSearch('');}}>{item.label}</button>)}{input.drivers.filter(driver=>driver.fullName.toLowerCase().includes(search.toLowerCase())).map(driver=><button key={driver.id} onClick={()=>{selectView('fleet');setSearch('');}}>{t('businessModel.search.driverResult',{name:driver.fullName})}</button>)}{input.providers.filter(provider=>provider.name.toLowerCase().includes(search.toLowerCase())).map(provider=><button key={provider.id} onClick={()=>{selectView('customers');setSearch('');}}>{t('businessModel.search.customerResult',{name:provider.name})}</button>)}</div>}</div><button className="bm-lang" onClick={switchLanguage} aria-label={lng === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}><Languages size={14}/>{lng === 'ar' ? 'English' : 'العربية'}</button><div className="bm-status"><i /> {t('businessModel.status.localModel')}</div></header>
         {backupReminder.visible && !bannerDismissed && (
           <BackupBanner
             reason={backupReminder.reason}
@@ -240,9 +295,13 @@ export default function BusinessModelApp() {
           />
         )}
       <main id="bm-main" className="bm-main">
-        {view === 'close' && <EveningCloseView initialDate={toDateString(new Date())} stops={stops} setStops={setStops} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} />}
-        {view === 'dispatch' && <DispatchBoardView stops={stops} setStops={setStops} drivers={input.drivers} />}
-        {view === 'stops' && <StopPlanning stops={stops} setStops={setStops} />}
+        {view === 'today' && <TodayOperations selectedDate={selectedDate} onDateChange={setSelectedDate} stops={stops} dailyRecords={dailyRecords} recoveryEntries={recoveryEntries} onNavigate={handleTodayNavigate} />}
+        {view === 'operations' && <OperationsLanding onNavigate={selectView} />}
+        {view === 'reports' && <ReportsLanding onNavigate={selectView} />}
+        {view === 'more' && <MoreLanding onNavigate={selectView} />}
+        {view === 'close' && <EveningCloseView initialDate={selectedDate} onDateChange={setSelectedDate} stops={stops} setStops={setStops} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} />}
+        {view === 'dispatch' && <DispatchBoardView initialDate={selectedDate} onDateChange={setSelectedDate} stops={stops} setStops={setStops} drivers={input.drivers} readOnly={dailyRecords[selectedDate]?.closeStatus==='reconciled'} />}
+        {view === 'stops' && <StopPlanning initialDate={selectedDate} onDateChange={setSelectedDate} stops={stops} setStops={setStops} readOnly={dailyRecords[selectedDate]?.closeStatus==='reconciled'} />}
         {stopsBootDropped > 0 && (
           <p className="bm-import-warning" role="alert" data-testid="stops-boot-warning">
             {t('businessModel.stops.bootDropped', { count: stopsBootDropped })}
@@ -258,7 +317,7 @@ export default function BusinessModelApp() {
           {input.providers.map(row => { const evaluation = output.providerEvaluations.find(item => item.id === row.id); return <div className="bm-table-row bm-customer-row" key={row.id}><TextInput ariaLabel={t('businessModel.customers.colCustomer')} value={row.name} onChange={value => changeProvider(row.id,{name:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.customers.colShipmentsDay')}`} value={row.shipmentsPerDay} onChange={value => changeProvider(row.id,{shipmentsPerDay:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.customers.colPriceShipment')}`} value={row.pricePerShipment} onChange={value => changeProvider(row.id,{pricePerShipment:value})} step="0.1" /><strong>{money(evaluation?.monthlyRevenue ?? 0)}</strong><button className="bm-remove" aria-label={`${t('businessModel.common.remove')} ${row.name}`} onClick={() => removeProvider(row.id)}>{t('businessModel.common.remove')}</button></div>})}
         </EditableTable><button className="bm-add" onClick={addProvider}><Plus size={15}/> {t('businessModel.common.addCustomer')}</button></Page>}
         {view === 'costs' && <Page title={t('businessModel.costs.title')} description={t('businessModel.costs.desc')}><CostSections input={input} output={output} setNumber={setNumber} changeVehicle={changeVehicle} /></Page>}
-        {view === 'daily' && <><DailyReport input={input} output={output} records={dailyRecords} setRecords={setDailyRecords} reportKind={reportKind} setReportKind={setReportKind} onOpenPro={setProModel} lng={lng} reportLang={reportLang} setReportLang={setReportLang} openActions={actions.filter(action => !action.done).slice(0, 5)} recoverySummary={recoverySummary} recoveryAll={recoveryEntries} recoveryOpen={recoveryEntries.filter(entry => entry.status === 'pending').slice(0, 8).map(({ id, createdAt, shipments, owner, status }) => ({ id, createdAt, shipments, owner, status }))} /><ProviderImportCard dailyRecords={dailyRecords} onApply={(date, record) => setDailyRecords(prev => ({ ...prev, [date]: record }))} /></>}
+        {view === 'daily' && <><DailyReport initialDate={selectedDate} onDateChange={setSelectedDate} input={input} output={output} records={dailyRecords} setRecords={setDailyRecords} reportKind={reportKind} setReportKind={setReportKind} onOpenPro={setProModel} lng={lng} reportLang={reportLang} setReportLang={setReportLang} openActions={actions.filter(action => !action.done).slice(0, 5)} recoverySummary={recoverySummary} recoveryAll={recoveryEntries} recoveryOpen={recoveryEntries.filter(entry => entry.status === 'pending').slice(0, 8).map(({ id, createdAt, shipments, owner, status }) => ({ id, createdAt, shipments, owner, status }))} /><ProviderImportCard dailyRecords={dailyRecords} onApply={(date, record) => setDailyRecords(prev => ({ ...prev, [date]: record }))} /></>}
         {view === 'risks' && <Page title={t('businessModel.risks.title')} description={t('businessModel.risks.desc')}><div className="bm-risk-table"><div className="bm-risk-head"><span>{t('businessModel.risks.thStatus')}</span><span>{t('businessModel.risks.thRisk')}</span><span>{t('businessModel.risks.thValue')}</span><span>{t('businessModel.risks.thReason')}</span></div>{risks.map(risk => <div className="bm-risk-row" key={risk.titleKey}><span className={risk.level === 'controlled' ? 'ok' : 'bad'}>{levelLabel[risk.level]}</span><strong>{t(`businessModel.risks.${risk.titleKey}`)}</strong><span>{risk.value}</span><p>{risk.detail}</p></div>)}</div></Page>}
         {view === 'scenarios' && <ScenarioView input={input} output={output} scenarios={scenarios} setScenarios={setScenarios} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} actions={actions} setActions={setActions} stops={stops} setStops={setStops} applyFinancialInput={applyFinancialInput} onBackedUp={() => { const iso = new Date().toISOString(); markBackedUpNow(); setLastBackupAt(iso); bumpReminderClock(); }} />}
         {view === 'recovery' && <Page title={t('businessModel.recovery.recovery')} description={t('businessModel.recovery.recoveryDesc')}><RecoveryBoard entries={recoveryEntries} setEntries={setRecoveryEntries} /></Page>}
@@ -266,10 +325,16 @@ export default function BusinessModelApp() {
       </main>
     </div>
     {proModel && <ProReport model={proModel} onClose={() => setProModel(null)} />}
+    <nav className="bm-mobile-bottom" aria-label={t('businessModel.a11y.mobileNav')} data-testid="mobile-bottom-nav">
+      {PRIMARY_NAV.map(item => { const Icon=item.icon; const isActive=activePrimary===item.id; return <button key={item.id} className={isActive?'active':''} aria-current={isActive?'page':undefined} onClick={()=>selectPrimary(item.id as PrimaryId)} data-testid={`mobile-nav-${item.id}`}><Icon size={18}/><span>{item.label}</span></button>; })}
+    </nav>
     <ServiceWorkerRegistrar />
   </div>;
 }
 
+function OperationsLanding({ onNavigate }: { onNavigate: (v: View)=>void }) { const { t } = useTranslation(); return <><div className="bm-page-head"><h1>{t('businessModel.nav.operations')}</h1><p>{t('businessModel.operations.desc')}</p></div><div className="bm-landing-grid">{(['stops','dispatch','close','recovery'] as View[]).map(id => <button key={id} className="bm-landing-card" onClick={()=>onNavigate(id)} data-testid={`landing-ops-${id}`}><strong>{t(`businessModel.nav.${id}`)}</strong><span>{t(`businessModel.landing.${id}`)}</span></button>)}</div></>; }
+function ReportsLanding({ onNavigate }: { onNavigate: (v: View)=>void }) { const { t } = useTranslation(); return <><div className="bm-page-head"><h1>{t('businessModel.nav.reports')}</h1><p>{t('businessModel.reports.desc')}</p></div><div className="bm-landing-grid">{(['daily','summary'] as View[]).map(id => <button key={id} className="bm-landing-card" onClick={()=>onNavigate(id)} data-testid={`landing-reports-${id}`}><strong>{t(`businessModel.nav.${id}`)}</strong><span>{t(`businessModel.landing.${id}`)}</span></button>)}</div></>; }
+function MoreLanding({ onNavigate }: { onNavigate: (v: View)=>void }) { const { t } = useTranslation(); return <><div className="bm-page-head"><h1>{t('businessModel.nav.more')}</h1><p>{t('businessModel.more.desc')}</p></div><div className="bm-landing-grid">{(['fleet','customers','costs','scenarios','risks','actions'] as View[]).map(id => <button key={id} className="bm-landing-card" onClick={()=>onNavigate(id)} data-testid={`landing-more-${id}`}><strong>{t(`businessModel.nav.${id}`)}</strong><span>{t(`businessModel.landing.${id}`)}</span></button>)}</div></>; }
 function Page({ title, description, children }: { title:string; description:string; children:React.ReactNode }) { return <><div className="bm-page-head"><h1>{title}</h1><p>{description}</p></div>{children}</>; }
 function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNavigate,dailyRecords }: { output:ReturnType<typeof useSimulatedData>['financialOutput']; input:FinancialInput; fleetCount:number; driverGap:number; contribution:number; risks:RiskItem[]; onNavigate:(view:View)=>void; dailyRecords:Record<string,DailyRecord> }) {
   const { t, i18n } = useTranslation();
@@ -451,17 +516,22 @@ function SensitivityGrid({input}:{input:FinancialInput}) {
 }
 
 function Metric({label,value,tone}:{label:string;value:string;tone?:string}) { return <div className={tone??''}><span>{label}</span><strong>{value}</strong></div>; }
-function DailyReport({input,output,records,setRecords,reportKind,setReportKind,onOpenPro,lng,reportLang,setReportLang,openActions:pendingActions,recoverySummary,recoveryOpen,recoveryAll}:{input:FinancialInput;output:ReturnType<typeof useSimulatedData>['financialOutput'];records:Record<string,DailyRecord>;setRecords:(value:Record<string,DailyRecord>|((previous:Record<string,DailyRecord>)=>Record<string,DailyRecord>))=>void;reportKind:ReportKind;setReportKind:(kind:ReportKind)=>void;onOpenPro:(model:ReportModel)=>void;lng:'en'|'ar';reportLang:'en'|'ar'|'both';setReportLang:(lang:'en'|'ar'|'both')=>void;openActions:Array<{id:number;text:string;owner:string}>;recoverySummary:{pendingEntries:number;pendingShipments:number;recoveredShipments:number;closeRatePercent:number;overdueSharePercent:number};recoveryOpen:RecoveryOpenRow[];recoveryAll:RecoveryEntry[]}) {
+function DailyReport({initialDate,onDateChange,input,output,records,setRecords,reportKind,setReportKind,onOpenPro,lng,reportLang,setReportLang,openActions:pendingActions,recoverySummary,recoveryOpen,recoveryAll}:{initialDate?:string;onDateChange?:(d:string)=>void;input:FinancialInput;output:ReturnType<typeof useSimulatedData>['financialOutput'];records:Record<string,DailyRecord>;setRecords:(value:Record<string,DailyRecord>|((previous:Record<string,DailyRecord>)=>Record<string,DailyRecord>))=>void;reportKind:ReportKind;setReportKind:(kind:ReportKind)=>void;onOpenPro:(model:ReportModel)=>void;lng:'en'|'ar';reportLang:'en'|'ar'|'both';setReportLang:(lang:'en'|'ar'|'both')=>void;openActions:Array<{id:number;text:string;owner:string}>;recoverySummary:{pendingEntries:number;pendingShipments:number;recoveredShipments:number;closeRatePercent:number;overdueSharePercent:number};recoveryOpen:RecoveryOpenRow[];recoveryAll:RecoveryEntry[]}) {
   const { t, i18n } = useTranslation();
   const locale = localeOf(i18n.language);
   const labels = useMemo(() => buildReportLabels(key => t(key)), [t]);
   const labelsAr = useMemo(() => buildReportLabels(key => t(key, { lng: 'ar' })), [t]);
   const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
   const num = (value: number) => fmtNum(locale, value);
-  const today=toDateString(new Date());
+  const today=initialDate ?? toDateString(new Date());
   const empty=(date:string):DailyRecord=>({date,completedShipments:0,failedShipments:0,fuelCost:Number((output.fuelMonthlyCost/26).toFixed(2)),driversPresent:input.companyDriverCount,notes:'',updatedAt:'',failureReasons:{},extraCosts:0,newCustomerVisits:0,recoveredShipments:0,safetyIncidents:0,codShipments:0,prepaidShipments:0,cashCollectedSar:0,cashRemittedSar:0,driverName:'',carNumber:'',plateNumber:'',weatherCondition:'clear',tomorrowNote:'',customerBreakdown:{},podStatus:undefined});
-  const [selectedDate,setSelectedDate]=useState(today);
+  const [selectedDate,setSelectedDateInternal]=useState(today);
+  const setSelectedDate=(next:string)=>{ setSelectedDateInternal(next); onDateChange?.(next); };
   const [draft,setDraft]=useState<DailyRecord>(()=>records[today]??empty(today));
+  const isExplicitDraft = records[selectedDate]?.closeStatus === 'draft';
+  const isReconciled = records[selectedDate]?.closeStatus === 'reconciled';
+  const draftGuardMessage = t('businessModel.today.exportBlocked');
+  const reopenMessage = t('businessModel.close.reopenFirst');
   const [message,setMessage]=useState('');
   const metrics=calculateDailyMetrics(draft,input,output);
   const update=(patch:Partial<DailyRecord>)=>setDraft(current=>({...current,...patch}));
@@ -487,8 +557,9 @@ function DailyReport({input,output,records,setRecords,reportKind,setReportKind,o
     {ok:coverageShort<=0,label:t('businessModel.daily.checkCoverage'),detail:`${num(draft.driversPresent)}/${num(input.companyDriverCount)}`},
   ];
   const selectDate=(date:string)=>{setSelectedDate(date);setDraft(records[date]??empty(date));setMessage('');};
-  const save=()=>{const saved={...draft,date:selectedDate,updatedAt:new Date().toISOString()};setRecords(current=>({...current,[selectedDate]:saved}));setDraft(saved);setMessage(t('businessModel.daily.savedMessage'));};
+  const save=()=>{ if (isReconciled) { setMessage(reopenMessage); return; } const saved={...draft,date:selectedDate,updatedAt:new Date().toISOString()};setRecords(current=>({...current,[selectedDate]:saved}));setDraft(saved);setMessage(t('businessModel.daily.savedMessage'));};
   const quickPdf=async()=>{
+    if (isExplicitDraft) { setMessage(draftGuardMessage); return; }
     setMessage(t('businessModel.daily.preparingPdf'));
     const primary = reportLang === 'both' ? lng : reportLang;
     await exportDailyReportPdf({...draft,date:selectedDate},input,output,{
@@ -500,6 +571,7 @@ function DailyReport({input,output,records,setRecords,reportKind,setReportKind,o
     setMessage(t('businessModel.daily.pdfDownloaded'));
   };
   const openPro=()=>{
+    if (isExplicitDraft) { setMessage(draftGuardMessage); return; }
     // The engine runs on what is inserted right now: the live draft joins the
     // saved history so unsaved edits appear in charts immediately.
     const effective={...records,[selectedDate]:{...draft,date:selectedDate}};
@@ -512,8 +584,8 @@ function DailyReport({input,output,records,setRecords,reportKind,setReportKind,o
       recoveryTrend: buildWeeklyRecoveryTrend(recoveryAll, 4),
     });
   };
-  const generateReport=()=>{ if(reportKind==='pro') openPro(); else void quickPdf(); };
-  const downloadExcel=async()=>{setMessage(t('businessModel.daily.preparingExcel'));await exportBusinessModelExcel({...draft,date:selectedDate},input,output,{records:{...records,[selectedDate]:{...draft,date:selectedDate}},recoveryEntries:recoveryAll});setMessage(t('businessModel.daily.excelDownloaded'));};;
+  const generateReport=()=>{ if (isExplicitDraft) { setMessage(draftGuardMessage); return; } if(reportKind==='pro') openPro(); else void quickPdf(); };
+  const downloadExcel=async()=>{ if (isExplicitDraft) { setMessage(draftGuardMessage); return; } setMessage(t('businessModel.daily.preparingExcel'));await exportBusinessModelExcel({...draft,date:selectedDate},input,output,{records:{...records,[selectedDate]:{...draft,date:selectedDate}},recoveryEntries:recoveryAll});setMessage(t('businessModel.daily.excelDownloaded'));};;
   return <><div className="bm-page-head bm-summary-head"><div><h1>{t('businessModel.daily.title')}</h1><p>{t('businessModel.daily.desc')}</p></div><label className="bm-date"><span>{t('businessModel.daily.reportDate')}</span><input aria-label={t('businessModel.daily.reportDate')} type="date" value={selectedDate} onChange={event=>selectDate(event.target.value)}/></label></div>
     <div className="bm-report-status"><span className={draft.updatedAt?'saved':'draft'}>{draft.updatedAt?t('businessModel.daily.recorded'):t('businessModel.daily.draft')}</span>{draft.updatedAt&&<small>{t('businessModel.daily.lastSaved',{value:fmtDateTime(locale,draft.updatedAt)})}</small>}</div>
     <section className="bm-panel bm-report-kind-card">
@@ -528,9 +600,12 @@ function DailyReport({input,output,records,setRecords,reportKind,setReportKind,o
           <button type="button" role="radio" aria-checked={reportLang==='ar'} className={reportLang==='ar'?'active':''} onClick={()=>setReportLang('ar')}>ع</button>
           <button type="button" role="radio" aria-checked={reportLang==='both'} className={reportLang==='both'?'active':''} onClick={()=>setReportLang('both')}>EN+ع</button>
         </div>
-        <button className="bm-primary" onClick={generateReport}>{reportKind==='pro'?<><FileText size={15}/> {t('businessModel.report.openPro')}</>:<><Download size={15}/> {t('businessModel.report.quickPdf')}</>}</button>
+        <button className="bm-primary" onClick={generateReport} disabled={isExplicitDraft} title={isExplicitDraft ? draftGuardMessage : undefined} data-testid="report-primary-btn">{reportKind==='pro'?<><FileText size={15}/> {t('businessModel.report.openPro')}</>:<><Download size={15}/> {t('businessModel.report.quickPdf')}</>}</button>
+        {isExplicitDraft && <p className="bm-import-warning" role="alert" data-testid="draft-export-blocked">{draftGuardMessage}</p>}
       </div>
     </section>
+    {isReconciled && <p className="bm-import-warning" role="alert" data-testid="daily-reconciled-blocked">{reopenMessage}</p>}
+    <fieldset disabled={isReconciled} style={{ display: 'contents', border: 0, margin: 0, padding: 0 }} data-testid="daily-edit-fieldset">
     <div className="bm-day-layout">
       <div className="bm-day-main">
         <section className="bm-form-card bm-day-card">
@@ -642,7 +717,8 @@ function DailyReport({input,output,records,setRecords,reportKind,setReportKind,o
       </div>
       <p className={reasonsMismatch?'bm-calculation-note text-bad':'bm-calculation-note'}>{reasonsMismatch?t('businessModel.report.reasonsMismatch',{count:draft.failedShipments,sum:reasonsSum}):t('businessModel.report.reasonsOk')}</p>
     </section>
-    <section className="bm-panel bm-export-card"><div><span>{t('businessModel.daily.exportTag')}</span><h2>{t('businessModel.daily.exportHead')}</h2><p>{t('businessModel.daily.exportDesc')}</p></div><div><button onClick={downloadExcel}><Download size={15}/> {t('businessModel.daily.exportExcel')}</button></div>{message&&<output aria-live="polite">{message}</output>}</section>
+    </fieldset>
+    <section className="bm-panel bm-export-card"><div><span>{t('businessModel.daily.exportTag')}</span><h2>{t('businessModel.daily.exportHead')}</h2><p>{t('businessModel.daily.exportDesc')}</p></div><div><button onClick={downloadExcel} disabled={isExplicitDraft} title={isExplicitDraft ? draftGuardMessage : undefined} data-testid="export-excel-btn"><Download size={15}/> {t('businessModel.daily.exportExcel')}</button></div>{message&&<output aria-live="polite">{message}</output>}</section>
     <section className="bm-panel bm-report-history"><div className="bm-panel-head"><div><span>{t('businessModel.daily.historyTag')}</span><h2>{t('businessModel.daily.historyHead')}</h2></div></div>{Object.values(records).length?<div>{Object.values(records).sort((a,b)=>b.date.localeCompare(a.date)).map(record=><button key={record.date} onClick={()=>selectDate(record.date)}><span>{fmtDateMedium(locale,record.date)}</span><strong>{t('businessModel.daily.completedCount',{count:record.completedShipments})}</strong><small>{t('businessModel.daily.failedCount',{count:record.failedShipments})}</small></button>)}</div>:<p>{t('businessModel.daily.noHistory')}</p>}</section>
     <MonthlyVariance records={records} output={output} /></>;
 }
@@ -902,16 +978,17 @@ export function ProviderImportCard({ dailyRecords, onApply }: { dailyRecords: Re
   const preview: ProviderPreview | null = parsed && parsed.ok ? parsed.preview : null;
   const recon = preview ? reconcile(preview) : null;
   const existing = dailyRecords[date];
+  const isReconciled = existing?.closeStatus === 'reconciled';
   // ANY existing record on the chosen date requires explicit acknowledgement
   // before confirm — even an all-zero or notes-only row is someone's data.
   const dateIsValid = /^\d{4}-\d{2}-\d{2}$/.test(date);
-  const confirmEnabled = !!preview && !!recon?.balanced && dateIsValid && (!existing || ackOverwrite);
+  const confirmEnabled = !!preview && !!recon?.balanced && dateIsValid && (!existing || ackOverwrite) && !isReconciled;
 
   // Editing the source text invalidates the previous parse — a stale preview
   // must never be confirmable against text the operator has since changed.
   const doParse = () => setParsed(rawText.trim() ? parseProviderMessage(rawText) : null);
   const doConfirm = () => {
-    if (!preview || !recon?.balanced || !confirmEnabled || !dateIsValid) return;
+    if (!preview || !recon?.balanced || !confirmEnabled || !dateIsValid || isReconciled) return;
     onApply(date, applyPreviewToRecord(existing, preview, date, new Date().toISOString()));
     setRawText(''); setParsed(null); setAckOverwrite(false);
   };
@@ -964,7 +1041,10 @@ export function ProviderImportCard({ dailyRecords, onApply }: { dailyRecords: Re
         {preview && !dateIsValid && (
           <p className="bm-import-warning" data-testid="date-error" role="alert">{t(S + 'errDate')}</p>
         )}
-        {preview && existing && (
+        {isReconciled && (
+          <p className="bm-import-warning" role="alert" data-testid="reconciled-blocked">{t('businessModel.close.reopenFirst')}</p>
+        )}
+        {preview && existing && !isReconciled && (
           <p className="bm-import-warning" data-testid="overwrite-note">
             {t(S + 'overwriteWarning')}
             <label className="bm-ack">

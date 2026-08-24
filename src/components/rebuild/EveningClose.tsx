@@ -20,9 +20,10 @@ import type { FailureReasonKey } from '@/lib/operationsReporting';
 
 type Outcome = 'delivered' | 'returned' | 'pending' | 'failed';
 
-export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, setDailyRecords, recoveryEntries, setRecoveryEntries }: {
+export function EveningCloseView({ initialDate, onDateChange, stops, setStops, dailyRecords, setDailyRecords, recoveryEntries, setRecoveryEntries }: {
   /** Optional starting operation date; defaults to today (local law). */
   initialDate?: string;
+  onDateChange?: (date: string) => void;
   stops: StopRecord[];
   setStops: (value: StopRecord[] | ((prev: StopRecord[]) => StopRecord[])) => void;
   dailyRecords: Record<string, DailyRecord>;
@@ -35,7 +36,9 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
   const ar = i18n.language === 'ar';
   const fmt = (value: number) => new Intl.NumberFormat(ar ? 'ar-SA-u-nu-latn' : 'en-US').format(value);
 
-  const [date, setDate] = useState(() => initialDate ?? toDateString(new Date()));
+  const [dateInternal, setDateInternal] = useState(() => initialDate ?? toDateString(new Date()));
+  const date = dateInternal;
+  const setDate = (next: string) => { setDateInternal(next); onDateChange?.(next); };
   // EVERY date-scoped form state lives here and is reset ONLY through this
   // one helper — switching dates can never leak values in either direction.
   function formStateFor(nextDate: string): {
@@ -168,6 +171,7 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
     applyIt(stop, outcome, (reasonFor || undefined) as FailureReasonKey | undefined);
   }
   function applyIt(stop: StopRecord, outcome: Outcome, reason: FailureReasonKey | undefined) {
+    if (isReconciled) { setMessage(t(S + 'reopenFirst')); return; }
     try {
       const next = applyStopOutcome(stop, outcome, reason, new Date().toISOString());
       persist({ stops: stops.map(candidate => candidate.id === next.id ? next : candidate) }, '');
@@ -179,6 +183,7 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
   // outcome disagreement) but NEVER structural invalidity.
   const STRUCTURAL_BLOCKERS = ['invalid-number', 'invalid-money', 'invalid-date', 'invalid-timestamp', 'unexpected-closed-at', 'remittance-date-required', 'fuel-required', 'drivers-required'];
   const saveDraft = () => {
+    if (isReconciled) { setMessage(t(S + 'reopenFirst')); return; }
     if (loadedNum === null || codInvalid || allBlockers.some(code => STRUCTURAL_BLOCKERS.includes(code))) { setMessage(t(S + 'fixNumbers')); return; }
     const draft = buildCloseDraft(existing ?? recordSkeleton(date), dayStops, {
       loadedShipments: loadedNum, deliveredShipments: summary.delivered, returnedShipments: summary.returned,
@@ -190,6 +195,7 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
   };
 
   const confirmReconciled = () => {
+    if (isReconciled) { setMessage(t(S + 'reopenFirst')); return; }
     if (!canReconcile) return;
     const nowIso = new Date().toISOString();
     const draft = buildCloseDraft(existing ?? recordSkeleton(date), dayStops, {
@@ -247,6 +253,7 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
                   {(['delivered', 'returned', 'pending', 'failed'] as Outcome[]).map(outcome => (
                     <button
                       key={outcome}
+                      disabled={isReconciled}
                       data-testid={`${outcome}-${stop.reference ?? stop.id}`}
                       aria-pressed={
                         outcome === 'delivered' ? stop.status === 'delivered'
@@ -272,7 +279,7 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
               {FAILURE_REASON_KEYS.map(key => <option key={key} value={key}>{t(S + 'reasons.' + key)}</option>)}
             </select>
           </label>
-          <button onClick={() => applyIt(pendingOutcome.stop, pendingOutcome.outcome, (reasonFor || undefined) as FailureReasonKey | undefined)}>{t(S + 'applyReason')}</button>
+          <button disabled={isReconciled} onClick={() => applyIt(pendingOutcome.stop, pendingOutcome.outcome, (reasonFor || undefined) as FailureReasonKey | undefined)}>{t(S + 'applyReason')}</button>
         </div>
       )}
 
@@ -280,7 +287,7 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
       <h3>{t(S + 'reconTitle')}</h3>
       <dl className="bm-import-counts" data-testid="close-recon">
         <div><dt>{t(S + 'loaded')} <small>({t(S + 'manual')})</small></dt>
-          <dd><input name="loaded-shipments" aria-label={t(S + 'loaded')} inputMode="numeric" value={loaded} onChange={event => setLoaded(event.target.value)} /></dd></div>
+          <dd><input name="loaded-shipments" aria-label={t(S + 'loaded')} inputMode="numeric" value={loaded} onChange={event => setLoaded(event.target.value)} disabled={isReconciled} /></dd></div>
         <div><dt>{t(S + 'outcomes.delivered')} <small>({t(S + 'derived')})</small></dt><dd>{fmt(summary.delivered)}</dd></div>
         <div><dt>{t(S + 'outcomes.returned')} <small>({t(S + 'derived')})</small></dt><dd>{fmt(summary.returned)}</dd></div>
         <div><dt>{t(S + 'outcomes.pending')} <small>({t(S + 'derived')})</small></dt><dd>{fmt(summary.pending)}</dd></div>
@@ -308,29 +315,29 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
           <output data-testid="cod-expected">{fmt(cod?.expectedSar ?? 0)}</output>
         </label>
         <label className="bm-field"><span>{t(S + 'codCollected')} <small>({t(S + 'manual')})</small></span>
-          <input name="cod-collected" inputMode="decimal" value={codCollected} onChange={event => setCodCollected(event.target.value)} />
+          <input name="cod-collected" inputMode="decimal" value={codCollected} onChange={event => setCodCollected(event.target.value)} disabled={isReconciled} />
         </label>
         <label className="bm-field"><span>{t(S + 'codRemitted')} <small>({t(S + 'manual')})</small></span>
-          <input name="cod-remitted" inputMode="decimal" value={codRemitted} onChange={event => setCodRemitted(event.target.value)} />
+          <input name="cod-remitted" inputMode="decimal" value={codRemitted} onChange={event => setCodRemitted(event.target.value)} disabled={isReconciled} />
         </label>
         <label className="bm-field"><span>{t(S + 'codRemittedOn')}</span>
-          <input name="cod-remitted-on" type="date" value={codRemittedOn} onChange={event => setCodRemittedOn(event.target.value)} />
+          <input name="cod-remitted-on" type="date" value={codRemittedOn} onChange={event => setCodRemittedOn(event.target.value)} disabled={isReconciled} />
         </label>
       </div>
       <div className="bm-provider-row">
         <label className="bm-field"><span>{t(S + 'codAdjust')} <small>({t(S + 'manual')})</small></span>
-          <input name="cod-expected-manual" inputMode="decimal" value={codExpectedManual} onChange={event => setCodExpectedManual(event.target.value)} />
+          <input name="cod-expected-manual" inputMode="decimal" value={codExpectedManual} onChange={event => setCodExpectedManual(event.target.value)} disabled={isReconciled} />
         </label>
         <label className="bm-field bm-grow"><span>{t(S + 'codAdjustNote')}</span>
-          <input name="cod-adjust-note" value={codAdjustNote} onChange={event => setCodAdjustNote(event.target.value)} />
+          <input name="cod-adjust-note" value={codAdjustNote} onChange={event => setCodAdjustNote(event.target.value)} disabled={isReconciled} />
         </label>
       </div>
       <div className="bm-provider-row">
         <label className="bm-field"><span>{t(S + 'fuel')} <small>({t(S + 'manual')})</small></span>
-          <input name="close-fuel" inputMode="decimal" value={fuel} onChange={event => setFuel(event.target.value)} />
+          <input name="close-fuel" inputMode="decimal" value={fuel} onChange={event => setFuel(event.target.value)} disabled={isReconciled} />
         </label>
         <label className="bm-field"><span>{t(S + 'driversPresent')} <small>({t(S + 'manual')})</small></span>
-          <input name="close-drivers" inputMode="numeric" value={drivers} onChange={event => setDrivers(event.target.value)} />
+          <input name="close-drivers" inputMode="numeric" value={drivers} onChange={event => setDrivers(event.target.value)} disabled={isReconciled} />
         </label>
       </div>
       {cod && (
@@ -354,8 +361,8 @@ export function EveningCloseView({ initialDate, stops, setStops, dailyRecords, s
       )}
       {codInvalid && <ul className="bm-import-warning" role="alert"><li>{t(S + 'invalidMoney')}</li></ul>}
       <div className="bm-import-choices">
-        <button data-testid="save-draft" onClick={saveDraft}>{t(S + 'saveDraft')}</button>
-        <button className="bm-primary" data-testid="confirm-close" onClick={confirmReconciled} disabled={!canReconcile}>{t(S + 'confirmClose')}</button>
+        <button data-testid="save-draft" onClick={saveDraft} disabled={isReconciled}>{t(S + 'saveDraft')}</button>
+        <button className="bm-primary" data-testid="confirm-close" onClick={confirmReconciled} disabled={isReconciled || !canReconcile}>{t(S + 'confirmClose')}</button>
         {isReconciled && !reopenAsk && <button data-testid="reopen-ask" onClick={() => setReopenAsk(true)}>{t(S + 'reopen')}</button>}
       </div>
       {reopenAsk && (

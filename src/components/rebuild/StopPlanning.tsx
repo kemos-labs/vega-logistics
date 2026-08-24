@@ -21,16 +21,20 @@ type Draft = Record<string, string>;
 
 const EMPTY_DRAFT: Draft = { customerName: '', reference: '', stopLabel: '', addressNotes: '', phone: '', codAmountSar: '', serviceWindow: '' };
 
-export function StopPlanning({ stops, setStops }: {
+export function StopPlanning({ stops, setStops, initialDate, onDateChange, readOnly }: {
   stops: StopRecord[];
   setStops: (value: StopRecord[] | ((prev: StopRecord[]) => StopRecord[])) => void;
+  initialDate?: string;
+  onDateChange?: (date: string) => void;
+  readOnly?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const S = 'businessModel.stops.';
   const ar = i18n.language === 'ar';
   const fmt = (value: number) => new Intl.NumberFormat(ar ? 'ar-SA-u-nu-latn' : 'en-US').format(value);
 
-  const [date, setDate] = useState(() => toDateString(new Date()));
+  const [date, setDateInternal] = useState(() => initialDate ?? toDateString(new Date()));
+  const setDate = (next: string) => { setDateInternal(next); onDateChange?.(next); };
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -47,8 +51,10 @@ export function StopPlanning({ stops, setStops }: {
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const readOnlyGuardMsg = t('businessModel.close.reopenFirst');
   /** Storage seam: transactional write; React state moves only on success. */
   function persist(next: StopRecord[], successMessage?: string): boolean {
+    if (readOnly) { setMessage(readOnlyGuardMsg); return false; }
     const result: PersistResult = commitBundle({ stops: next }, undefined, { keys: ['stops'] });
     if (result.persistedOk) {
       setStops(next);
@@ -80,6 +86,7 @@ export function StopPlanning({ stops, setStops }: {
 
   function saveStop(event: React.FormEvent) {
     event.preventDefault();
+    if (readOnly) { setMessage(readOnlyGuardMsg); return; }
     // Non-empty input that fails numeric parsing stays NaN so validation
     // reports it (never silently saved as 'no COD'). Blank ⇒ no COD.
     const rawCod = normalizeDigits(draft.codAmountSar.trim());
@@ -144,6 +151,7 @@ export function StopPlanning({ stops, setStops }: {
   }
 
   function startEdit(stop: StopRecord) {
+    if (readOnly) { setMessage(readOnlyGuardMsg); return; }
     setEditingId(stop.id);
     setFieldErrors([]);
     setMessage('');
@@ -162,6 +170,7 @@ export function StopPlanning({ stops, setStops }: {
   function cancelEdit() { setEditingId(null); setDraft(EMPTY_DRAFT); setFieldErrors([]); }
 
   function confirmDelete(id: string) {
+    if (readOnly) { setMessage(readOnlyGuardMsg); return; }
     persist(stops.filter(stop => stop.id !== id), t(S + 'deleted'));
     setDeleteCandidate(null);
   }
@@ -182,6 +191,7 @@ export function StopPlanning({ stops, setStops }: {
   function doParse() { setParsed(rawText.trim() === '' ? null : previewStopImport(rawText, stops, date)); setWarningsAcked(false); }
 
   function confirmImport() {
+    if (readOnly) { setMessage(readOnlyGuardMsg); return; }
     if (!preview || !confirmable) return;
     const nowIso = new Date().toISOString();
     const created: StopRecord[] = [];
@@ -221,6 +231,7 @@ export function StopPlanning({ stops, setStops }: {
       </div></div>
 
       <p className="bm-import-note" data-testid="local-note">{t(S + 'localNote')}</p>
+      {readOnly && <p className="bm-import-warning" role="alert" data-testid="stops-readonly-blocked">{readOnlyGuardMsg}</p>}
 
       {/* ── toolbar: date / search / totals ── */}
       <div className="bm-provider-row">
@@ -278,7 +289,7 @@ export function StopPlanning({ stops, setStops }: {
           </label>
         )}
         <div className="bm-import-choices">
-          <button className="bm-primary" type="submit" data-testid="save-stop">{editingId ? t(S + 'updateBtn') : t(S + 'addBtn')}</button>
+          <button className="bm-primary" type="submit" data-testid="save-stop" disabled={readOnly}>{editingId ? t(S + 'updateBtn') : t(S + 'addBtn')}</button>
           {editingId && <button type="button" onClick={cancelEdit}>{t(S + 'cancelBtn')}</button>}
         </div>
       </form>
@@ -307,8 +318,8 @@ export function StopPlanning({ stops, setStops }: {
                   )
                   : (
                     <span className="bm-stop-actions">
-                      <button onClick={() => startEdit(stop)}>{t(S + 'editBtn')}</button>
-                      <button data-testid={`delete-${stop.reference ?? stop.id}`} onClick={() => setDeleteCandidate(stop.id)}>{t(S + 'deleteBtn')}</button>
+                      <button onClick={() => startEdit(stop)} disabled={readOnly}>{t(S + 'editBtn')}</button>
+                      <button data-testid={`delete-${stop.reference ?? stop.id}`} onClick={() => setDeleteCandidate(stop.id)} disabled={readOnly}>{t(S + 'deleteBtn')}</button>
                     </span>
                   )}
               </li>
@@ -405,7 +416,7 @@ export function StopPlanning({ stops, setStops }: {
               )}
               {!preview.blockingConflicts && preview.invalid.length === 0 && (
                 <div className="bm-import-choices">
-                  <button className="bm-primary" data-testid="confirm-import" onClick={confirmImport} disabled={!confirmable}>{t(S + 'import.confirmBtn')}</button>
+                  <button className="bm-primary" data-testid="confirm-import" onClick={confirmImport} disabled={readOnly || !confirmable}>{t(S + 'import.confirmBtn')}</button>
                   <button data-testid="cancel-import" onClick={() => { setParsed(null); setRawText(''); setWarningsAcked(false); }}>{t(S + 'import.cancelBtn')}</button>
                 </div>
               )}

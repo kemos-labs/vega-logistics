@@ -15,25 +15,32 @@ import { toDateString } from '@/lib/operationsReporting';
 import type { StopRecord } from '@/lib/stops';
 import type { DriverRecord } from '@/lib/types';
 
-export function DispatchBoardView({ stops, setStops, drivers }: {
+export function DispatchBoardView({ stops, setStops, drivers, initialDate, onDateChange, readOnly }: {
   stops: StopRecord[];
   setStops: (value: StopRecord[] | ((prev: StopRecord[]) => StopRecord[])) => void;
   drivers: DriverRecord[];
+  initialDate?: string;
+  onDateChange?: (date: string) => void;
+  readOnly?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const S = 'businessModel.dispatch.';
   const ar = i18n.language === 'ar';
   const fmt = (value: number) => new Intl.NumberFormat(ar ? 'ar-SA-u-nu-latn' : 'en-US').format(value);
 
-  const [date, setDate] = useState(() => toDateString(new Date()));
+  const [dateInternal, setDateInternal] = useState(() => initialDate ?? toDateString(new Date()));
+  const date = dateInternal;
+  const setDate = (next: string) => { setDateInternal(next); onDateChange?.(next); };
   const [message, setMessage] = useState('');
   const [printRun, setPrintRun] = useState<string | null>(null);
 
   const dayStops = useMemo(() => stops.filter(stop => stop.operationDate === date), [stops, date]);
   const board = useMemo(() => buildDispatchBoard(dayStops), [dayStops]);
   const driverOptions = useMemo(() => assignableDrivers(drivers), [drivers]);
+  const readOnlyGuardMsg = t('businessModel.close.reopenFirst');
 
   function persist(next: StopRecord[], successMessage?: string): boolean {
+    if (readOnly) { setMessage(readOnlyGuardMsg); return false; }
     const result = commitBundle({ stops: next }, undefined, { keys: ['stops'] });
     if (result.persistedOk) { setStops(next); if (successMessage) setMessage(successMessage); return true; }
     setMessage(t(S + (result.rollbackOk ? 'persistFailed' : 'rollbackCritical'), { keys: result.failedKeys.join(', ') }));
@@ -41,12 +48,19 @@ export function DispatchBoardView({ stops, setStops, drivers }: {
   }
 
   const doAssign = (stopId: string, driverId: string) => {
+    if (readOnly) { setMessage(readOnlyGuardMsg); return; }
     const driver = driverOptions.find(option => option.id === driverId);
     if (!driver) return;
     persist(assignStop(stops, stopId, { fullName: driver.fullName, vehicle: driver.vehicle }, new Date().toISOString()));
   };
-  const doUnassign = (stopId: string) => persist(unassignStop(stops, stopId, new Date().toISOString()));
-  const doMove = (stopId: string, direction: 'up' | 'down') => persist(moveStop(stops, stopId, direction, new Date().toISOString()));
+  const doUnassign = (stopId: string) => {
+    if (readOnly) { setMessage(readOnlyGuardMsg); return; }
+    persist(unassignStop(stops, stopId, new Date().toISOString()));
+  };
+  const doMove = (stopId: string, direction: 'up' | 'down') => {
+    if (readOnly) { setMessage(readOnlyGuardMsg); return; }
+    persist(moveStop(stops, stopId, direction, new Date().toISOString()));
+  };
 
   const doPrint = (run: DriverRun) => {
     setPrintRun(runKey(run)); // stable operational identity, NOT display name
@@ -65,6 +79,7 @@ export function DispatchBoardView({ stops, setStops, drivers }: {
         <span>{t(S + 'tag')}</span><h2>{t(S + 'title')}</h2><p>{t(S + 'desc')}</p>
       </div></div>
 
+      {readOnly && <p className="bm-import-warning" role="alert" data-testid="dispatch-readonly-blocked">{readOnlyGuardMsg}</p>}
       <div className="bm-provider-row">
         <label className="bm-field"><span>{t(S + 'dateLabel')}</span>
           <input name="dispatch-date" type="date" value={date} onChange={event => setDate(event.target.value)} />
@@ -94,6 +109,7 @@ export function DispatchBoardView({ stops, setStops, drivers }: {
                     defaultValue=""
                     onChange={event => { if (event.target.value !== '') doAssign(stop.id, event.target.value); }}
                     data-testid={`assign-${stop.reference ?? stop.id}`}
+                    disabled={readOnly}
                   >
                     <option value="">{t(S + 'assignPlaceholder')}</option>
                     {driverOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
@@ -125,9 +141,9 @@ export function DispatchBoardView({ stops, setStops, drivers }: {
                     <span> — {stop.stopLabel}</span>
                   </span>
                   <span className="bm-stop-actions">
-                    <button aria-label={t(S + 'moveUpAria', { label: stop.reference ?? stop.stopLabel })} data-testid={`up-${stop.reference ?? stop.id}`} disabled={index === 0} onClick={() => doMove(stop.id, 'up')}>▲</button>
-                    <button aria-label={t(S + 'moveDownAria', { label: stop.reference ?? stop.stopLabel })} data-testid={`down-${stop.reference ?? stop.id}`} disabled={index === run.stops.length - 1} onClick={() => doMove(stop.id, 'down')}>▼</button>
-                    <button onClick={() => doUnassign(stop.id)}>{t(S + 'unassignBtn')}</button>
+                    <button aria-label={t(S + 'moveUpAria', { label: stop.reference ?? stop.stopLabel })} data-testid={`up-${stop.reference ?? stop.id}`} disabled={readOnly || index === 0} onClick={() => doMove(stop.id, 'up')}>▲</button>
+                    <button aria-label={t(S + 'moveDownAria', { label: stop.reference ?? stop.stopLabel })} data-testid={`down-${stop.reference ?? stop.id}`} disabled={readOnly || index === run.stops.length - 1} onClick={() => doMove(stop.id, 'down')}>▼</button>
+                    <button onClick={() => doUnassign(stop.id)} disabled={readOnly}>{t(S + 'unassignBtn')}</button>
                   </span>
                 </li>
               ))}
