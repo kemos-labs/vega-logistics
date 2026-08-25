@@ -38,9 +38,14 @@ describe('UI stress', () => {
     console.log(`big-model mount: ${(performance.now() - t0).toFixed(0)}ms`);
 
     // Navigate every section; each must render its heading without crashing.
+    // Primary nav items are visible; setup/exceptions items are under "More".
     const labels = ['Drivers & vehicles', 'Customers & revenue', 'Company costs', 'Reports', 'Risks'];
     for (const label of labels) {
       const t1 = performance.now();
+      // Open More menu for items not in primary nav
+      if (['Drivers & vehicles', 'Customers & revenue', 'Company costs', 'Risks'].includes(label)) {
+        act(() => { screen.getByRole('button', { name: /More|المزيد/i }).click(); });
+      }
       const btn = screen.getAllByRole('button', { name: new RegExp(label.replace('&', '&'), 'i') })[0]
         ?? screen.getByText(label, { selector: 'button span, button' });
       act(() => { btn.click(); });
@@ -57,6 +62,7 @@ describe('UI stress', () => {
       render(<BusinessModelApp />);
       expect(performance.now() - t0).toBeLessThan(1500);
       // Interact — writes will fail silently (warned), UI must keep working
+      act(() => { screen.getByRole('button', { name: /More|المزيد/i }).click(); });
       act(() => { screen.getByText('Risks').click(); });
       expect(screen.getByText(/rules based on your entered numbers/i)).toBeTruthy();
     } finally {

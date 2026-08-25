@@ -389,7 +389,14 @@
       "groupDaily": "Daily operations",
       "groupSetup": "Setup & planning",
       "groupExceptions": "Exceptions",
-      "compliance": "Compliance-lite"
+      "compliance": "Compliance-lite",
+      "more": "More",
+      "workflow": {
+        "plan": "Plan",
+        "dispatch": "Assign",
+        "close": "Close",
+        "report": "Report"
+      }
     },
     "brand": {
       "subtitle": "Business model"

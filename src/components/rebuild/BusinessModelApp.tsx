@@ -111,34 +111,50 @@ export default function BusinessModelApp() {
   const hasMeaningfulData = Object.keys(dailyRecords).length > 0 || scenarios.length > 0 || recoveryEntries.length > 0 || modelModified;
   const backupReminder = useMemo(() => evaluateBackupReminder(reminderNowMs, lastBackupAt, hasMeaningfulData), [reminderNowMs, lastBackupAt, hasMeaningfulData]);
   const bannerDismissed = useMemo(() => isDismissedToday(reminderNowMs), [reminderNowMs]);
+  const todayStops = useMemo(() => stops.filter(s => s.operationDate === operationDate), [stops, operationDate]);
+  const todayCloseStatus = useMemo(() => {
+    if (todayStops.length === 0) return 'no-stops' as const;
+    const rec = dailyRecords[operationDate];
+    if (!rec) return 'open' as const;
+    return rec.closeStatus === 'draft' ? 'draft' as const : rec.closeStatus === 'reconciled' ? 'reconciled' as const : 'open' as const;
+  }, [todayStops.length, dailyRecords, operationDate]);
   const towerSnapshot = useMemo(() => {
     if (!hydrated) return buildControlTowerSnapshot({ records: {}, recoveryEntries: [], plannedShipmentsPerDay: output.totalDailyShipments, nowMs: reminderNowMs, backup: null });
     return buildControlTowerSnapshot({
-    records: dailyRecords,
-    recoveryEntries,
-    plannedShipmentsPerDay: output.totalDailyShipments,
-    nowMs: reminderNowMs,
-    backup: bannerDismissed ? null : backupReminder,
-  });
-  }, [hydrated, dailyRecords, recoveryEntries, output.totalDailyShipments, reminderNowMs, bannerDismissed, backupReminder]);
+      records: dailyRecords,
+      recoveryEntries,
+      plannedShipmentsPerDay: output.totalDailyShipments,
+      nowMs: reminderNowMs,
+      backup: bannerDismissed ? null : backupReminder,
+      todayStops: todayStops.map(s => ({ status: s.status, driverName: s.driverName })),
+      todayCloseStatus,
+    });
+  }, [hydrated, dailyRecords, recoveryEntries, output.totalDailyShipments, reminderNowMs, bannerDismissed, backupReminder, todayStops, todayCloseStatus]);
   const [proModel, setProModel] = useState<ReportModel | null>(null);
 
-  const NAV = [
+  // Primary nav = the daily workflow. A human operator only needs these.
+  // Everything else (fleet, costs, scenarios…) lives under "More" — setup
+  // tasks the owner does once, not the driver every day.
+  const PRIMARY_NAV = [
     { id: 'tower' as const, label: t('businessModel.nav.tower'), icon: LayoutDashboard },
     { id: 'stops' as const, label: t('businessModel.nav.stops'), icon: MapPin },
     { id: 'dispatch' as const, label: t('businessModel.nav.dispatch'), icon: Route },
     { id: 'close' as const, label: t('businessModel.nav.close'), icon: ClipboardCheck },
     { id: 'daily' as const, label: t('businessModel.nav.daily'), icon: CalendarDays },
+  ];
+  const MORE_NAV = [
+    { id: 'recovery' as const, label: t('businessModel.nav.recovery'), icon: RotateCcw },
+    { id: 'compliance' as const, label: t('businessModel.nav.compliance'), icon: BadgeCheck },
     { id: 'summary' as const, label: t('businessModel.nav.summary'), icon: BarChart3 },
     { id: 'fleet' as const, label: t('businessModel.nav.fleet'), icon: Truck },
     { id: 'customers' as const, label: t('businessModel.nav.customers'), icon: Building2 },
     { id: 'costs' as const, label: t('businessModel.nav.costs'), icon: CircleDollarSign },
     { id: 'scenarios' as const, label: t('businessModel.nav.scenarios'), icon: Layers },
-    { id: 'recovery' as const, label: t('businessModel.nav.recovery'), icon: RotateCcw },
     { id: 'actions' as const, label: t('businessModel.nav.actions'), icon: ClipboardList },
     { id: 'risks' as const, label: t('businessModel.nav.risks'), icon: AlertTriangle },
-    { id: 'compliance' as const, label: t('businessModel.nav.compliance'), icon: BadgeCheck },
   ];
+  const NAV = [...PRIMARY_NAV, ...MORE_NAV];
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const switchLanguage = () => {
     const next = lng === 'ar' ? 'en' : 'ar';
@@ -244,12 +260,16 @@ export default function BusinessModelApp() {
     <aside className={`bm-sidebar ${mobileNav ? 'open' : ''}`}>
       <div className="bm-brand"><div><strong>VEGA</strong><span>{t('businessModel.brand.subtitle')}</span></div><button aria-label={t('businessModel.a11y.closeNavigation')} onClick={() => setMobileNav(false)}><X size={18} /></button></div>
       <nav aria-label={t('businessModel.a11y.sectionsNav')}>
-        <div className="bm-nav-group-label">{t('businessModel.nav.groupDaily', { defaultValue: 'Daily operations' })}</div>
-        {NAV.filter(i => ['tower','stops','dispatch','close','daily','summary','compliance'].includes(i.id)).map(item => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => selectView(item.id)}><Icon size={16} /><span>{item.label}</span></button>; })}
-        <div className="bm-nav-group-label">{t('businessModel.nav.groupSetup', { defaultValue: 'Setup & planning' })}</div>
-        {NAV.filter(i => ['fleet','customers','costs','scenarios'].includes(i.id)).map(item => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => selectView(item.id)}><Icon size={16} /><span>{item.label}</span></button>; })}
-        <div className="bm-nav-group-label">{t('businessModel.nav.groupExceptions', { defaultValue: 'Exceptions' })}</div>
-        {NAV.filter(i => ['recovery','actions','risks'].includes(i.id)).map(item => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => selectView(item.id)}><Icon size={16} /><span>{item.label}</span>{item.id === 'risks' && hydrated && risks.filter(r => r.level !== 'controlled').length > 0 && <em>{risks.filter(r => r.level !== 'controlled').length}</em>}{item.id === 'recovery' && hydrated && pendingRecoveries > 0 && <em>{pendingRecoveries}</em>}</button>; })}
+        {/* Primary daily workflow — always visible */}
+        {PRIMARY_NAV.map(item => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => { selectView(item.id); setMoreOpen(false); }}><Icon size={16} /><span>{item.label}</span></button>; })}
+        {/* More menu — setup + exceptions, collapsed by default */}
+        <button className="bm-nav-more" onClick={() => setMoreOpen(!moreOpen)} aria-expanded={moreOpen}>
+          <span>{t('businessModel.nav.more', { defaultValue: 'More' })}</span>
+          {moreOpen ? '▾' : '▸'}
+        </button>
+        {moreOpen && <div className="bm-nav-more-list">
+          {MORE_NAV.map(item => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => { selectView(item.id); setMoreOpen(false); }}><Icon size={16} /><span>{item.label}</span>{item.id === 'risks' && hydrated && risks.filter(r => r.level !== 'controlled').length > 0 && <em>{risks.filter(r => r.level !== 'controlled').length}</em>}{item.id === 'recovery' && hydrated && pendingRecoveries > 0 && <em>{pendingRecoveries}</em>}</button>; })}
+        </div>}
       </nav>
       <div className="bm-source"><span>{t('businessModel.sidebar.savedLocal')}</span><small>{t(telematicsProvider.isLive ? 'businessModel.sidebar.noConnections' : 'businessModel.sidebar.telemetryDemo')}</small></div>
     </aside>
@@ -274,7 +294,7 @@ export default function BusinessModelApp() {
             <button onClick={() => setStopsBootDropped(0)}>{t('businessModel.stops.bootDismiss')}</button>
           </p>
         )}
-        {view === 'tower' && <ControlTowerView snapshot={towerSnapshot} onGoto={(target: 'daily' | 'recovery' | 'scenarios') => selectView(target)} />}
+        {view === 'tower' && <ControlTowerView snapshot={towerSnapshot} onGoto={(target) => selectView(target)} />}
         {view === 'summary' && <CoreSummary output={output} input={input} fleetCount={fleetCount} driverGap={driverGap} contribution={contribution} risks={risks} onNavigate={selectView} dailyRecords={dailyRecords} stops={stops} operationDate={operationDate} onOperationDateChange={setOperationDate} />}
         {view === 'fleet' && <Page title={t('businessModel.fleet.title')} description={t('businessModel.fleet.newDesc')}><div className="bm-roster"><div className="bm-roster-head"><h2>{t('businessModel.fleet.rosterTitle')}</h2><span>{t('businessModel.fleet.rosterCount',{count:input.drivers.length})}</span></div><EditableTable columns={[t('businessModel.fleet.colDriverName'),t('businessModel.fleet.colPhone'),t('businessModel.fleet.colAssignedVehicle'),t('businessModel.fleet.colCarNumber'),t('businessModel.fleet.colPlateNumber'),t('businessModel.fleet.colStatus'),'']}>
 {input.drivers.map(driver => <div className="bm-table-row bm-driver-row" key={driver.id}><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colDriverName')}`} value={driver.fullName} onChange={value => changeDriver(driver.id,{fullName:value})} /><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colPhone')}`} value={driver.phone} onChange={value => changeDriver(driver.id,{phone:value})} /><input aria-label={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colAssignedVehicle')}`} list="bm-vehicle-names" value={driver.assignedVehicle} onChange={event => changeDriver(driver.id,{assignedVehicle:event.target.value})} /><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colCarNumber')}`} value={driver.carNumber ?? ''} onChange={value => changeDriver(driver.id,{carNumber:value})} /><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colPlateNumber')}`} value={driver.plateNumber ?? ''} onChange={value => changeDriver(driver.id,{plateNumber:value})} /><select aria-label={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colStatus')}`} value={driver.status} onChange={event => changeDriver(driver.id,{status:event.target.value as DriverRecord['status']})}><option value="active">{t('businessModel.common.active')}</option><option value="inactive">{t('businessModel.common.inactive')}</option></select>{driverConfirmId === driver.id ? (

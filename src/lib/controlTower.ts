@@ -29,6 +29,15 @@ export interface TowerAction {
   params?: Record<string, string | number>;
 }
 
+export interface ControlTowerWorkflow {
+  /** Stops planned for today */
+  stopsPlanned: number;
+  /** Stops assigned to drivers today */
+  stopsAssigned: number;
+  /** Today's close status: open / draft / reconciled */
+  closeStatus: 'open' | 'draft' | 'reconciled' | 'no-stops';
+}
+
 export interface ControlTowerSnapshot {
   yesterday: TowerYesterday | null;
   codOutstandingSar: number;
@@ -38,6 +47,7 @@ export interface ControlTowerSnapshot {
   driversPresentYesterday: number | null;
   backup: BackupReminderState | null;
   actions: TowerAction[];
+  workflow: ControlTowerWorkflow;
 }
 
 export interface ControlTowerInput {
@@ -46,6 +56,8 @@ export interface ControlTowerInput {
   plannedShipmentsPerDay: number;
   nowMs: number;
   backup: BackupReminderState | null;
+  todayStops?: Array<{ status: string; driverName?: string }>;
+  todayCloseStatus?: 'open' | 'draft' | 'reconciled' | 'no-stops';
 }
 
 /** Yesterday in LOCAL time (UTC+3 law) — never a UTC slice. */
@@ -132,6 +144,16 @@ export function buildControlTowerSnapshot(inputSpec: ControlTowerInput): Control
   const rank = (a: TowerAction): number => (a.severity === 'high' ? 0 : 1) * 100 + PRIORITY.indexOf(a.id as typeof PRIORITY[number]);
   const sortedActions = [...actions].sort((a, b) => rank(a) - rank(b)).slice(0, 3);
 
+  // Workflow progress: where is the operator in today's cycle?
+  const todayStops = inputSpec.todayStops ?? [];
+  const stopsPlanned = todayStops.length;
+  const stopsAssigned = todayStops.filter(s => s.driverName).length;
+  const workflow: ControlTowerWorkflow = {
+    stopsPlanned,
+    stopsAssigned,
+    closeStatus: inputSpec.todayCloseStatus ?? (stopsPlanned === 0 ? 'no-stops' : 'open'),
+  };
+
   return {
     yesterday,
     codOutstandingSar,
@@ -141,5 +163,6 @@ export function buildControlTowerSnapshot(inputSpec: ControlTowerInput): Control
     driversPresentYesterday: records[yKey]?.driversPresent ?? null,
     backup,
     actions: sortedActions,
+    workflow,
   };
 }

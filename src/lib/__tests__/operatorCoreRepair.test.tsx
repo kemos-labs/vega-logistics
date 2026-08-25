@@ -36,6 +36,7 @@ describe('operator-core repair', () => {
 
   it('fleet: adding a driver does not change vehicle quantity', () => {
     render(<BusinessModelApp />);
+    fireEvent.click(screen.getByRole('button', { name: /More|المزيد/i }));
     const fleetBtn = screen.getByRole('button', { name: /Drivers & vehicles/i });
     fireEvent.click(fleetBtn);
     const addDriver = screen.getByTestId('add-driver');
@@ -48,6 +49,7 @@ describe('operator-core repair', () => {
 
   it('fleet: driver deletion requires confirmation', async () => {
     render(<BusinessModelApp />);
+    fireEvent.click(screen.getByRole('button', { name: /More|المزيد/i }));
     fireEvent.click(screen.getByRole('button', { name: /Drivers & vehicles/i }));
     const firstRemove = document.querySelector('[data-testid^="remove-"]') as HTMLButtonElement;
     expect(firstRemove).toBeTruthy();
@@ -67,19 +69,22 @@ describe('operator-core repair', () => {
 
   it('shared operation date propagates to stops/dispatch/close/reports/summary', () => {
     render(<BusinessModelApp />);
-    fireEvent.click(screen.getByRole('button', { name: /Stops|المحطات/i }));
+    // Stops is in primary nav — click directly
+    fireEvent.click(screen.getByRole('button', { name: /^Stops$/i }));
     const stopsDate = document.querySelector('input[name="operation-date"]') as HTMLInputElement;
     expect(stopsDate).toBeTruthy();
     const newDate = '2026-08-20';
     fireEvent.change(stopsDate, { target: { value: newDate } });
-    fireEvent.click(screen.getByRole('button', { name: /Dispatch|التوزيع/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Dispatch$/i }));
     const dispatchDate = document.querySelector('input[name="dispatch-date"]') as HTMLInputElement;
     expect(dispatchDate.value).toBe(newDate);
-    fireEvent.click(screen.getByRole('button', { name: /Evening close|إغلاق اليوم/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Evening close$/i }));
     expect((document.querySelector('[data-testid="close-date"]') as HTMLInputElement).value).toBe(newDate);
-    fireEvent.click(screen.getByRole('button', { name: /Reports|التقارير/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Reports$/i }));
     expect((document.querySelector('[data-testid="reports-date"]') as HTMLInputElement).value).toBe(newDate);
-    fireEvent.click(screen.getByRole('button', { name: /^Summary|الملخص$/i }));
+    // Summary is under More
+    fireEvent.click(screen.getByRole('button', { name: /More|المزيد/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Summary$/i }));
     expect((document.querySelector('[data-testid="summary-date"]') as HTMLInputElement).value).toBe(newDate);
   });
 
@@ -200,7 +205,8 @@ describe('operator-core repair', () => {
 
   it('summary: empty shows CTA with no chart, recorded shows 14-slot trend, business plan collapsed', async () => {
     const { unmount } = render(<BusinessModelApp />);
-    fireEvent.click(screen.getByRole('button', { name: /^Summary|الملخص$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /More|المزيد/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Summary$/i }));
     expect(screen.getByTestId('summary-empty')).toBeTruthy();
     expect(screen.queryByTestId('recorded-trend')).toBeNull();
     const details = screen.getByTestId('business-plan-assumptions') as HTMLDetailsElement;
@@ -211,7 +217,8 @@ describe('operator-core repair', () => {
     // also need a stop to make trend non-empty
     localStorage.setItem('vega-stops-v1', JSON.stringify([{ id: '1', operationDate: '2026-08-24', customerName: 'C', stopLabel: 'S1', status: 'delivered', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]));
     render(<BusinessModelApp />);
-    fireEvent.click(screen.getByRole('button', { name: /^Summary|الملخص$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /More|المزيد/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Summary$/i }));
     expect(await screen.findByTestId('recorded-trend')).toBeTruthy();
     expect(screen.getByTestId('recorded-operations')).toBeTruthy();
     const slots = screen.getAllByTestId('recorded-trend-slot');
@@ -249,6 +256,7 @@ describe('operator-core repair', () => {
 
   it('fleet page has correct h1 and no synchronized copy', () => {
     render(<BusinessModelApp />);
+    fireEvent.click(screen.getByRole('button', { name: /More|المزيد/i }));
     fireEvent.click(screen.getByRole('button', { name: /Drivers & vehicles/i }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Drivers & vehicles/);
     expect(document.body.textContent).not.toContain('Synchronized total');

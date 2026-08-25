@@ -389,7 +389,14 @@
       "groupDaily": "العمليات اليومية",
       "groupSetup": "الإعداد والتخطيط",
       "groupExceptions": "الاستثناءات",
-      "compliance": "جاهزية البيانات"
+      "compliance": "جاهزية البيانات",
+      "more": "المزيد",
+      "workflow": {
+        "plan": "تخطيط",
+        "dispatch": "تعيين",
+        "close": "إغلاق",
+        "report": "تقرير"
+      }
     },
     "brand": {
       "subtitle": "نموذج العمل"

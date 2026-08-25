@@ -5,19 +5,61 @@
 import { useTranslation } from 'react-i18next';
 import type { ControlTowerSnapshot } from '@/lib/controlTower';
 
-export function ControlTowerView({ snapshot, onGoto }: { snapshot: ControlTowerSnapshot; onGoto: (view: 'daily' | 'recovery' | 'scenarios') => void }) {
+export function ControlTowerView({ snapshot, onGoto }: { snapshot: ControlTowerSnapshot; onGoto: (view: 'stops' | 'dispatch' | 'close' | 'daily' | 'recovery' | 'scenarios') => void }) {
   const { t, i18n } = useTranslation();
   const S = 'businessModel.tower.';
   const ar = i18n.language === 'ar';
   const fmt = (n: number) => new Intl.NumberFormat(ar ? 'ar-SA-u-nu-latn' : 'en-US').format(n);
 
   const y = snapshot.yesterday;
+  const wf = snapshot.workflow;
+  // Workflow step indicator: where is the operator in today's cycle?
+  const stepDone = (step: number) => {
+    if (step === 1) return wf.stopsPlanned > 0;
+    if (step === 2) return wf.stopsAssigned > 0;
+    if (step === 3) return wf.closeStatus === 'draft' || wf.closeStatus === 'reconciled';
+    return false;
+  };
+  const stepCurrent = () => {
+    if (wf.stopsPlanned === 0) return 1;
+    if (wf.stopsAssigned < wf.stopsPlanned) return 2;
+    if (wf.closeStatus === 'open' || wf.closeStatus === 'no-stops') return 3;
+    return 4; // all done
+  };
+  const currentStep = stepCurrent();
 
   return (
     <section className="bm-tower" data-testid="control-tower">
       <div className="bm-panel-head"><div>
         <span>{t(S + 'tag')}</span><h2>{t(S + 'title')}</h2><p>{t(S + 'desc')}</p>
       </div></div>
+
+      {/* Daily workflow progress — the operator always knows where he is */}
+      <div className="bm-workflow" data-testid="workflow-progress">
+        <div className={`bm-workflow-step ${stepDone(1) ? 'done' : ''} ${currentStep === 1 ? 'current' : ''}`} onClick={() => onGoto('stops')}>
+          <span className="bm-workflow-num">1</span>
+          <span>{t('businessModel.nav.workflow.plan', { defaultValue: 'Plan' })}</span>
+          <small>{wf.stopsPlanned > 0 ? fmt(wf.stopsPlanned) : '—'}</small>
+        </div>
+        <div className="bm-workflow-connector" />
+        <div className={`bm-workflow-step ${stepDone(2) ? 'done' : ''} ${currentStep === 2 ? 'current' : ''}`} onClick={() => onGoto('dispatch')}>
+          <span className="bm-workflow-num">2</span>
+          <span>{t('businessModel.nav.workflow.dispatch', { defaultValue: 'Assign' })}</span>
+          <small>{wf.stopsAssigned > 0 ? `${fmt(wf.stopsAssigned)}/${fmt(wf.stopsPlanned)}` : '—'}</small>
+        </div>
+        <div className="bm-workflow-connector" />
+        <div className={`bm-workflow-step ${stepDone(3) ? 'done' : ''} ${currentStep === 3 ? 'current' : ''}`} onClick={() => onGoto('close')}>
+          <span className="bm-workflow-num">3</span>
+          <span>{t('businessModel.nav.workflow.close', { defaultValue: 'Close' })}</span>
+          <small>{wf.closeStatus === 'reconciled' ? '✓' : wf.closeStatus === 'draft' ? t('businessModel.daily.draft') : '—'}</small>
+        </div>
+        <div className="bm-workflow-connector" />
+        <div className={`bm-workflow-step ${currentStep === 4 ? 'done' : ''} ${currentStep === 4 ? 'current' : ''}`} onClick={() => onGoto('daily')}>
+          <span className="bm-workflow-num">4</span>
+          <span>{t('businessModel.nav.workflow.report', { defaultValue: 'Report' })}</span>
+          <small>{currentStep === 4 ? '✓' : '—'}</small>
+        </div>
+      </div>
 
       {/* Top actions first — the "what must happen today" answer */}
       {snapshot.actions.length > 0 && (
@@ -62,11 +104,15 @@ export function ControlTowerView({ snapshot, onGoto }: { snapshot: ControlTowerS
         </div>
       </dl>
 
-      {/* Direct links into the corrective workflows */}
+      {/* Next step button — the single most important action */}
       <div className="bm-import-choices">
-        <button onClick={() => onGoto('daily')}>{t(S + 'goDaily')}</button>
+        {currentStep <= 3 && (
+          <button className="bm-primary" onClick={() => onGoto(currentStep === 1 ? 'stops' : currentStep === 2 ? 'dispatch' : 'close')}>
+            {currentStep === 1 ? t('businessModel.nav.workflow.plan') : currentStep === 2 ? t('businessModel.nav.workflow.dispatch') : t('businessModel.nav.workflow.close')}
+          </button>
+        )}
+        {currentStep === 4 && <p className="bm-import-note" data-testid="tower-clear">{t(S + 'allClear')}</p>}
         <button onClick={() => onGoto('recovery')}>{t(S + 'goRecovery')}</button>
-        <button onClick={() => onGoto('scenarios')}>{t(S + 'goBackup')}</button>
       </div>
     </section>
   );
