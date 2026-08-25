@@ -12,6 +12,35 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 These rules are durable; session status lives in `SESSION_MEMORY.md`, roadmap in `docs/MASTER_PLAN.md`. Violations = revert and redo.
 
+## START HERE — read order & current position
+New sessions read, in order: **this file** → `SESSION_MEMORY.md` (exact state, last cycles, handoff list) → `docs/MASTER_PLAN.md` (release roadmap R0–R8) → `docs/DATA_MODEL.md` (storage shapes). Then run the full gate suite (see "The proven working loop") BEFORE changing anything, and continue from the resume point below.
+
+**Resume point (this block is updated in every shipped commit):**
+- HEAD `bb9ee52` — shipped this stretch: repo-hygiene cycle (`f304b7d`), then driver identity sync + pre-close delivery reports (`bb9ee52`; early R6 slice, owner-approved).
+- **Awaiting owner live acceptance:** R2 stop planning · R3 morning dispatch · R4 evening close · R5 compliance-lite · driver/pre-close slice. They are coded + tested + deployed but NOT marked shipped in MASTER_PLAN until the owner accepts them live.
+- **Next release:** R6 operational analytics (driver/customer scorecards, COD lag, cost-per-stop, fuel control) per MASTER_PLAN §5-R6.
+- Open blockers: none. Known limitations live in SESSION_MEMORY.
+
+## The proven working loop (operationalizes R1)
+This exact shape has produced only green deploys since adoption:
+
+1. **Baseline first** — run ALL gates before changing anything; catches drift left by prior sessions.
+2. **Explore before design** — read the domain file(s), locale keys and existing tests of the touched area; reuse its vocabulary and patterns. One source of truth per concept; derived data flows outward (e.g. driver identity lives ONLY in the roster catalog; dispatch stamps copies onto stops; close preserves them; reports group by them).
+3. **Minimal coherent scope** — types → pure domain → UI wiring → locales (**BOTH trees, same commit**) → tests (**same commit** as any behavior/schema change, incl. previous-format fixtures for persisted shapes).
+4. **Programmatic edits** — assert exact boundary CONTENT before slicing/deleting (never trust remembered line numbers; they shift), verify markers after, delete later ranges first when index-based.
+5. **Gates, in order:** `npx tsc --noEmit` → `npx vitest run` → `npx eslint .` → `npm run build` → `python3 src/__tests__/run_all_tests.py` → `git diff --check`. All green locally, no exceptions.
+6. **Land** — conventional commit subject (`feat|fix|chore(scope): summary`) whose body states what, why, and gate results; then `git push origin main`.
+7. **Verify live** — `gh run watch $(gh run list --limit 1 --json databaseId -q '.[0].databaseId') --exit-status` reaching `completed success`, then curl https://kemos-labs.github.io/vega-logistics/ (key-level changes: `curl …/locales/<lang>/translation.json`). Not confirmed live = not done (R1).
+8. **Docs in the same commit** — MASTER_PLAN checkboxes if a release item moved; SESSION_MEMORY always.
+
+### Hard-won gotchas (do not relearn these)
+- CI runs `eslint . --quiet` — warnings never fail CI. Hold LOCAL eslint at literally 0 problems; 22 warnings once accumulated unnoticed.
+- Test mock spies: type via vitest generics `vi.fn<(...callArgs: unknown[]) => Result>(() => ({…}))` — keeps spread-forwarding call sites type-safe AND lint-clean (unused rest params fail lint).
+- `toMatchObject` distinguishes absent-key vs `undefined` value; assert optional absence with `.toBeUndefined()`.
+- UI tests have no global setup: rendering `BusinessModelApp` pulls in `@/lib/i18n` → English strings; rendering components directly relies on `defaultValue` fallbacks. Always `localStorage.clear(); cleanup()` in `beforeEach`.
+- Locale parity: flatten both trees and compare key counts (currently 1247↔1247) before every push.
+- One CI vitest flake occurred (`9a601bb` run) — unhandled errors never reproduced locally; identical tree passed minutes later. Re-run the workflow before suspecting the tree.
+
 ## R1 — Truth gates before every push
 All must pass: `npx tsc --noEmit` · `npx vitest run` (all passing) · `npx eslint .` (0 problems) · `npm run build` · `python3 src/__tests__/run_all_tests.py` · `git diff --check`. After push: Pages workflow must reach `completed success`, then curl the live site to confirm the change actually shipped. A feature not verified live is not done.
 

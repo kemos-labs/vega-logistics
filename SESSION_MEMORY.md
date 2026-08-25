@@ -8,9 +8,15 @@ Owner-requested sync slice (early R6): **(1)** `DriverRecord` gains distinct opt
 ## Hygiene cycle (previous commit)
 Full-app review follow-up, zero behavior change intended: (1) stale June-era root docs moved to `docs/archive/` with a README marking them non-authoritative — R9 hazard removed; stray dev logs deleted; (2) all 22 eslint warnings cleared — dead ~200-line `DailyReport` + `MonthlyVariance` components, unused imports/states/helpers in BusinessModelApp/StopPlanning/eveningClose/stops, mock-signature typing in 6 test files (vi.fn generics replace unused rest params); (3) dead empty locale key `businessModel.recovery.thActions` removed from BOTH trees (R3 parity 1244↔1244); (4) unnecessary `as never` cast dropped at backup-banner dismissal.
 ## Current state
-- **Commit:** see `git log -1` · **Deploy:** https://kemos-labs.github.io/vega-logistics/ green
+- **Commit:** `bb9ee52` · **Deploy:** https://kemos-labs.github.io/vega-logistics/ green (CI verified, keys live-verified)
 - **Tests:** 389 passing (35 files) · tsc clean · eslint 0 problems (0 warnings) · build ✓ · python suite ✓
 - Dev URL: http://vega.localhost:8080 (`localhost:3002` = unrelated project)
+
+## HANDOFF — next agent starts here (2026-08-25)
+1. **Owner acceptance session** (blocking R2–R5 + driver slice): walk the owner through stop planning → dispatch print sheet → evening close → reports (incl. new pre-close per-driver view) → compliance-lite, on a real device, EN+AR. On acceptance: tick MASTER_PLAN checkboxes + record here. On defects: fix under the same release before R6.
+2. **Then R6** per MASTER_PLAN §5-R6 — driver scorecard extends this slice's identity chain; every metric needs definition+denominator+empty states (R8/R10).
+3. **Standing constraints:** eslint stays at literally 0 problems (CI can't see warnings) · locale parity 1247↔1247 · no schema change without old-format fixtures · CSP untouched without env flag.
+4. Process reference: AGENTS.md "The proven working loop" + "Hard-won gotchas" — both proven across `f304b7d` and `bb9ee52`.
 
 ## Completed releases
 - **P0** — model, reports, recovery board, Arabic UI, PWA (prior cycles)
