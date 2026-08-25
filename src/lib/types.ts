@@ -71,6 +71,10 @@ export interface DriverRecord {
   phone: string;
   nationalId: string;
   assignedVehicle: string;  // vehicle class name or plate
+  /** Distinct operational car number (optional — additive field, old records lack it). */
+  carNumber?: string;
+  /** Distinct Saudi plate text (optional — additive field, old records lack it). */
+  plateNumber?: string;
   status: DriverStatus;
 }
 

@@ -47,7 +47,7 @@ export function DispatchBoardView({ stops, setStops, drivers, operationDate: con
   const doAssign = (stopId: string, driverId: string) => {
     const driver = driverOptions.find(option => option.id === driverId);
     if (!driver) return;
-    persist(assignStop(stops, stopId, { fullName: driver.fullName, vehicle: driver.vehicle }, new Date().toISOString()));
+    persist(assignStop(stops, stopId, { fullName: driver.fullName, vehicle: driver.vehicle, carNumber: driver.carNumber, plateNumber: driver.plateNumber }, new Date().toISOString()));
   };
   const doUnassign = (stopId: string) => persist(unassignStop(stops, stopId, new Date().toISOString()));
   const doMove = (stopId: string, direction: 'up' | 'down') => persist(moveStop(stops, stopId, direction, new Date().toISOString()));

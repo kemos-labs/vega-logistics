@@ -53,6 +53,33 @@ export function ReportsView({
   const isDraft = record?.closeStatus === 'draft';
   const isLegacy = !!record && !record.closeStatus;
 
+  // Per-driver run cards, shared by both render paths. `allowPrint=false`
+  // serves the pre-close view: print/export stay gated on a recorded close.
+  const renderRuns = (allowPrint: boolean) => board.runs.map(run => {
+    const key = runKey(run);
+    const stopsForRun = run.stops;
+    const del = stopsForRun.filter(s => s.status === 'delivered').length;
+    const ret = stopsForRun.filter(s => s.status === 'returned').length;
+    const pend = stopsForRun.filter(s => s.status === 'pending' || s.status === 'planned' || s.status === 'failed').length;
+    const codExp = stopsForRun.filter(s => s.status === 'delivered').reduce((sum, s) => sum + (s.codAmountSar ?? 0), 0);
+    const podGaps = stopsForRun.filter(s => s.status === 'delivered' && s.podStatus !== 'complete').length;
+    return (
+      <div key={key} className="bm-run" data-testid={`reports-run-${key}`}>
+        <div className="bm-run-head"><h4>{run.driverName}{run.carNumber ? ` · ${run.carNumber}` : ''}</h4>
+          {allowPrint && <button data-testid={`reports-print-${key}`} disabled={isDraft} onClick={() => doPrintRun(key)}>{t('businessModel.dispatch.printBtn', { defaultValue: 'Print sheet' })}</button>}
+        </div>
+        <dl className="bm-import-counts">
+          <div><dt>{t('businessModel.reports.assigned', { defaultValue: 'Stops' })}</dt><dd>{fmt(stopsForRun.length)}</dd></div>
+          <div><dt>{t('businessModel.reports.delivered', { defaultValue: 'Delivered' })}</dt><dd>{fmt(del)}</dd></div>
+          <div><dt>{t('businessModel.reports.returned', { defaultValue: 'Returned' })}</dt><dd>{fmt(ret)}</dd></div>
+          <div><dt>{t('businessModel.reports.pending', { defaultValue: 'Pending' })}</dt><dd>{fmt(pend)}</dd></div>
+          <div><dt>{t('businessModel.reports.podGaps', { defaultValue: 'POD gaps' })}</dt><dd data-testid={`reports-pod-${key}`}>{fmt(podGaps)}</dd></div>
+          <div><dt>{t('businessModel.reports.codExpected', { defaultValue: 'COD expected' })}</dt><dd data-testid={`reports-cod-${key}`}>{fmt(codExp)} SAR</dd></div>
+        </dl>
+      </div>
+    );
+  });
+
   const delivered = dayStops.filter(s => s.status === 'delivered').length;
   const returned = dayStops.filter(s => s.status === 'returned').length;
   const pending = dayStops.filter(s => s.status === 'pending' || s.status === 'planned' || s.status === 'failed').length;
@@ -145,6 +172,9 @@ export function ReportsView({
   ) : null;
 
   if (!record) {
+    // Stop-level delivery truth exists independently of the financial close.
+    // Show it honestly: collected/remitted stay ABSENT here (never zero-filled)
+    // until Evening Close records them. Print/export remain gated on a close.
     return (
       <>
         <section className="bm-panel" data-testid="reports-view">
@@ -152,10 +182,32 @@ export function ReportsView({
           <div className="bm-provider-row">
             <label className="bm-field"><span>{t('businessModel.close.dateLabel')}</span><input type="date" value={operationDate} onChange={e => onOperationDateChange(e.target.value)} data-testid="reports-date" /></label>
           </div>
-          <div data-testid="reports-empty" className="bm-import-note" style={{ padding: 18, border: '1px dashed var(--line)', borderRadius: 8, background: 'var(--paper-2)', textAlign: 'center' }}>
-            <p>{t('businessModel.reports.empty', { defaultValue: 'Close this date to create a report' })}</p>
-            <button className="bm-primary" onClick={onGotoClose} data-testid="reports-cta-close">{t('businessModel.reports.goClose', { defaultValue: 'Go to Evening Close' })}</button>
-          </div>
+          {dayStops.length === 0 ? (
+            <div data-testid="reports-empty" className="bm-import-note" style={{ padding: 18, border: '1px dashed var(--line)', borderRadius: 8, background: 'var(--paper-2)', textAlign: 'center' }}>
+              <p>{t('businessModel.reports.empty', { defaultValue: 'Close this date to create a report' })}</p>
+              <button className="bm-primary" onClick={onGotoClose} data-testid="reports-cta-close">{t('businessModel.reports.goClose', { defaultValue: 'Go to Evening Close' })}</button>
+            </div>
+          ) : (
+            <>
+              <p data-testid="reports-no-close-note" role="note" className="bm-import-warning" style={{ padding: 10, background: 'var(--brass-soft)', borderRadius: 6 }}>
+                {t('businessModel.reports.noCloseNote')}
+              </p>
+              <dl className="bm-import-counts" data-testid="reports-company-stops-only">
+                <div><dt>{t('businessModel.reports.assigned', { defaultValue: 'Stops' })}</dt><dd>{fmt(dayStops.length)}</dd></div>
+                <div><dt>{t('businessModel.reports.delivered', { defaultValue: 'Delivered' })}</dt><dd>{fmt(delivered)}</dd></div>
+                <div><dt>{t('businessModel.reports.returned', { defaultValue: 'Returned' })}</dt><dd>{fmt(returned)}</dd></div>
+                <div><dt>{t('businessModel.reports.pending', { defaultValue: 'Pending' })}</dt><dd>{fmt(pending)}</dd></div>
+                <div><dt>{t('businessModel.reports.codExpected', { defaultValue: 'COD expected (delivered stops)' })}</dt><dd data-testid="reports-cod-expected-stops-only">{fmt(codExpected)} SAR</dd></div>
+              </dl>
+              <h3>{t('businessModel.reports.perDriverTitle', { defaultValue: 'Per-driver runs' })}</h3>
+              {board.runs.length === 0 && <p className="bm-import-note">{t('businessModel.reports.unassignedOnly', { defaultValue: 'All stops unassigned — assign in Dispatch.' })}</p>}
+              {renderRuns(false)}
+              {board.unassigned.length > 0 && (
+                <div data-testid="reports-unassigned"><h4>{t('businessModel.dispatch.unassignedTitle', { defaultValue: 'Unassigned' })}</h4><p>{fmt(board.unassigned.length)} {t('businessModel.reports.stops', { defaultValue: 'stops' })}</p></div>
+              )}
+              <button className="bm-primary" onClick={onGotoClose} data-testid="reports-cta-close">{t('businessModel.reports.goClose', { defaultValue: 'Go to Evening Close' })}</button>
+            </>
+          )}
         </section>
         {printPortal}
       </>
@@ -199,30 +251,7 @@ export function ReportsView({
         <h3>{t('businessModel.reports.perDriverTitle', { defaultValue: 'Per-driver runs' })}</h3>
         {board.runs.length === 0 && dayStops.length === 0 && <p className="bm-import-note">{t('businessModel.reports.noStops', { defaultValue: 'No stops for this date' })}</p>}
         {board.runs.length === 0 && dayStops.length > 0 && <p className="bm-import-note">{t('businessModel.reports.unassignedOnly', { defaultValue: 'All stops unassigned — assign in Dispatch.' })}</p>}
-        {board.runs.map(run => {
-          const key = runKey(run);
-          const stopsForRun = run.stops;
-          const del = stopsForRun.filter(s => s.status === 'delivered').length;
-          const ret = stopsForRun.filter(s => s.status === 'returned').length;
-          const pend = stopsForRun.filter(s => s.status === 'pending' || s.status === 'planned' || s.status === 'failed').length;
-          const codExp = stopsForRun.filter(s => s.status === 'delivered').reduce((sum, s) => sum + (s.codAmountSar ?? 0), 0);
-          const podGaps = stopsForRun.filter(s => s.status === 'delivered' && s.podStatus !== 'complete').length;
-          return (
-            <div key={key} className="bm-run" data-testid={`reports-run-${key}`}>
-              <div className="bm-run-head"><h4>{run.driverName}{run.carNumber ? ` · ${run.carNumber}` : ''}</h4>
-                <button data-testid={`reports-print-${key}`} disabled={isDraft} onClick={() => doPrintRun(key)}>{t('businessModel.dispatch.printBtn', { defaultValue: 'Print sheet' })}</button>
-              </div>
-              <dl className="bm-import-counts">
-                <div><dt>{t('businessModel.reports.assigned', { defaultValue: 'Stops' })}</dt><dd>{fmt(stopsForRun.length)}</dd></div>
-                <div><dt>{t('businessModel.reports.delivered', { defaultValue: 'Delivered' })}</dt><dd>{fmt(del)}</dd></div>
-                <div><dt>{t('businessModel.reports.returned', { defaultValue: 'Returned' })}</dt><dd>{fmt(ret)}</dd></div>
-                <div><dt>{t('businessModel.reports.pending', { defaultValue: 'Pending' })}</dt><dd>{fmt(pend)}</dd></div>
-                <div><dt>{t('businessModel.reports.podGaps', { defaultValue: 'POD gaps' })}</dt><dd data-testid={`reports-pod-${key}`}>{fmt(podGaps)}</dd></div>
-                <div><dt>{t('businessModel.reports.codExpected', { defaultValue: 'COD expected' })}</dt><dd data-testid={`reports-cod-${key}`}>{fmt(codExp)} SAR</dd></div>
-              </dl>
-            </div>
-          );
-        })}
+        {renderRuns(true)}
         {board.unassigned.length > 0 && (
           <div data-testid="reports-unassigned"><h4>{t('businessModel.dispatch.unassignedTitle', { defaultValue: 'Unassigned' })}</h4><p>{fmt(board.unassigned.length)} {t('businessModel.reports.stops', { defaultValue: 'stops' })}</p></div>
         )}

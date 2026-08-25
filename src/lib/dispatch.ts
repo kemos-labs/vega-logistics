@@ -22,8 +22,9 @@ export function isDispatchable(stop: StopRecord): boolean {
   return (DISPATCH_STATUSES as readonly string[]).includes(stop.status);
 }
 
-/** Active company drivers, adapted to stable operational labels (§B). */
-export function assignableDrivers(drivers: DriverRecord[] | undefined): Array<{ id: string; label: string; fullName: string; vehicle: string }> {
+/** Active company drivers, adapted to stable operational labels (§B).
+ *  Car number + plate ride along so dispatch can stamp complete identity. */
+export function assignableDrivers(drivers: DriverRecord[] | undefined): Array<{ id: string; label: string; fullName: string; vehicle: string; carNumber?: string; plateNumber?: string }> {
   return (drivers ?? [])
     .filter(driver => driver.status === 'active')
     .map(driver => ({
@@ -31,6 +32,8 @@ export function assignableDrivers(drivers: DriverRecord[] | undefined): Array<{ 
       label: `${driver.fullName} · ${driver.assignedVehicle}`,
       fullName: driver.fullName,
       vehicle: driver.assignedVehicle,
+      carNumber: driver.carNumber,
+      plateNumber: driver.plateNumber,
     }));
 }
 
@@ -78,18 +81,22 @@ export function buildDispatchBoard(stops: StopRecord[]): DispatchBoard {
  * from the previous run (the board rebuild resequences both) and preserves
  * status + unrelated fields. Provider-reported identity is only overwritten
  * when the operator explicitly assigns (this IS the explicit action).
+ *
+ * Identity source priority: explicit catalog carNumber wins over the legacy
+ * free-text `vehicle`; plate comes from the catalog when known.
  */
 export function assignStop(
   stops: StopRecord[],
   stopId: string,
-  driver: { fullName: string; vehicle: string },
+  driver: { fullName: string; vehicle?: string; carNumber?: string; plateNumber?: string },
   nowIso: string,
 ): StopRecord[] {
+  const carNumber = driver.carNumber ?? driver.vehicle;
   return stops.map(stop => stop.id === stopId
     ? updateStopRecord(stop, {
         driverName: driver.fullName,
-        carNumber: driver.vehicle,
-        plateNumber: undefined,
+        carNumber,
+        plateNumber: driver.plateNumber,
         sequence: undefined, // board rebuild assigns the next free slot deterministically
       }, nowIso)
     : stop);

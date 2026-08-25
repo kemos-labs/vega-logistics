@@ -182,6 +182,31 @@ describe('round-trip and full-state coverage (contract C3)', () => {
     expect(restored?.owner).toBe('');
     expect(restored?.status).toBe('pending');
   });
+
+  it('driver catalog: OLD format (no carNumber/plateNumber) survives untouched; NEW fields round-trip', () => {
+    // previous-format fixture — drivers before the car/plate columns existed
+    const legacyBundle = fullBundle();
+    legacyBundle.financialInput.drivers = [
+      { id: 'd1', fullName: 'سالم', phone: '0550000000', nationalId: '', assignedVehicle: 'Van-1', status: 'active' },
+    ];
+    const legacyParsed = parseBackup(v2File(legacyBundle));
+    expect(legacyParsed.ok).toBe(true);
+    if (!legacyParsed.ok) return;
+    const legacyNext = replaceWithBackup(legacyBundle, legacyParsed.file);
+    expect(legacyNext.financialInput.drivers[0]).not.toHaveProperty('carNumber');
+    expect(legacyNext.financialInput.drivers[0]).not.toHaveProperty('plateNumber');
+
+    // additive new-format fixture — car + plate ride the full pipeline
+    const modernBundle = fullBundle();
+    modernBundle.financialInput.drivers = [
+      { id: 'd2', fullName: 'خالد', phone: '0551234567', nationalId: '', assignedVehicle: 'Sedan', carNumber: 'CAR-12', plateNumber: 'أ ب ج 1234', status: 'active' },
+    ];
+    const modernParsed = parseBackup(v2File(modernBundle));
+    expect(modernParsed.ok).toBe(true);
+    if (!modernParsed.ok) return;
+    const modernNext = replaceWithBackup(modernBundle, modernParsed.file);
+    expect(modernNext.financialInput.drivers[0]).toMatchObject({ carNumber: 'CAR-12', plateNumber: 'أ ب ج 1234' });
+  });
 });
 
 describe('conflict semantics (contract C4)', () => {

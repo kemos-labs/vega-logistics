@@ -26,11 +26,21 @@ const drivers: DriverRecord[] = [
   { id: 'd2', fullName: 'مغلق', phone: '', nationalId: '', assignedVehicle: 'Van-2', status: 'inactive' },
 ];
 
+const driverWithCar: DriverRecord = {
+  id: 'd3', fullName: 'خالد', phone: '0551234567', nationalId: '',
+  assignedVehicle: 'Sedan', carNumber: 'CAR-12', plateNumber: 'أ ب ج 1234', status: 'active',
+};
+
 describe('catalog adapter', () => {
   it('only ACTIVE drivers are assignable, with stable operational labels', () => {
     const options = assignableDrivers(drivers);
     expect(options).toHaveLength(1);
     expect(options[0]).toMatchObject({ fullName: 'سالم', label: 'سالم · Van-1' });
+  });
+
+  it('carries catalog car number + plate so dispatch can stamp complete identity', () => {
+    const options = assignableDrivers([driverWithCar]);
+    expect(options[0]).toMatchObject({ fullName: 'خالد', vehicle: 'Sedan', carNumber: 'CAR-12', plateNumber: 'أ ب ج 1234' });
   });
 });
 
@@ -51,6 +61,23 @@ describe('assignment', () => {
     expect(next[0]).toMatchObject({ driverName: 'سالم', carNumber: 'Van-1', status: 'planned', codAmountSar: 30 });
     expect(next[0].createdAt).toBe(original.createdAt);
     expect(next[0].updatedAt).not.toBe(original.updatedAt);
+  });
+
+  it('catalog car number + plate propagate onto the assigned stop', () => {
+    const original = stop();
+    const next = assignStop([original], original.id,
+      { fullName: 'خالد', vehicle: 'Sedan', carNumber: 'CAR-12', plateNumber: 'أ ب ج 1234' }, LATER);
+    expect(next[0]).toMatchObject({ driverName: 'خالد', carNumber: 'CAR-12', plateNumber: 'أ ب ج 1234' });
+  });
+
+  it('legacy callers without explicit carNumber still get vehicle as car (fallback)', () => {
+    const original = stop();
+    const next = assignStop([original], original.id, { fullName: 'سالم', vehicle: 'Van-9' }, LATER);
+    expect(next[0].carNumber).toBe('Van-9');
+    expect(next[0].plateNumber).toBeUndefined();
+    // run identity groups by driver+car even with only the fallback
+    const board = buildDispatchBoard([next[0], stop({ driverName: 'سالم', carNumber: 'Van-9' })]);
+    expect(board.runs).toHaveLength(1);
   });
 
   it('board groups assigned runs, resequences 1..N gapless, keeps unassigned queue', () => {

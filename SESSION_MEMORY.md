@@ -2,12 +2,14 @@
 
 > Governance: `AGENTS.md` (durable rules) · Roadmap: `docs/MASTER_PLAN.md` · Claims: `docs/RESEARCH_DOSSIER.md` · Truth audit: `docs/PRODUCT_TRUTH_AUDIT.md`
 
-## Hygiene cycle (this commit)
-Full-app review follow-up, zero behavior change intended: (1) stale June-era root docs moved to `docs/archive/` with a README marking them non-authoritative — R9 hazard removed; stray dev logs deleted; (2) all 22 eslint warnings cleared — dead ~200-line `DailyReport` + `MonthlyVariance` components, unused imports/states/helpers in BusinessModelApp/StopPlanning/eveningClose/stops, mock-signature typing in 6 test files (vi.fn generics replace unused rest params); (3) dead empty locale key `businessModel.recovery.thActions` removed from BOTH trees (R3 parity 1244↔1244); (4) unnecessary `as never` cast dropped at backup-banner dismissal.
+## Driver identity + pre-close reports cycle (this commit)
+Owner-requested sync slice (early R6): **(1)** `DriverRecord` gains distinct optional `carNumber`/`plateNumber` alongside phone; fleet roster UI gets two new columns (رقم السيارة / اللوحة). **(2)** Dispatch↔catalog sync: `assignableDrivers` carries car+plate; `assignStop` stamps complete identity onto stops (explicit catalog carNumber wins over legacy free-text `vehicle`, plate from catalog) → evening-close outcomes keep it → reports group runs by full driver+car+plate identity. **(3)** Reports before close: a date with recorded stops but no DailyRecord now shows honest per-driver delivery counts (stop-derived only — collected/remitted stay ABSENT, never zero-filled; print/export remain gated on a definitive close). Tests: +7 (dispatch identity propagation ×2 + fallback, backup old/new-format driver fixtures, pre-close reports UI ×3) → 389 total (35 files). Locale parity 1247↔1247 (`fleet.colCarNumber`, `fleet.colPlateNumber`, `reports.noCloseNote` both trees, native Arabic).
 
+## Hygiene cycle (previous commit)
+Full-app review follow-up, zero behavior change intended: (1) stale June-era root docs moved to `docs/archive/` with a README marking them non-authoritative — R9 hazard removed; stray dev logs deleted; (2) all 22 eslint warnings cleared — dead ~200-line `DailyReport` + `MonthlyVariance` components, unused imports/states/helpers in BusinessModelApp/StopPlanning/eveningClose/stops, mock-signature typing in 6 test files (vi.fn generics replace unused rest params); (3) dead empty locale key `businessModel.recovery.thActions` removed from BOTH trees (R3 parity 1244↔1244); (4) unnecessary `as never` cast dropped at backup-banner dismissal.
 ## Current state
 - **Commit:** see `git log -1` · **Deploy:** https://kemos-labs.github.io/vega-logistics/ green
-- **Tests:** 382 passing (34 files) · tsc clean · eslint 0 problems (0 warnings) · build ✓ · python suite ✓
+- **Tests:** 389 passing (35 files) · tsc clean · eslint 0 problems (0 warnings) · build ✓ · python suite ✓
 - Dev URL: http://vega.localhost:8080 (`localhost:3002` = unrelated project)
 
 ## Completed releases
