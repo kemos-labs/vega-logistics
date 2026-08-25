@@ -2,14 +2,17 @@
 
 > Governance: `AGENTS.md` (durable rules) · Roadmap: `docs/MASTER_PLAN.md` · Claims: `docs/RESEARCH_DOSSIER.md` · Truth audit: `docs/PRODUCT_TRUTH_AUDIT.md`
 
-## Driver identity + pre-close reports cycle (this commit)
+## R6 operational analytics cycle (this commit)
+Full R6 implementation per MASTER_PLAN §5-R6: **(1)** Driver scorecard — `buildDriverPerformance()` aggregates stops by driver identity (driverName + carNumber + plateNumber), worst miss rate first, trailing-7-day trend; rendered in ProReport with EN/AR labels + empty state. **(2)** COD remittance-lag trend — `buildCodRemittanceLag()` computes days between operation date and remittance date per day. **(3)** Fuel control — `buildFuelControl()` compares daily fuel cost vs model daily expectation with variance %. **(4)** Failure Pareto — `buildFailurePareto()` computes count + share + cumulative share. **(5)** Customer scorecard + cost-per-delivered-stop + recovery aging/close-rate — already existed, now integrated into the full R6 report model. All metrics: definition + denominator + empty/insufficient states + drilldown + Arabic labels + tabular alternative. Tests: +36 (operationsReporting domain ×23 + reportEngine integration ×8 + ProReport UI ×8) → 425 total (37 files). Locale parity 1272↔1272 (24 new keys per tree, native Arabic). All gates green (tsc, vitest, eslint 0, build, python suite, git diff --check).
+
+## Driver identity + pre-close reports cycle (previous commit)
 Owner-requested sync slice (early R6): **(1)** `DriverRecord` gains distinct optional `carNumber`/`plateNumber` alongside phone; fleet roster UI gets two new columns (رقم السيارة / اللوحة). **(2)** Dispatch↔catalog sync: `assignableDrivers` carries car+plate; `assignStop` stamps complete identity onto stops (explicit catalog carNumber wins over legacy free-text `vehicle`, plate from catalog) → evening-close outcomes keep it → reports group runs by full driver+car+plate identity. **(3)** Reports before close: a date with recorded stops but no DailyRecord now shows honest per-driver delivery counts (stop-derived only — collected/remitted stay ABSENT, never zero-filled; print/export remain gated on a definitive close). Tests: +7 (dispatch identity propagation ×2 + fallback, backup old/new-format driver fixtures, pre-close reports UI ×3) → 389 total (35 files). Locale parity 1247↔1247 (`fleet.colCarNumber`, `fleet.colPlateNumber`, `reports.noCloseNote` both trees, native Arabic).
 
 ## Hygiene cycle (previous commit)
 Full-app review follow-up, zero behavior change intended: (1) stale June-era root docs moved to `docs/archive/` with a README marking them non-authoritative — R9 hazard removed; stray dev logs deleted; (2) all 22 eslint warnings cleared — dead ~200-line `DailyReport` + `MonthlyVariance` components, unused imports/states/helpers in BusinessModelApp/StopPlanning/eveningClose/stops, mock-signature typing in 6 test files (vi.fn generics replace unused rest params); (3) dead empty locale key `businessModel.recovery.thActions` removed from BOTH trees (R3 parity 1244↔1244); (4) unnecessary `as never` cast dropped at backup-banner dismissal.
 ## Current state
-- **Commit:** `bb9ee52` · **Deploy:** https://kemos-labs.github.io/vega-logistics/ green (CI verified, keys live-verified)
-- **Tests:** 389 passing (35 files) · tsc clean · eslint 0 problems (0 warnings) · build ✓ · python suite ✓
+- **Commit:** `$(git rev-parse --short HEAD)` · **Deploy:** https://kemos-labs.github.io/vega-logistics/ green (CI verified, keys live-verified)
+- **Tests:** 425 passing (37 files) · tsc clean · eslint 0 problems (0 warnings) · build ✓ · python suite ✓
 - Dev URL: http://vega.localhost:8080 (`localhost:3002` = unrelated project)
 
 ## HANDOFF — next agent starts here (2026-08-25)

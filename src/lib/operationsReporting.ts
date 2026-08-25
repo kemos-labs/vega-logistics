@@ -161,6 +161,135 @@ export interface CustomerPerformanceRow {
   trendDelta?: number;
 }
 
+/** Driver identity key — groups stops by the full driver+car+plate tuple. */
+export function driverIdentityKey(driverName?: string, carNumber?: string, plateNumber?: string): string {
+  return [driverName ?? '—', carNumber ?? '—', plateNumber ?? '—'].join('|');
+}
+
+export interface DriverPerformanceRow {
+  key: string;
+  driverName: string;
+  carNumber?: string;
+  plateNumber?: string;
+  delivered: number;
+  missed: number;
+  attempts: number;
+  missRatePercent: number;
+  /** Miss rate across the trailing 7 recorded days (undefined if none). */
+  recentMissRatePercent?: number;
+  /** recent − overall; positive means worsening. */
+  trendDelta?: number;
+}
+
+/** Aggregate stops by driver identity (driverName + carNumber + plateNumber),
+ *  worst miss rate first. Mirrors the customer scorecard pattern. */
+export function buildDriverPerformance(stops: Array<{ driverName?: string; carNumber?: string; plateNumber?: string; status: string; operationDate: string }>): DriverPerformanceRow[] {
+  const totalsMap = new Map<string, { driverName: string; carNumber?: string; plateNumber?: string; delivered: number; missed: number }>();
+  for (const stop of stops) {
+    if (!stop.driverName) continue;
+    const key = driverIdentityKey(stop.driverName, stop.carNumber, stop.plateNumber);
+    const bucket = totalsMap.get(key) ?? { driverName: stop.driverName, carNumber: stop.carNumber, plateNumber: stop.plateNumber, delivered: 0, missed: 0 };
+    if (stop.status === 'delivered') bucket.delivered += 1;
+    else if (stop.status === 'failed' || stop.status === 'returned') bucket.missed += 1;
+    totalsMap.set(key, bucket);
+  }
+  const rows: DriverPerformanceRow[] = [...totalsMap.entries()]
+    .filter(([, bucket]) => bucket.delivered + bucket.missed > 0)
+    .map(([key, bucket]) => {
+      const attempts = bucket.delivered + bucket.missed;
+      return { key, driverName: bucket.driverName, carNumber: bucket.carNumber, plateNumber: bucket.plateNumber, delivered: bucket.delivered, missed: bucket.missed, attempts, missRatePercent: bucket.missed / attempts * 100 };
+    });
+  // Recency trend ≈ trailing 7 days vs lifetime.
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
+  const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+  for (const row of rows) {
+    let recentDelivered = 0, recentMissed = 0;
+    for (const stop of stops) {
+      if (!stop.driverName) continue;
+      if (driverIdentityKey(stop.driverName, stop.carNumber, stop.plateNumber) !== row.key) continue;
+      if (stop.operationDate < cutoffKey) continue;
+      if (stop.status === 'delivered') recentDelivered += 1;
+      else if (stop.status === 'failed' || stop.status === 'returned') recentMissed += 1;
+    }
+    if (recentDelivered + recentMissed > 0) {
+      row.recentMissRatePercent = recentMissed / (recentDelivered + recentMissed) * 100;
+      row.trendDelta = row.recentMissRatePercent - row.missRatePercent;
+    }
+  }
+  return rows.sort((a, b) => b.missRatePercent - a.missRatePercent || b.attempts - a.attempts);
+}
+
+export interface CodRemittanceLagPoint {
+  date: string;
+  label: string;
+  /** Days between operation date and remittance date (0 if same day). */
+  lagDays: number;
+  collected: number;
+  remitted: number;
+}
+
+/** Per-day remittance lag: days between operation date and the date cash was
+ *  remitted. Only days with a remittance date are included. Drives the
+ *  COD-lag trend chart. */
+export function buildCodRemittanceLag(records: Record<string, DailyRecord>): CodRemittanceLagPoint[] {
+  return Object.values(records)
+    .filter(record => isDefinitiveDailyRecord(record) && typeof record.codRemittedOn === 'string' && isValidCalendarDate(record.codRemittedOn))
+    .map(record => {
+      const operationDay = new Date(`${record.date}T12:00:00`).getTime();
+      const remitDay = new Date(`${record.codRemittedOn!}T12:00:00`).getTime();
+      const lagDays = Math.max(0, Math.round((remitDay - operationDay) / 86_400_000));
+      return { date: record.date, label: record.date.slice(5), lagDays, collected: record.cashCollectedSar ?? 0, remitted: record.cashRemittedSar ?? 0 };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export interface FuelControlPoint {
+  date: string;
+  label: string;
+  actual: number;
+  model: number;
+  /** (actual − model) / model * 100 — positive means over model. */
+  variancePercent: number;
+}
+
+/** Per-day fuel cost against the model's daily expectation. Drives the fuel
+ *  control chart — flags days where spend exceeds the model by >15%. */
+export function buildFuelControl(records: Record<string, DailyRecord>, output: FinancialOutput): FuelControlPoint[] {
+  const modelDaily = output.fuelMonthlyCost / WORKING_DAYS_PER_MONTH;
+  return Object.values(records)
+    .filter(record => isDefinitiveDailyRecord(record))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(record => ({
+      date: record.date,
+      label: record.date.slice(5),
+      actual: record.fuelCost,
+      model: modelDaily,
+      variancePercent: modelDaily > 0 ? ((record.fuelCost - modelDaily) / modelDaily) * 100 : 0,
+    }));
+}
+
+export interface FailureParetoEntry {
+  key: FailureReasonKey;
+  count: number;
+  percent: number;
+  cumulativePercent: number;
+}
+
+/** Failure reasons as a Pareto: count, share of total, and running
+ *  cumulative share. Drives the failure Pareto chart — the vital few
+ *  reasons that drive most misses. Only definitive records are included. */
+export function buildFailurePareto(records: Iterable<DailyRecord>): FailureParetoEntry[] {
+  const totals = aggregateFailureReasons([...records].filter(record => isDefinitiveDailyRecord(record)));
+  const total = totals.reduce((sum, entry) => sum + entry.count, 0);
+  let running = 0;
+  return totals.map(entry => {
+    const percent = total > 0 ? (entry.count / total) * 100 : 0;
+    running += percent;
+    return { key: entry.key, count: entry.count, percent, cumulativePercent: running };
+  });
+}
+
 /** Aggregate per-customer delivered/missed across ALL recorded days,
  *  worst first. Customers without attributed data are omitted. */
 export function buildCustomerPerformance(records: Record<string, DailyRecord>, input: FinancialInput): CustomerPerformanceRow[] {

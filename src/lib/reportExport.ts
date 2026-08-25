@@ -40,6 +40,11 @@ export interface ReportLabels {
   thTrend: string; podShareLine: string;
   codShipments: string; prepaidShipments: string; cashCollected: string; cashOutstanding: string;
   costTrendHead: string; thOwner: string; thDaysOpen: string; targetLine: string;
+  // R6 operational analytics labels
+  driverScorecardHead: string; driverScorecardDesc: string; thDriver: string; thCar: string; thPlate: string; noDriverData: string;
+  codLagHead: string; codLagDesc: string; thLagDays: string; thCollected: string; thRemitted: string; codLagTarget: string; noCodLag: string;
+  fuelControlHead: string; fuelControlDesc: string; thActual: string; thModel: string; thFuelVariance: string; fuelOverModel: string; noFuelData: string;
+  failureParetoHead: string; failureParetoDesc: string; thCount: string; thShare: string; thCumulative: string; noFailureData: string;
 }
 
 const INSIGHT_LABEL_KEYS: Record<InsightKey, keyof ReportLabels> = {

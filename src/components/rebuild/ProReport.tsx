@@ -142,10 +142,36 @@ export function buildReportLabels(t: (key: string) => string): ReportLabels {
     cashCollected: t('businessModel.report.cashCollected'),
     cashOutstanding: t('businessModel.report.cashOutstanding'),
     safetyIncidents: t('businessModel.report.safetyIncidents'),
+    driverScorecardHead: t('businessModel.report.driverScorecardHead'),
+    driverScorecardDesc: t('businessModel.report.driverScorecardDesc'),
+    thDriver: t('businessModel.report.thDriver'),
+    thCar: t('businessModel.report.thCar'),
+    thPlate: t('businessModel.report.thPlate'),
+    noDriverData: t('businessModel.report.noDriverData'),
+    codLagHead: t('businessModel.report.codLagHead'),
+    codLagDesc: t('businessModel.report.codLagDesc'),
+    thLagDays: t('businessModel.report.thLagDays'),
+    thCollected: t('businessModel.report.thCollected'),
+    thRemitted: t('businessModel.report.thRemitted'),
+    codLagTarget: t('businessModel.report.codLagTarget'),
+    noCodLag: t('businessModel.report.noCodLag'),
+    fuelControlHead: t('businessModel.report.fuelControlHead'),
+    fuelControlDesc: t('businessModel.report.fuelControlDesc'),
+    thActual: t('businessModel.report.thActual'),
+    thModel: t('businessModel.report.thModel'),
+    thFuelVariance: t('businessModel.report.thVariance'),
+    fuelOverModel: t('businessModel.report.fuelOverModel'),
+    noFuelData: t('businessModel.report.noFuelData'),
+    failureParetoHead: t('businessModel.report.failureParetoHead'),
+    failureParetoDesc: t('businessModel.report.failureParetoDesc'),
+    thCount: t('businessModel.report.thCount'),
+    thShare: t('businessModel.report.thShare'),
+    thCumulative: t('businessModel.report.thCumulative'),
+    noFailureData: t('businessModel.report.noFailureData'),
   };
 }
 
-function renderTrend(row: NonNullable<ReportModel['customerPerformance']>[number], locale: string, t: (key: string, opts?: Record<string, unknown>) => string, lng: 'en' | 'ar' | 'both') {
+function renderTrend(row: { trendDelta?: number }, locale: string, t: (key: string, opts?: Record<string, unknown>) => string, lng: 'en' | 'ar' | 'both') {
   if (row.trendDelta === undefined || Math.abs(row.trendDelta) < 1) return <span className="bm-trend-flat">—</span>;
   const worsening = row.trendDelta > 0;
   return (
@@ -352,6 +378,135 @@ export default function ProReport({ model, onClose }: { model: ReportModel; onCl
                 </tbody>
               </table>
             </div>
+          </section>
+        )}
+
+        {/* Driver scorecard — worst miss rate first, trend vs trailing week (R6) */}
+        {model.driverPerformance.length > 0 && (
+          <section className="bm-sheet-panel" data-testid="driver-scorecard">
+            <h3>{bi('businessModel.report.driverScorecardHead')}</h3>
+            <p className="bm-sheet-note">{bi('businessModel.report.driverScorecardDesc')}</p>
+            <div className="bm-sheet-tablewrap">
+              <table>
+                <thead>
+                  <tr>{[labels.thDriver, labels.thCar, labels.thPlate, labels.kpiDelivered, labels.kpiMissed, labels.thAttempts, labels.thMissRate, labels.thTrend].map((h, i) => <th key={`${h}-${i}`}>{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {model.driverPerformance.map(row => (
+                    <tr key={row.key} data-testid={`driver-scorecard-row-${row.key}`}>
+                      <th scope="row">{row.driverName}</th>
+                      <td>{row.carNumber ?? '—'}</td>
+                      <td>{row.plateNumber ?? '—'}</td>
+                      <td className="good">{num(row.delivered)}</td>
+                      <td className={row.missed > 0 ? 'bad' : ''}>{num(row.missed)}</td>
+                      <td>{num(row.attempts)}</td>
+                      <td className={row.missRatePercent > 15 ? 'bad' : row.missRatePercent > 8 ? '' : 'good'}>{fmtPercent(locale, row.missRatePercent, 1)}</td>
+                      <td>{renderTrend(row, locale, t, lng)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+        {model.driverPerformance.length === 0 && (
+          <section className="bm-sheet-panel">
+            <h3>{bi('businessModel.report.driverScorecardHead')}</h3>
+            <p className="bm-sheet-note">{bi('businessModel.report.noDriverData')}</p>
+          </section>
+        )}
+
+        {/* COD remittance lag — days between operation and remittance (R6) */}
+        {model.codRemittanceLag.length > 0 && (
+          <section className="bm-sheet-panel" data-testid="cod-lag">
+            <h3>{bi('businessModel.report.codLagHead')}</h3>
+            <p className="bm-sheet-note">{bi('businessModel.report.codLagDesc')}</p>
+            <div className="bm-sheet-tablewrap">
+              <table>
+                <thead>
+                  <tr>{[labels.thDate, labels.thCollected, labels.thRemitted, labels.thLagDays].map((h, i) => <th key={`${h}-${i}`}>{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {model.codRemittanceLag.map(point => (
+                    <tr key={point.date} data-testid={`cod-lag-row-${point.date}`}>
+                      <th scope="row">{point.label}</th>
+                      <td>{fmtSar(locale, point.collected)}</td>
+                      <td>{fmtSar(locale, point.remitted)}</td>
+                      <td className={point.lagDays > 1 ? 'bad' : 'good'}>{point.lagDays}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="bm-sheet-note">{bi('businessModel.report.codLagTarget')}</p>
+          </section>
+        )}
+        {model.codRemittanceLag.length === 0 && (
+          <section className="bm-sheet-panel">
+            <h3>{bi('businessModel.report.codLagHead')}</h3>
+            <p className="bm-sheet-note">{bi('businessModel.report.noCodLag')}</p>
+          </section>
+        )}
+
+        {/* Fuel control — daily fuel cost vs model expectation (R6) */}
+        {model.fuelControl.length > 0 && (
+          <section className="bm-sheet-panel" data-testid="fuel-control">
+            <h3>{bi('businessModel.report.fuelControlHead')}</h3>
+            <p className="bm-sheet-note">{bi('businessModel.report.fuelControlDesc')}</p>
+            <div className="bm-sheet-tablewrap">
+              <table>
+                <thead>
+                  <tr>{[labels.thDate, labels.thActual, labels.thModel, labels.thFuelVariance].map((h, i) => <th key={`${h}-${i}`}>{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {model.fuelControl.map(point => (
+                    <tr key={point.date} data-testid={`fuel-control-row-${point.date}`}>
+                      <th scope="row">{point.label}</th>
+                      <td>{fmtSar(locale, point.actual)}</td>
+                      <td>{fmtSar(locale, point.model)}</td>
+                      <td className={point.variancePercent > 15 ? 'bad' : point.variancePercent < -15 ? 'good' : ''}>{point.variancePercent >= 0 ? '+' : ''}{fmtPercent(locale, point.variancePercent)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+        {model.fuelControl.length === 0 && (
+          <section className="bm-sheet-panel">
+            <h3>{bi('businessModel.report.fuelControlHead')}</h3>
+            <p className="bm-sheet-note">{bi('businessModel.report.noFuelData')}</p>
+          </section>
+        )}
+
+        {/* Failure Pareto — vital few reasons driving most misses (R6) */}
+        {model.failurePareto.length > 0 && (
+          <section className="bm-sheet-panel" data-testid="failure-pareto">
+            <h3>{bi('businessModel.report.failureParetoHead')}</h3>
+            <p className="bm-sheet-note">{bi('businessModel.report.failureParetoDesc')}</p>
+            <div className="bm-sheet-tablewrap">
+              <table>
+                <thead>
+                  <tr>{[t('businessModel.report.missAnalysisHead', { lng }), labels.thCount, labels.thShare, labels.thCumulative].map((h, i) => <th key={`${h}-${i}`}>{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {model.failurePareto.map(entry => (
+                    <tr key={entry.key} data-testid={`failure-pareto-row-${entry.key}`}>
+                      <th scope="row">{t(`businessModel.report.${entry.key}`, { lng })}</th>
+                      <td>{num(entry.count)}</td>
+                      <td>{fmtPercent(locale, entry.percent)}</td>
+                      <td>{fmtPercent(locale, entry.cumulativePercent)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+        {model.failurePareto.length === 0 && (
+          <section className="bm-sheet-panel">
+            <h3>{bi('businessModel.report.failureParetoHead')}</h3>
+            <p className="bm-sheet-note">{bi('businessModel.report.noFailureData')}</p>
           </section>
         )}
 

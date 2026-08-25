@@ -372,3 +372,87 @@ describe('R4-D — drafts are invisible to EVERY definitive report path', () => 
     expect(modelDraftOnly.monthly).toEqual([]);
   });
 });
+
+describe('R6 — operational analytics in report model', () => {
+  const FOCUS = new Date('2026-08-14T12:00:00');
+
+  it('buildReportModel includes driverPerformance from stops', () => {
+    const stops = [
+      { driverName: 'Ahmed', carNumber: '10', plateNumber: 'ABC', status: 'delivered', operationDate: '2026-08-14' },
+      { driverName: 'Ahmed', carNumber: '10', plateNumber: 'ABC', status: 'failed', operationDate: '2026-08-14' },
+      { driverName: 'Sara', carNumber: '20', plateNumber: 'XYZ', status: 'delivered', operationDate: '2026-08-14' },
+    ];
+    const record = recordWith('2026-08-14', 3, 1);
+    const records = { '2026-08-14': record };
+    const model = buildReportModel({ kind: 'pro', locale: 'en', record, records, input, output, focusDate: FOCUS, windowDays: 7, stops });
+    expect(model.driverPerformance).toHaveLength(2);
+    expect(model.driverPerformance[0]).toMatchObject({ driverName: 'Ahmed', delivered: 1, missed: 1 });
+    expect(model.driverPerformance[1]).toMatchObject({ driverName: 'Sara', delivered: 1, missed: 0 });
+  });
+
+  it('buildReportModel includes codRemittanceLag from records', () => {
+    const records = {
+      '2026-08-12': recordWith('2026-08-12', 10, 2, { cashCollectedSar: 500, cashRemittedSar: 500, codRemittedOn: '2026-08-14' }),
+      '2026-08-13': recordWith('2026-08-13', 10, 0, { cashCollectedSar: 300, cashRemittedSar: 300, codRemittedOn: '2026-08-13' }),
+    };
+    const model = buildReportModel({ kind: 'pro', locale: 'en', record: records['2026-08-13'], records, input, output, focusDate: FOCUS, windowDays: 7 });
+    expect(model.codRemittanceLag).toHaveLength(2);
+    expect(model.codRemittanceLag[0]).toMatchObject({ date: '2026-08-12', lagDays: 2 });
+    expect(model.codRemittanceLag[1]).toMatchObject({ date: '2026-08-13', lagDays: 0 });
+  });
+
+  it('buildReportModel includes fuelControl from records', () => {
+    const modelDaily = output.fuelMonthlyCost / 26;
+    const records = {
+      '2026-08-12': recordWith('2026-08-12', 10, 2, { fuelCost: modelDaily * 1.3 }),
+      '2026-08-13': recordWith('2026-08-13', 10, 0, { fuelCost: modelDaily * 0.9 }),
+    };
+    const model = buildReportModel({ kind: 'pro', locale: 'en', record: records['2026-08-13'], records, input, output, focusDate: FOCUS, windowDays: 7 });
+    expect(model.fuelControl).toHaveLength(2);
+    expect(model.fuelControl[0].variancePercent).toBeCloseTo(30, 0);
+    expect(model.fuelControl[1].variancePercent).toBeCloseTo(-10, 0);
+  });
+
+  it('buildReportModel includes failurePareto from records', () => {
+    const records = {
+      '2026-08-12': recordWith('2026-08-12', 10, 5, { failureReasons: { noDriver: 3, addressIssue: 2 } }),
+    };
+    const model = buildReportModel({ kind: 'pro', locale: 'en', record: records['2026-08-12'], records, input, output, focusDate: FOCUS, windowDays: 7 });
+    expect(model.failurePareto).toHaveLength(2);
+    expect(model.failurePareto[0]).toMatchObject({ key: 'noDriver', count: 3, percent: 60, cumulativePercent: 60 });
+    expect(model.failurePareto[1]).toMatchObject({ key: 'addressIssue', count: 2, percent: 40, cumulativePercent: 100 });
+  });
+
+  it('buildReportModel returns empty arrays when no data exists', () => {
+    const record: DailyRecord = {
+      date: '2026-08-14',
+      completedShipments: 0,
+      failedShipments: 0,
+      fuelCost: 0,
+      driversPresent: 0,
+      notes: '',
+      updatedAt: '2026-08-14T10:00:00.000Z',
+      closeStatus: 'draft',
+    };
+    const records = { '2026-08-14': record };
+    const model = buildReportModel({ kind: 'pro', locale: 'en', record, records, input, output, focusDate: FOCUS, windowDays: 7 });
+    expect(model.driverPerformance).toEqual([]);
+    expect(model.codRemittanceLag).toEqual([]);
+    expect(model.fuelControl).toEqual([]);
+    expect(model.failurePareto).toEqual([]);
+  });
+});
+
+function recordWith(date: string, completedShipments: number, failedShipments = 0, extra: Partial<DailyRecord> = {}): DailyRecord {
+  return {
+    date,
+    completedShipments,
+    failedShipments,
+    fuelCost: 100,
+    driversPresent: 3,
+    notes: '',
+    updatedAt: '2026-08-01T10:00:00.000Z',
+    closeStatus: 'reconciled',
+    ...extra,
+  };
+}

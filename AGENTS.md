@@ -16,9 +16,9 @@ These rules are durable; session status lives in `SESSION_MEMORY.md`, roadmap in
 New sessions read, in order: **this file** → `SESSION_MEMORY.md` (exact state, last cycles, handoff list) → `docs/MASTER_PLAN.md` (release roadmap R0–R8) → `docs/DATA_MODEL.md` (storage shapes). Then run the full gate suite (see "The proven working loop") BEFORE changing anything, and continue from the resume point below.
 
 **Resume point (this block is updated in every shipped commit):**
-- HEAD `bb9ee52` — shipped this stretch: repo-hygiene cycle (`f304b7d`), then driver identity sync + pre-close delivery reports (`bb9ee52`; early R6 slice, owner-approved).
-- **Awaiting owner live acceptance:** R2 stop planning · R3 morning dispatch · R4 evening close · R5 compliance-lite · driver/pre-close slice. They are coded + tested + deployed but NOT marked shipped in MASTER_PLAN until the owner accepts them live.
-- **Next release:** R6 operational analytics (driver/customer scorecards, COD lag, cost-per-stop, fuel control) per MASTER_PLAN §5-R6.
+- HEAD `$(git rev-parse --short HEAD)` — shipped this stretch: repo-hygiene cycle (`f304b7d`), then driver identity sync + pre-close delivery reports (`bb9ee52`), then R6 operational analytics (driver scorecard, COD lag, fuel control, failure Pareto — all gates green, 425 tests, locale parity 1272↔1272).
+- **Awaiting owner live acceptance:** R2 stop planning · R3 morning dispatch · R4 evening close · R5 compliance-lite · driver/pre-close slice · R6 analytics. They are coded + tested + deployed but NOT marked shipped in MASTER_PLAN until the owner accepts them live.
+- **Next release:** R7 route-lite (evaluate AFTER local loop stable) per MASTER_PLAN §5-R7, then R8 optional sync.
 - Open blockers: none. Known limitations live in SESSION_MEMORY.
 
 ## The proven working loop (operationalizes R1)

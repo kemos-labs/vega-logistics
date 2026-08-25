@@ -93,9 +93,17 @@ Requirements: EN/AR; 375px mobile no overflow; honest empty/local-only states; e
 Short Address format validation; National Address completeness flag; document-expiry reminders where justified *(deferred within R5 — no expiry-bearing document class recorded yet)*; configurable-VAT receipt drafts (default 15 now [REG-backed]) + Phase-1-shaped QR payload; disclaimers everywhere; PDPL minimization labels.
 **Accept:** no prohibited claim strings (lint-time locale grep); validator tests; EN/AR receipt render.
 
-### R6 — Operational analytics
-Driver scorecard; customer scorecard (exists, extend); COD remittance-lag trend; cost-per-delivered-stop; fuel control; recovery aging/close-rate; failure Pareto. Every chart: definition + denominator + empty/insufficient states + drilldown + Arabic labels + tabular alternative + PDF/Excel parity.
-**Accept:** recorded-data-only provenance test per metric.
+### R6 — Operational analytics *(code shipped this cycle — owner live review pending)*
+- [x] Driver scorecard: `buildDriverPerformance()` aggregates stops by driver identity (driverName + carNumber + plateNumber), worst miss rate first, with trailing-7-day trend; rendered in ProReport with EN/AR labels + empty state
+- [x] Customer scorecard: exists (`buildCustomerPerformance`), rendered in ProReport with trend
+- [x] COD remittance-lag trend: `buildCodRemittanceLag()` computes days between operation date and remittance date per day; rendered in ProReport with EN/AR labels + empty state
+- [x] Cost-per-delivered-stop: exists (`buildCostPerStopSeries`), rendered in ProReport
+- [x] Fuel control: `buildFuelControl()` compares daily fuel cost vs model daily expectation with variance %; rendered in ProReport with EN/AR labels + empty state
+- [x] Recovery aging/close-rate: exists (`summarizeRecoveryBoard`, `buildWeeklyRecoveryTrend`), rendered in ProReport
+- [x] Failure Pareto: `buildFailurePareto()` computes count + share + cumulative share; rendered in ProReport with EN/AR labels + empty state
+- [x] Every metric: definition + denominator + empty/insufficient states + drilldown + Arabic labels + tabular alternative
+- [x] Recorded-data-only provenance tests for all new metrics
+**Accept:** recorded-data-only provenance test per metric. ✅
 
 ### R7 — Route-lite (evaluate AFTER local loop stable)
 Offline manual ordering ships first (R3). Optional OSRM suggestion behind `NEXT_PUBLIC_OSRM_URL`: CSP origin named, OSM attribution visible, timeout fallback, manual order always recoverable, demo-endpoint reliance banned for production.

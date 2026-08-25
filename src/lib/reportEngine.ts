@@ -8,11 +8,19 @@ import {
   isDefinitiveDailyRecord,
   toDateString,
   WORKING_DAYS_PER_MONTH,
+  buildDriverPerformance,
+  buildCodRemittanceLag,
+  buildFuelControl,
+  buildFailurePareto,
   type DailyMetrics,
   type DailyRecord,
   type FailureReasonKey,
   type MonthlyRollup,
   type CustomerPerformanceRow,
+  type DriverPerformanceRow,
+  type CodRemittanceLagPoint,
+  type FuelControlPoint,
+  type FailureParetoEntry,
 } from '@/lib/operationsReporting';
 
 /** Report kinds: quick single-day facts sheet vs multi-section pro dossier. */
@@ -116,6 +124,14 @@ export interface ReportModel {
   customerPerformance: CustomerPerformanceRow[];
   /** Fully-loaded cost per delivered stop, per recorded day (chronological). */
   costPerStopSeries: Array<{ date: string; label: string; value: number; completed: number }>;
+  /** Per-driver delivered/missed scorecard across recorded stops. */
+  driverPerformance: DriverPerformanceRow[];
+  /** COD remittance lag per day (days between operation and remittance). */
+  codRemittanceLag: CodRemittanceLagPoint[];
+  /** Fuel cost vs model expectation per recorded day. */
+  fuelControl: FuelControlPoint[];
+  /** Failure reasons as a Pareto (count + cumulative share). */
+  failurePareto: FailureParetoEntry[];
 }
 
 /** Fully-loaded daily cost per completed stop: allocation + fuel cash + extras.
@@ -292,6 +308,7 @@ export function buildReportModel(options: {
   output: FinancialOutput;
   focusDate?: Date;
   windowDays?: number;
+  stops?: Array<{ driverName?: string; carNumber?: string; plateNumber?: string; status: string; operationDate: string }>;
 }): ReportModel {
   const { kind, locale, record, input, output } = options;
   // ONE filtered source for every definitive aggregate: a draft close can
@@ -308,6 +325,9 @@ export function buildReportModel(options: {
   const metrics = calculateDailyMetrics(record, input, output);
   const performance = buildCustomerPerformance(definitiveRecords, input);
   const base = { series, totals, metrics, record };
+  // Driver scorecard uses stop-level data when available; the caller passes
+  // the full stop list so the scorecard reflects dispatch assignments.
+  const allStops = options.stops ?? [];
   return {
     kind,
     locale,
@@ -319,6 +339,10 @@ export function buildReportModel(options: {
     monthly: buildMonthlyRollup(definitiveRecords, output),
     customerPerformance: performance,
     costPerStopSeries: buildCostPerStopSeries(definitiveRecords, output),
+    driverPerformance: buildDriverPerformance(allStops),
+    codRemittanceLag: buildCodRemittanceLag(definitiveRecords),
+    fuelControl: buildFuelControl(definitiveRecords, output),
+    failurePareto: buildFailurePareto(Object.values(definitiveRecords)),
     insights: deriveInsights(base, input, output, performance),
     hasHistory: Object.keys(definitiveRecords).length > 0,
     expectedDailyFuel: output.fuelMonthlyCost / WORKING_DAYS_PER_MONTH,
