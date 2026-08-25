@@ -8,13 +8,13 @@
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { commitBundle, STORAGE_KEYS, type PersistResult } from '@/lib/backup';
+import { commitBundle, type PersistResult } from '@/lib/backup';
 import { normalizeDigits } from '@/lib/providerMessageParser';
 import {
   createStopRecord, identifyStopDuplicates, sortStopsForDate, updateStopRecord,
   validateStopRecord, type StopFieldError, type StopRecord, type StopStatus,
 } from '@/lib/stops';
-import { IMPORT_MAX_FILE_BYTES, IMPORT_MAX_ROWS, previewStopImport, type ImportParseResult } from '@/lib/stopImport';
+import { IMPORT_MAX_FILE_BYTES, previewStopImport, type ImportParseResult } from '@/lib/stopImport';
 import { toDateString } from '@/lib/operationsReporting';
 import StopMap from '@/components/rebuild/StopMap';
 

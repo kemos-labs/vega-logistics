@@ -978,7 +978,6 @@
       "thCustomer": "العميل",
       "thOwner": "المسؤول",
       "thStatus": "الحالة",
-      "thActions": "",
       "emptyBoard": "لا توجد قيود بعد. عند تعذّر توصيل أي شحنة سجّلها هنا لتُعيَّن لمسؤول.",
       "chipPending": "{{entries}} قيد المتابعة · {{shipments}} شحنة",
       "chipCloseRate": "نسبة الإغلاق بالاسترداد {{rate}}٪",

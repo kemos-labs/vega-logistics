@@ -8,7 +8,6 @@ import {
 } from '@/lib/eveningClose';
 import { createStopRecord, type StopRecord } from '@/lib/stops';
 import { buildControlTowerSnapshot } from '@/lib/controlTower';
-import { buildCustomerPerformance } from '@/lib/operationsReporting';
 import type { DailyRecord } from '@/lib/operationsReporting';
 import type { RecoveryEntry } from '@/lib/recoveryBoard';
 

@@ -20,11 +20,11 @@
 // overRemitted = max(0, remitted − collected) — credit is visible, not hidden.
 
 import {
-  filterDefinitiveRecords, isDefinitiveDailyRecord, isValidCalendarDate,
+  filterDefinitiveRecords, isValidCalendarDate,
   isValidIsoTimestamp, type DailyRecord, type FailureReasonKey,
 } from '@/lib/operationsReporting';
 import { normalizeDigits } from '@/lib/providerMessageParser';
-import { updateStopRecord, type StopRecord, type StopStatus } from '@/lib/stops';
+import { updateStopRecord, type StopRecord } from '@/lib/stops';
 import type { RecoveryEntry } from '@/lib/recoveryBoard';
 
 // ── Draft KPI predicate (§K) — SINGLE shared implementation; re-exported so
@@ -51,8 +51,6 @@ export function parseLocalizedDecimal(input: string): number | null {
 export { filterDefinitiveRecords };
 
 // ── Stop outcomes ─────────────────────────────────────────────
-
-const OUTCOME_STATUSES: StopStatus[] = ['delivered', 'returned', 'pending', 'failed'];
 
 /** Apply an evening outcome to one stop. Delivered clears stale reasons;
  *  returned REQUIRES one; failed keeps pending arithmetic + reason metadata. */

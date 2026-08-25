@@ -8,9 +8,8 @@ import '@/lib/i18n';
 import { useSimulatedData } from '@/hooks/useSimulatedData';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import type { DriverRecord, FinancialInput, Provider, VehicleClass } from '@/lib/types';
-import { resizeVehicleFleet } from '@/lib/fleetModel';
 import { calculateFinancials } from '@/lib/calculations';
-import { buildMonthlyRollup, buildProjection, calculateDailyMetrics, migrateDailyRecords, toDateString, FAILURE_REASON_KEYS, isDefinitiveDailyRecord, type DailyRecord, type FailureReasonKey } from '@/lib/operationsReporting';
+import { buildProjection, migrateDailyRecords, toDateString, isDefinitiveDailyRecord, type DailyRecord } from '@/lib/operationsReporting';
 import { defaultFinancialInput } from '@/lib/mockData';
 import { readStoredStops, type StopRecord } from '@/lib/stops';
 import { buildControlTowerSnapshot } from '@/lib/controlTower';
@@ -18,18 +17,16 @@ import { ControlTowerView } from '@/components/rebuild/ControlTower';
 import { StopPlanning } from '@/components/rebuild/StopPlanning';
 import { DispatchBoardView } from '@/components/rebuild/DispatchBoard';
 import { EveningCloseView } from '@/components/rebuild/EveningClose';
-import { buildReportModel, type ReportKind, type ReportModel } from '@/lib/reportEngine';
-import { exportBusinessModelExcel, exportDailyReportPdf } from '@/lib/reportExport';
-import ProReport, { buildReportLabels } from '@/components/rebuild/ProReport';
+import type { ReportModel } from '@/lib/reportEngine';
+import ProReport from '@/components/rebuild/ProReport';
 import RecoveryBoard from '@/components/rebuild/RecoveryBoard';
 import ServiceWorkerRegistrar from '@/components/rebuild/ServiceWorkerRegistrar';
-import { buildWeeklyRecoveryTrend, validateRecoveryEntries, type RecoveryEntry, type RecoverySummary } from '@/lib/recoveryBoard';
+import { validateRecoveryEntries, type RecoveryEntry } from '@/lib/recoveryBoard';
 import { ReportsView } from '@/components/rebuild/ReportsView';
 import { ComplianceLiteView } from '@/components/rebuild/ComplianceLiteView';
 import { resolveTelematicsProvider } from '@/lib/platform/telematics';
 
 type View = 'tower' | 'stops' | 'dispatch' | 'close' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios' | 'compliance';
-type RecoveryOpenRow = { id: string; createdAt: string; shipments: number; owner: string; status: 'pending' | 'recovered' | 'written_off' };
 import { applyBackupMerge, applyLegacyScopedRestore, buildBackup, commitBundle, parseBackup, replaceWithBackup, STORAGE_KEYS, type BackupFileV2, type FollowUpAction, type PersistResult } from '@/lib/backup';
 import { BACKUP_REMINDER_DAYS, BACKUP_REMINDER_KEY, dismissForToday, evaluateBackupReminder, isDismissedToday, markBackedUpNow } from '@/lib/backupReminder';
 import { applyPreviewToRecord, parseProviderMessage, reconcile, type ParseResult, type ProviderPreview } from '@/lib/providerMessageParser';
@@ -53,7 +50,6 @@ const fmtDateMedium = (locale: string, date: Date | string | number) => {
   const parsed = typeof date === 'string' && !date.includes('T') ? `${date}T12:00:00` : date;
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(parsed));
 };
-const fmtDateTime = (locale: string, iso: string) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 const fmtMoneyCompact = (locale: string, value: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'SAR', notation: 'compact', maximumFractionDigits: 1 }).format(value);
 
 export default function BusinessModelApp() {
@@ -90,16 +86,6 @@ export default function BusinessModelApp() {
   const pendingRecoveries = recoveryEntries.filter(entry => entry.status === 'pending').length;
   // Telematics seam: the demo simulator answers until a vendor is configured.
   const telematicsProvider = useMemo(() => resolveTelematicsProvider(input.vehicleClasses.map(vehicle => vehicle.name)), [input.vehicleClasses]);
-  const recoverySummary: RecoverySummary = useMemo(() => {
-    let pendingShipments = 0, recoveredShipments = 0, writtenOffShipments = 0, pendingEntries = 0;
-    for (const entry of recoveryEntries) {
-      if (entry.status === 'pending') { pendingEntries += 1; pendingShipments += entry.shipments; }
-      else if (entry.status === 'recovered') recoveredShipments += entry.shipments;
-      else writtenOffShipments += entry.shipments;
-    }
-    const closed = recoveredShipments + writtenOffShipments;
-    return { pendingEntries, pendingShipments, recoveredShipments, writtenOffShipments, closeRatePercent: closed > 0 ? Math.round(recoveredShipments / closed * 100) : 0, oldestPendingDays: 0, overdueSharePercent: 0 };
-  }, [recoveryEntries]);
   const defaultActions = useMemo(() => [
     { id: 1, text: 'Validate each customer price against cost per shipment', owner: 'Commercial', done: false },
     { id: 2, text: 'Confirm actual monthly payroll and headcount', owner: 'Finance', done: false },
@@ -124,7 +110,7 @@ export default function BusinessModelApp() {
   const modelModified = useMemo(() => JSON.stringify(input) !== JSON.stringify(defaultFinancialInput), [input]);
   const hasMeaningfulData = Object.keys(dailyRecords).length > 0 || scenarios.length > 0 || recoveryEntries.length > 0 || modelModified;
   const backupReminder = useMemo(() => evaluateBackupReminder(reminderNowMs, lastBackupAt, hasMeaningfulData), [reminderNowMs, lastBackupAt, hasMeaningfulData]);
-  const bannerDismissed = useMemo(() => isDismissedToday(reminderNowMs as never), [reminderNowMs]);
+  const bannerDismissed = useMemo(() => isDismissedToday(reminderNowMs), [reminderNowMs]);
   const towerSnapshot = useMemo(() => {
     if (!hydrated) return buildControlTowerSnapshot({ records: {}, recoveryEntries: [], plannedShipmentsPerDay: output.totalDailyShipments, nowMs: reminderNowMs, backup: null });
     return buildControlTowerSnapshot({
@@ -135,8 +121,6 @@ export default function BusinessModelApp() {
     backup: bannerDismissed ? null : backupReminder,
   });
   }, [hydrated, dailyRecords, recoveryEntries, output.totalDailyShipments, reminderNowMs, bannerDismissed, backupReminder]);
-  const [reportKind, setReportKind] = useState<ReportKind>('daily');
-  const [reportLang, setReportLang] = useState<'en' | 'ar' | 'both'>(lng);
   const [proModel, setProModel] = useState<ReportModel | null>(null);
 
   const NAV = [
@@ -208,7 +192,6 @@ export default function BusinessModelApp() {
   const setNumber = (field: NumberField, raw: string) => updateFinancialInput({ [field]: Math.max(0, Number(raw) || 0) });
   // Compute the next fleet list outside the setter so the synchronized driver
   // count never depends on when (or whether) the updater runs.
-  const enabledTotal = (rows: VehicleClass[]) => rows.reduce((sum, row) => row.enabled ? sum + row.quantity : sum, 0);
   const changeVehicle = (id: string, patch: Partial<VehicleClass>) => {
     const next = input.vehicleClasses.map(row => row.id === id ? { ...row, ...patch } : row);
     setVehicleClasses(() => next);
@@ -246,10 +229,6 @@ export default function BusinessModelApp() {
     setVehicleClasses(() => next);
   };
   const removeProvider = (id: string) => setProviders(rows => rows.filter(item => item.id !== id));
-  const setFleetCount = (raw: string) => {
-    const target = Math.max(0, Math.round(Number(raw) || 0));
-    setVehicleClasses(rows => resizeVehicleFleet(rows, target));
-  };
   const selectView = (next: View) => { setView(next === 'drivers' ? 'fleet' : next); setMobileNav(false); };
   const goToBackupSection = () => {
     selectView('scenarios');
@@ -407,13 +386,6 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
     <SensitivityGrid input={input}/>
     <MonthlyTotals input={input} output={output} fleetCount={fleetCount}/><Summary output={output} input={input} fleetCount={fleetCount} driverGap={driverGap} contribution={contribution} risks={risks} onNavigate={onNavigate}/></div></details></>;
 }
-function MonthlyVariance({records,output}:{records:Record<string,DailyRecord>;output:ReturnType<typeof useSimulatedData>['financialOutput']}) {
-  const { t, i18n } = useTranslation();
-  const locale = localeOf(i18n.language);
-  const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
-  const num = (value: number) => fmtNum(locale, value);
-  const rollups=useMemo(()=>buildMonthlyRollup(records,output),[records,output]); if(rollups.length===0) return null;
-  return <section className="bm-panel"><div className="bm-panel-head"><div><span>{t('businessModel.daily.varianceTag')}</span><h2>{t('businessModel.daily.varianceHead')}</h2></div></div><div className="bm-table-wrap"><div className="bm-table"><div className="bm-table-head"><span>{t('businessModel.daily.thMonth')}</span><span>{t('businessModel.daily.thDaysRecorded')}</span><span>{t('businessModel.daily.thCompleted')}</span><span>{t('businessModel.daily.thFailed')}</span><span>{t('businessModel.daily.thCompletion')}</span><span>{t('businessModel.daily.thActualRevenue')}</span><span>{t('businessModel.daily.thPlannedRevenue')}</span><span>{t('businessModel.daily.thVariance')}</span></div>{rollups.map(r=><div className="bm-table-row" key={r.month}><strong>{r.month}</strong><span>{r.recordedDays}</span><span>{num(r.completedShipments)}</span><span>{num(r.failedShipments)}</span><span>{r.completionRate.toFixed(1)}%</span><span>{money(r.actualRevenue)}</span><span>{money(r.plannedRevenue)}</span><span className={r.variancePercent>=0?'':'text-bad'}>{r.variancePercent>=0?'+':''}{r.variancePercent.toFixed(1)}%</span></div>)}</div></div></section>; }
 function TrendChart({data}:{data:ReturnType<typeof buildProjection>}) {
   const { t } = useTranslation();
   const width=680,height=230,pad=34; const max=Math.max(...data.flatMap(item=>[item.revenue,item.cost]),1); const point=(value:number,index:number)=>`${pad+index*(width-pad*2)/Math.max(1,data.length-1)},${height-pad-value/max*(height-pad*2)}`; const revenue=data.map((item,index)=>point(item.revenue,index)).join(' '); const cost=data.map((item,index)=>point(item.cost,index)).join(' '); const costY=point(data[0]?.cost??0,0).split(',')[1];
@@ -571,201 +543,6 @@ function SensitivityGrid({input}:{input:FinancialInput}) {
 }
 
 function Metric({label,value,tone}:{label:string;value:string;tone?:string}) { return <div className={tone??''}><span>{label}</span><strong>{value}</strong></div>; }
-function DailyReport({input,output,records,setRecords,reportKind,setReportKind,onOpenPro,lng,reportLang,setReportLang,openActions:pendingActions,recoverySummary,recoveryOpen,recoveryAll}:{input:FinancialInput;output:ReturnType<typeof useSimulatedData>['financialOutput'];records:Record<string,DailyRecord>;setRecords:(value:Record<string,DailyRecord>|((previous:Record<string,DailyRecord>)=>Record<string,DailyRecord>))=>void;reportKind:ReportKind;setReportKind:(kind:ReportKind)=>void;onOpenPro:(model:ReportModel)=>void;lng:'en'|'ar';reportLang:'en'|'ar'|'both';setReportLang:(lang:'en'|'ar'|'both')=>void;openActions:Array<{id:number;text:string;owner:string}>;recoverySummary:{pendingEntries:number;pendingShipments:number;recoveredShipments:number;closeRatePercent:number;overdueSharePercent:number};recoveryOpen:RecoveryOpenRow[];recoveryAll:RecoveryEntry[]}) {
-  const { t, i18n } = useTranslation();
-  const locale = localeOf(i18n.language);
-  const labels = useMemo(() => buildReportLabels(key => t(key)), [t]);
-  const labelsAr = useMemo(() => buildReportLabels(key => t(key, { lng: 'ar' })), [t]);
-  const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
-  const num = (value: number) => fmtNum(locale, value);
-  const today=toDateString(new Date());
-  const empty=(date:string):DailyRecord=>({date,completedShipments:0,failedShipments:0,fuelCost:Number((output.fuelMonthlyCost/26).toFixed(2)),driversPresent:input.companyDriverCount,notes:'',updatedAt:'',failureReasons:{},extraCosts:0,newCustomerVisits:0,recoveredShipments:0,safetyIncidents:0,codShipments:0,prepaidShipments:0,cashCollectedSar:0,cashRemittedSar:0,driverName:'',carNumber:'',plateNumber:'',weatherCondition:'clear',tomorrowNote:'',customerBreakdown:{},podStatus:undefined});
-  const [selectedDate,setSelectedDate]=useState(today);
-  const [draft,setDraft]=useState<DailyRecord>(()=>records[today]??empty(today));
-  const [message,setMessage]=useState('');
-  const metrics=calculateDailyMetrics(draft,input,output);
-  const update=(patch:Partial<DailyRecord>)=>setDraft(current=>({...current,...patch}));
-  const changeReason=(key:FailureReasonKey,raw:string)=>setDraft(current=>({...current,failureReasons:{...current.failureReasons,[key]:Math.max(0,Number(raw)||0)}}));
-  const setCustomerCell=(providerId:string,field:'delivered'|'missed',value:number)=>{
-    setDraft(current=>({...current,customerBreakdown:{...current.customerBreakdown,[providerId]:{delivered:0,missed:0,...current.customerBreakdown?.[providerId],[field]:value}}}));
-  };
-  const enabledProviders=input.providers.filter(provider=>provider.enabled!==false);
-  const attributedToday=enabledProviders.reduce((sum,provider)=>sum+(draft.customerBreakdown?.[provider.id]?.delivered??0),0);
-  const podLabels={complete:t('businessModel.report.podComplete'),partial:t('businessModel.report.podPartial'),none:t('businessModel.report.podNone')} as const;
-  const reasonsSum=FAILURE_REASON_KEYS.reduce((sum,key)=>sum+(draft.failureReasons?.[key]??0),0);
-  const reasonsMismatch=draft.failedShipments>0&&reasonsSum!==draft.failedShipments;
-  // Cross-field logic — surfaced live in the day scoreboard
-  const attemptsToday=draft.completedShipments+draft.failedShipments;
-  const targetProgress=Math.min(100,Math.round(draft.completedShipments/Math.max(1,metrics.plannedShipments)*100));
-  const paymentsAttributed=(draft.codShipments??0)+(draft.prepaidShipments??0);
-  const cashOutstanding=(draft.cashCollectedSar??0)-(draft.cashRemittedSar??0);
-  const coverageShort=input.companyDriverCount-draft.driversPresent;
-  const dayChecks=[
-    {ok:!reasonsMismatch,label:t('businessModel.daily.checkReasons'),detail:`${reasonsSum}/${draft.failedShipments}`},
-    {ok:paymentsAttributed===0||paymentsAttributed<=draft.completedShipments,label:t('businessModel.daily.checkPayments'),detail:`${paymentsAttributed}/${draft.completedShipments}`},
-    {ok:!(attributedToday>0&&attributedToday>draft.completedShipments),label:t('businessModel.daily.checkAttribution'),detail:`${num(attributedToday)}/${num(draft.completedShipments)}`},
-    {ok:coverageShort<=0,label:t('businessModel.daily.checkCoverage'),detail:`${num(draft.driversPresent)}/${num(input.companyDriverCount)}`},
-  ];
-  const selectDate=(date:string)=>{setSelectedDate(date);setDraft(records[date]??empty(date));setMessage('');};
-  const save=()=>{const saved={...draft,date:selectedDate,updatedAt:new Date().toISOString()};setRecords(current=>({...current,[selectedDate]:saved}));setDraft(saved);setMessage(t('businessModel.daily.savedMessage'));};
-  const quickPdf=async()=>{
-    setMessage(t('businessModel.daily.preparingPdf'));
-    const primary = reportLang === 'both' ? lng : reportLang;
-    await exportDailyReportPdf({...draft,date:selectedDate},input,output,{
-      locale:primary,
-      bilingual:reportLang==='both',
-      labels:primary==='ar'?labelsAr:labels,
-      labelsAlt:labelsAr,
-    });
-    setMessage(t('businessModel.daily.pdfDownloaded'));
-  };
-  const openPro=()=>{
-    // The engine runs on what is inserted right now: the live draft joins the
-    // saved history so unsaved edits appear in charts immediately.
-    const effective={...records,[selectedDate]:{...draft,date:selectedDate}};
-    const model = buildReportModel({kind:'pro',locale:lng,record:{...draft,date:selectedDate},records:effective,input,output,focusDate:new Date(`${selectedDate}T12:00:00`)});
-    onOpenPro({
-      ...model,
-      openActions: pendingActions,
-      recoveryBoard: { ...recoverySummary },
-      openRecoveryEntries: recoveryOpen,
-      recoveryTrend: buildWeeklyRecoveryTrend(recoveryAll, 4),
-    });
-  };
-  const generateReport=()=>{ if(reportKind==='pro') openPro(); else void quickPdf(); };
-  const downloadExcel=async()=>{setMessage(t('businessModel.daily.preparingExcel'));await exportBusinessModelExcel({...draft,date:selectedDate},input,output,{records:{...records,[selectedDate]:{...draft,date:selectedDate}},recoveryEntries:recoveryAll});setMessage(t('businessModel.daily.excelDownloaded'));};;
-  return <><div className="bm-page-head bm-summary-head"><div><h1>{t('businessModel.daily.title')}</h1><p>{t('businessModel.daily.desc')}</p></div><label className="bm-date"><span>{t('businessModel.daily.reportDate')}</span><input aria-label={t('businessModel.daily.reportDate')} type="date" value={selectedDate} onChange={event=>selectDate(event.target.value)}/></label></div>
-    <div className="bm-report-status"><span className={draft.updatedAt?'saved':'draft'}>{draft.updatedAt?t('businessModel.daily.recorded'):t('businessModel.daily.draft')}</span>{draft.updatedAt&&<small>{t('businessModel.daily.lastSaved',{value:fmtDateTime(locale,draft.updatedAt)})}</small>}</div>
-    <section className="bm-panel bm-report-kind-card">
-      <div className="bm-report-kind-copy"><span>{t('businessModel.summary.trendTag')}</span><h2>{reportKind==='pro'?t('businessModel.report.kindPro'):t('businessModel.report.kindDaily')}</h2><p>{t('businessModel.report.kindDesc')}</p></div>
-      <div className="bm-report-kind-actions">
-        <div className="bm-segmented" role="radiogroup" aria-label={t('businessModel.report.kindDesc')}>
-          <button type="button" role="radio" aria-checked={reportKind==='daily'} className={reportKind==='daily'?'active':''} onClick={()=>setReportKind('daily')}>{t('businessModel.report.kindDaily')}</button>
-          <button type="button" role="radio" aria-checked={reportKind==='pro'} className={reportKind==='pro'?'active':''} onClick={()=>setReportKind('pro')}>{t('businessModel.report.kindPro')}</button>
-        </div>
-        <div className="bm-segmented bm-lang-mini" role="radiogroup" aria-label={t('businessModel.report.language')}>
-          <button type="button" role="radio" aria-checked={reportLang==='en'} className={reportLang==='en'?'active':''} onClick={()=>setReportLang('en')}>EN</button>
-          <button type="button" role="radio" aria-checked={reportLang==='ar'} className={reportLang==='ar'?'active':''} onClick={()=>setReportLang('ar')}>ع</button>
-          <button type="button" role="radio" aria-checked={reportLang==='both'} className={reportLang==='both'?'active':''} onClick={()=>setReportLang('both')}>EN+ع</button>
-        </div>
-        <button className="bm-primary" onClick={generateReport}>{reportKind==='pro'?<><FileText size={15}/> {t('businessModel.report.openPro')}</>:<><Download size={15}/> {t('businessModel.report.quickPdf')}</>}</button>
-      </div>
-    </section>
-    <div className="bm-day-layout">
-      <div className="bm-day-main">
-        <section className="bm-form-card bm-day-card">
-          <h2><span>{t('businessModel.daily.cardIdentity')}</span></h2>
-          <div className="bm-form-grid">
-            <label className="bm-field"><span>{t('businessModel.daily.driverName')}</span><div><input aria-label={t('businessModel.daily.driverName')} value={draft.driverName??''} onChange={event=>update({driverName:event.target.value})}/></div></label>
-            <label className="bm-field"><span>{t('businessModel.daily.carNumber')}</span><div><input aria-label={t('businessModel.daily.carNumber')} value={draft.carNumber??''} onChange={event=>update({carNumber:event.target.value})}/></div></label>
-            <label className="bm-field"><span>{t('businessModel.daily.plateNumber')}</span><div><input aria-label={t('businessModel.daily.plateNumber')} value={draft.plateNumber??''} onChange={event=>update({plateNumber:event.target.value})}/></div></label>
-          </div>
-        </section>
-
-        <section className="bm-form-card bm-day-card">
-          <h2><span>{t('businessModel.daily.cardResults')}</span></h2>
-          <div className="bm-form-grid">
-            <NumberInput label={t('businessModel.daily.completedShipments')} value={draft.completedShipments} onChange={value=>update({completedShipments:Number(value)})} suffix={t('businessModel.daily.unitShipments')}/>
-            <NumberInput label={t('businessModel.daily.failedShipments')} value={draft.failedShipments} onChange={value=>update({failedShipments:Number(value)})} suffix={t('businessModel.daily.unitShipments')}/>
-            <Readout label={t('businessModel.daily.attempts')} value={num(attemptsToday)} />
-            <NumberInput label={t('businessModel.daily.driversPresent')} value={draft.driversPresent} onChange={value=>update({driversPresent:Number(value)})} suffix={t('businessModel.daily.ofCount',{count:input.companyDriverCount})}/>
-            <NumberInput label={t('businessModel.report.recoveredShipments')} help={t('businessModel.report.recoveredShipmentsHint')} value={draft.recoveredShipments??0} onChange={value=>update({recoveredShipments:Number(value)})} suffix={t('businessModel.daily.unitShipments')}/>
-          </div>
-          <div className="bm-progress-row"><i><b style={{width:`${targetProgress}%`}}/></i><small>{t('businessModel.daily.targetProgress',{percent:targetProgress})}</small></div>
-        </section>
-
-        <section className="bm-form-card bm-day-card">
-          <h2><span>{t('businessModel.daily.cardPayments')}</span></h2>
-          <div className="bm-form-grid">
-            <NumberInput label={t('businessModel.report.codShipments')} help={t('businessModel.report.codHint')} value={draft.codShipments??0} onChange={value=>update({codShipments:Number(value)})} suffix={t('businessModel.daily.unitShipments')}/>
-            <NumberInput label={t('businessModel.report.prepaidShipments')} value={draft.prepaidShipments??0} onChange={value=>update({prepaidShipments:Number(value)})} suffix={t('businessModel.daily.unitShipments')}/>
-            <NumberInput label={t('businessModel.report.cashCollected')} help={t('businessModel.report.cashHint')} value={draft.cashCollectedSar??0} onChange={value=>update({cashCollectedSar:Number(value)})} suffix="SAR"/>
-            <NumberInput label={t('businessModel.report.cashRemitted')} value={draft.cashRemittedSar??0} onChange={value=>update({cashRemittedSar:Number(value)})} suffix="SAR"/>
-          </div>
-          {cashOutstanding!==0 && <span className={`bm-recon ${cashOutstanding>0?'bad':'ok'}`} style={{marginTop:10}}>{t('businessModel.report.cashOutstanding')}: {money(cashOutstanding)}</span>}
-          <div className="bm-field" style={{marginTop:12}}><span>{t('businessModel.report.podStatus')}</span>
-            <div className="bm-segmented bm-pod-switch" role="radiogroup" aria-label={t('businessModel.report.podStatus')}>
-              {(['complete','partial','none'] as const).map(option=>(
-                <button key={option} type="button" role="radio" aria-checked={(draft.podStatus??'')===option} className={(draft.podStatus??'')===option?'active':''} onClick={()=>update({podStatus:draft.podStatus===option?undefined:option})}>{podLabels[option]}</button>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="bm-form-card bm-day-card">
-          <h2><span>{t('businessModel.daily.cardContext')}</span></h2>
-          <div className="bm-form-grid">
-            <NumberInput label={t('businessModel.daily.fuelSpent')} value={draft.fuelCost} onChange={value=>update({fuelCost:Number(value)})} suffix="SAR"/>
-            <NumberInput label={t('businessModel.report.extraCosts')} help={t('businessModel.report.extraCostsHint')} value={draft.extraCosts??0} onChange={value=>update({extraCosts:Number(value)})} suffix="SAR"/>
-            <NumberInput label={t('businessModel.report.safetyIncidents')} help={t('businessModel.report.safetyIncidentsHint')} value={draft.safetyIncidents??0} onChange={value=>update({safetyIncidents:Number(value)})} suffix={t('businessModel.daily.unitShipments')}/>
-            <NumberInput label={t('businessModel.report.newCustomerVisits')} help={t('businessModel.report.newCustomerVisitsHint')} value={draft.newCustomerVisits??0} onChange={value=>update({newCustomerVisits:Number(value)})} suffix={t('businessModel.daily.unitShipments')}/>
-            <label className="bm-field"><span>{t('businessModel.report.weather')}</span><select aria-label={t('businessModel.report.weather')} value={draft.weatherCondition??'clear'} onChange={event=>update({weatherCondition:event.target.value as DailyRecord['weatherCondition']})}>{(['clear','rain','fog','sand'] as const).map(option=><option key={option} value={option}>{t(`businessModel.report.weather${option.charAt(0).toUpperCase()+option.slice(1)}`)}</option>)}</select></label>
-          </div>
-        </section>
-
-        <section className="bm-form-card bm-day-card bm-notes-card">
-          <h2><span>{t('businessModel.daily.cardNotes')}</span></h2>
-          <label className="bm-notes"><span>{t('businessModel.daily.notes')}</span><textarea aria-label={t('businessModel.daily.notes')} value={draft.notes} onChange={event=>update({notes:event.target.value})} placeholder={t('businessModel.daily.notesPlaceholder')}/></label>
-          <label className="bm-notes bm-tomorrow"><span>{t('businessModel.report.nextDayFocus')}</span><textarea aria-label={t('businessModel.report.nextDayFocus')} value={draft.tomorrowNote??''} onChange={event=>update({tomorrowNote:event.target.value})} placeholder={t('businessModel.report.nextDayFocusPlaceholder')}/></label>
-          <button className="bm-primary" onClick={save}><Check size={15}/> {t('businessModel.daily.saveReport')}</button>
-        </section>
-      </div>
-
-      <aside className="bm-day-side">
-        <section className="bm-panel bm-scoreboard">
-          <div className="bm-panel-head"><div><span>{t('businessModel.daily.scoreboardTag')}</span><h2>{t('businessModel.daily.scoreboardHead')}</h2></div></div>
-          <strong className={`bm-score-big ${metrics.completionRate>=95?'good':metrics.recordedAttempts>0?'bad':''}`}>{metrics.completionRate.toFixed(1)}%</strong>
-          <span className="bm-score-cap">{t('businessModel.daily.kpiCompletionRate')}</span>
-          <div className="bm-progress-row"><i><b style={{width:`${targetProgress}%`}}/></i><small>{t('businessModel.daily.targetProgress',{percent:targetProgress})}</small></div>
-          <dl className="bm-facts bm-facts-plain" style={{marginTop:14}}>
-            <div><dt>{t('businessModel.daily.kpiPlanned')}</dt><dd>{num(metrics.plannedShipments)}</dd></div>
-            <div><dt>{t('businessModel.daily.attempts')}</dt><dd>{num(attemptsToday)}</dd></div>
-            <div><dt>{t('businessModel.daily.factRevenue')}</dt><dd>{money(metrics.revenue)}</dd></div>
-            <div><dt>{t('businessModel.daily.factAllocatedCost')}</dt><dd>{money(metrics.allocatedCost)}</dd></div>
-            <div><dt>{t('businessModel.daily.factFuelCost')}</dt><dd>{money(metrics.fuelCost)}</dd></div>
-            <div><dt>{t('businessModel.daily.factProfitLoss')}</dt><dd className={metrics.profit<0?'text-bad':''}>{money(metrics.profit)}</dd></div>
-          </dl>
-          <p className="bm-calculation-note">{t('businessModel.daily.allocationNote')}</p>
-        </section>
-        <section className="bm-panel bm-checklist">
-          <div className="bm-panel-head"><div><span>{t('businessModel.daily.scoreboardTag')}</span><h2>{dayChecks.filter(check=>check.ok).length}/{dayChecks.length}</h2></div></div>
-          {dayChecks.map(check=>(
-            <div key={check.label} className={`bm-check ${check.ok?'ok':'warn'}`}>
-              <b>{check.ok?'✓':'⚠'}</b>
-              <span>{check.label}<small>{check.detail}</small></span>
-            </div>
-          ))}
-        </section>
-      </aside>
-    </div>
-        {enabledProviders.length>0&&<section className="bm-panel bm-cust-breakdown">
-      <div className="bm-panel-head"><div><h2>{t('businessModel.report.customerBreakdownTitle')}</h2><p className="bm-calculation-note">{t('businessModel.report.customerBreakdownDesc')}</p></div>
-        <span className={`bm-recon ${attributedToday>draft.completedShipments?'bad':'ok'}`}>{t('businessModel.summary.shipmentsDay')}: {num(attributedToday)} / {num(draft.completedShipments)}</span></div>
-      <div className="bm-table-wrap"><div className="bm-table bm-cust-break-table">
-        <div className="bm-table-head"><span>{t('businessModel.customers.colCustomer')}</span><span>{t('businessModel.report.kpiDelivered')}</span><span>{t('businessModel.report.kpiMissed')}</span><span>{t('businessModel.report.colShare')}</span></div>
-        {enabledProviders.map(provider=>{
-          const cell=draft.customerBreakdown?.[provider.id];
-          const attempts=(cell?.delivered??0)+(cell?.missed??0);
-          return <div className="bm-table-row bm-cust-break-row" key={provider.id}>
-            <strong>{provider.name}</strong>
-            <CellNumber ariaLabel={`${provider.name} ${t('businessModel.report.kpiDelivered')}`} value={cell?.delivered??0} onChange={value=>setCustomerCell(provider.id,'delivered',value)}/>
-            <CellNumber ariaLabel={`${provider.name} ${t('businessModel.report.kpiMissed')}`} value={cell?.missed??0} onChange={value=>setCustomerCell(provider.id,'missed',value)}/>
-            <span className="bm-computed">{attempts>0?`${Math.round((cell?.delivered??0)/attempts*100)}%`:'—'}</span>
-          </div>;})}
-      </div></div>
-    </section>}
-    <section className="bm-panel bm-reasons-card">
-      <div className="bm-panel-head"><div><span>{t('businessModel.risks.title')}</span><h2>{t('businessModel.report.missReasonsTitle')}</h2><p className="bm-calculation-note">{t('businessModel.report.missReasonsDesc')}</p></div>
-        <span className={`bm-recon ${reasonsMismatch?'bad':'ok'}`} aria-live="polite">{reasonsSum} / {draft.failedShipments}{!reasonsMismatch&&draft.failedShipments>0?` ✓`:''}</span></div>
-      <div className="bm-form-grid bm-reason-grid">
-        {FAILURE_REASON_KEYS.map(key=><NumberInput key={key} label={t(`businessModel.report.${key}`)} value={draft.failureReasons?.[key]??0} onChange={value=>changeReason(key,value)} suffix={t('businessModel.daily.unitShipments')}/>)}
-      </div>
-      <p className={reasonsMismatch?'bm-calculation-note text-bad':'bm-calculation-note'}>{reasonsMismatch?t('businessModel.report.reasonsMismatch',{count:draft.failedShipments,sum:reasonsSum}):t('businessModel.report.reasonsOk')}</p>
-    </section>
-    <section className="bm-panel bm-export-card"><div><span>{t('businessModel.daily.exportTag')}</span><h2>{t('businessModel.daily.exportHead')}</h2><p>{t('businessModel.daily.exportDesc')}</p></div><div><button onClick={downloadExcel}><Download size={15}/> {t('businessModel.daily.exportExcel')}</button></div>{message&&<output aria-live="polite">{message}</output>}</section>
-    <section className="bm-panel bm-report-history"><div className="bm-panel-head"><div><span>{t('businessModel.daily.historyTag')}</span><h2>{t('businessModel.daily.historyHead')}</h2></div></div>{Object.values(records).length?<div>{Object.values(records).sort((a,b)=>b.date.localeCompare(a.date)).map(record=><button key={record.date} onClick={()=>selectDate(record.date)}><span>{fmtDateMedium(locale,record.date)}</span><strong>{t('businessModel.daily.completedCount',{count:record.completedShipments})}</strong><small>{t('businessModel.daily.failedCount',{count:record.failedShipments})}</small></button>)}</div>:<p>{t('businessModel.daily.noHistory')}</p>}</section>
-    <MonthlyVariance records={records} output={output} /></>;
-}
 function MonthlyTotals({input,output,fleetCount}:{input:FinancialInput;output:ReturnType<typeof useSimulatedData>['financialOutput'];fleetCount:number}) {
   const { t, i18n } = useTranslation();
   const locale = localeOf(i18n.language);

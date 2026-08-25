@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 type CommitArgs = [{ stops?: StopRecord[] }, string | undefined, { keys?: string[] } | undefined];
 const { commitBundleSpy } = vi.hoisted(() => ({
-  commitBundleSpy: vi.fn((..._args: unknown[]) => ({ persistedOk: true, failedKeys: [] as string[], rollbackOk: true, rollbackFailedKeys: [] as string[] })),
+  commitBundleSpy: vi.fn<(...callArgs: [{ stops?: StopRecord[] }, string | undefined, { keys?: string[] } | undefined]) => { persistedOk: boolean; failedKeys: string[]; rollbackOk: boolean; rollbackFailedKeys: string[] }>(
+    () => ({ persistedOk: true, failedKeys: [], rollbackOk: true, rollbackFailedKeys: [] }),
+  ),
 }));
 function writtenStops(callIndex = 0): StopRecord[] {
   return ((commitBundleSpy.mock.calls[callIndex] as unknown[])[0] as { stops?: StopRecord[] })?.stops ?? [];
@@ -50,7 +52,7 @@ function stop(over: Partial<StopRecord> = {}): StopRecord {
 
 function renderPlanner(initialStops: StopRecord[] = []) {
   const setStops = vi.fn();
-  const view = render(<StopPlanning stops={initialStops} setStops={setStops} />);
+  render(<StopPlanning stops={initialStops} setStops={setStops} />);
   return { setStops };
 }
 
@@ -90,7 +92,7 @@ describe('StopPlanning — manual lifecycle', () => {
 
   it('edit prefills and updates without changing createdAt', () => {
     const original = stop({ codAmountSar: 10 });
-    const { setStops } = renderPlanner([original]);
+    renderPlanner([original]);
     fireEvent.click(screen.getAllByText('businessModel.stops.editBtn')[0]);
     fireEvent.change(document.querySelector('[name="codAmountSar"]') as HTMLInputElement, { target: { value: '99' } });
     fireEvent.click(screen.getByTestId('save-stop'));

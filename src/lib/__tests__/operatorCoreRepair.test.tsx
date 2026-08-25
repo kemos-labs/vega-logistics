@@ -315,7 +315,6 @@ describe('operator-core repair', () => {
     ];
     const rec: DailyRecord = { date: '2026-08-24', completedShipments: 1, failedShipments: 0, loadedShipments: 1, cashCollectedSar: 0, cashRemittedSar: 0, closeStatus: 'reconciled', closedAt: new Date().toISOString(), driversPresent: 1, fuelCost: 1, notes: '', updatedAt: new Date().toISOString() } as DailyRecord;
     render(<ReportsView operationDate="2026-08-24" onOperationDateChange={() => {}} stops={stops} dailyRecords={{ '2026-08-24': rec }} onGotoClose={() => {}} />);
-    const key = ['Ahmed','A','ABC123'].join('|');
     // need to find the run key with plate
     const btn = document.querySelector('[data-testid^="reports-print-"]') as HTMLButtonElement;
     expect(btn).toBeTruthy();

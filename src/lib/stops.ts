@@ -227,7 +227,6 @@ export function normalizeStopRecord(value: Record<string, unknown>): StopRecord 
 export function createStopRecord(
   input: Omit<Partial<StopRecord>, 'id' | 'createdAt' | 'updatedAt'> & { operationDate: string; customerName: string; stopLabel: string; status?: StopStatus },
   nowIso: string,
-  nowMs: number = Date.parse(nowIso),
 ): StopRecord {
   const draft: Record<string, unknown> = {
     ...input,

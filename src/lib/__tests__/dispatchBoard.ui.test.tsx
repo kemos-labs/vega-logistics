@@ -3,7 +3,9 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const commitBundleSpy = vi.fn((..._args: unknown[]) => ({ persistedOk: true, failedKeys: [] as string[], rollbackOk: true, rollbackFailedKeys: [] as string[] }));
+const commitBundleSpy = vi.fn<(...callArgs: unknown[]) => { persistedOk: boolean; failedKeys: string[]; rollbackOk: boolean; rollbackFailedKeys: string[] }>(
+  () => ({ persistedOk: true, failedKeys: [], rollbackOk: true, rollbackFailedKeys: [] }),
+);
 
 vi.mock('react-i18next', () => ({
   initReactI18next: { type: '3rdparty', init: () => undefined },

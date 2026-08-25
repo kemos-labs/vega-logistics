@@ -137,7 +137,6 @@ describe('buildControlTowerSnapshot', () => {
 describe('tower action PRIORITY — draft-close pinned, never accidental', () => {
   it('medium actions sort failed-yesterday → pod-gaps → record-yesterday → draft-close; draft numbers stay invisible', () => {
     const draft = record({ date: '2026-08-20', completedShipments: 99, failedShipments: 99, cashCollectedSar: 999, closeStatus: 'draft' });
-    const yesterday = record({ date: '2026-08-22', completedShipments: 5, failedShipments: 2 });
     const s = snap({
       records: {
         // no definitive yesterday → record-yesterday fires alongside the rest

@@ -978,7 +978,6 @@
       "thCustomer": "Customer",
       "thOwner": "Owner",
       "thStatus": "Status",
-      "thActions": "",
       "emptyBoard": "No recovery entries yet. When a delivery fails, log it here so it gets an owner.",
       "chipPending": "{{entries}} open · {{shipments}} shipments",
       "chipCloseRate": "{{rate}}% closed as recovered",
