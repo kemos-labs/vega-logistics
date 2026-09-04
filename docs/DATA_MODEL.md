@@ -30,22 +30,27 @@ Timestamps: `date` (local YYYY-MM-DD key), `updatedAt` (ISO, normalized on every
 
 **Known mixing flagged in PRODUCT_TRUTH_AUDIT §7:** the 26-working-days constant and day-cost allocation are derived assumptions that must stay visually labelled wherever shown.
 
-## 3. Stop/Shipment record — IMPLEMENTED (Release R2, key `vega-stops-v1`)
+## 3. Stop/Shipment record — IMPLEMENTED (Release R2, extended R7; key `vega-stops-v1`)
 
 ```
 StopRecord {
   id: string                 // stable uuid-ish, generated client-side
-  date: string               // operation date (local key)
-  customerProviderId: string // FK to providers catalog
+  operationDate: string      // operation date, local YYYY-MM-DD key (real calendar date)
+  customerId?: string        // FK to providers catalog when known
+  customerName: string       // SNAPSHOT (catalog renames never break stops)
   reference?: string         // shipment/tracking ref (no ID numbers by default)
   stopLabel: string          // recipient or descriptive label (privacy: personal if name)
-  shortAddress?: string      // AAAA9999 format-check only [R5 validator]
-  addressNotes?: string      // free text landmark/district
+  addressNotes?: string      // free text landmark/district (≤300)
+  shortAddress?: string      // R7: SPL Short Address, NORMALIZED (spaces stripped,
+                             //   uppercased) + FORMAT-ONLY validated (AAAA9999 via
+                             //   compliance.ts); blank ⇒ absent; never "verified"
   phone?: string             // OPTIONAL — only when justified; privacy-labelled field
   codAmountSar?: number
   serviceWindow?: 'morning'|'afternoon'|'evening'
+  lat?: number; lng?: number // R7: OPTIONAL manual coordinates (±6dp), range-checked
+                             //   (lat −90…90, lng −180…180); offline suggestion input only
   driverName?: string; carNumber?: string; plateNumber?: string
-  sequence?: number          // manual ordering (R3)
+  sequence?: number          // manual ordering (R3); suggestion accept rewrites 1..N
   status: 'planned'|'delivered'|'failed'|'returned'|'pending'
   failureReasonKey?: FailureReasonKey   // required when status failed/returned
   podStatus?: 'complete'|'partial'|'none'|undefined
@@ -53,7 +58,7 @@ StopRecord {
   createdAt/updatedAt: ISO
 }
 ```
-Shipped exactly as specified here (source of truth: `src/lib/stops.ts`). Additions locked during implementation: `customerName` is a snapshot (catalog renames never break stops); real-calendar-date validation; `failureReasonKey` REQUIRED for failed/returned; reference-basis duplicate comparison treats ABSENT optional fields as non-contradicting (import rows without a COD column stay compatible with existing stops that have one); phone/addressNotes length-capped, privacy-minimized. Backup envelope is v3: v3 strict (missing stops key = malformed), v2/v1 migrate with `stops: []` + `legacyScopeMissing` + lossless=false so older formats can NEVER erase current stops; merge = numeric `updatedAt` newer-wins; commitBundle covers the stops key transactionally. Failed-stop→recovery auto-linking arrives with R4 (evening close).
+Shipped as specified here (source of truth: `src/lib/stops.ts`). R2 additions locked during implementation: `customerName` is a snapshot (catalog renames never break stops); real-calendar-date validation; `failureReasonKey` REQUIRED for failed/returned; reference-basis duplicate comparison treats ABSENT optional fields as non-contradicting (import rows without a COD column stay compatible with existing stops that have one; `shortAddress` joined that rule in R7); phone/addressNotes length-capped, privacy-minimized. R7 additions: `shortAddress` (bulk-import aliases EN/AR incl. العنوان المختصر; invalid ⇒ row-level error in planning/import, lossy-warn-and-clear in backups); `lat`/`lng` (manual entry + import aliases lat/lng/خط العرض/خط الطول; unparseable ⇒ NaN-survives-to-validation, never silent 0,0). Backup envelope is v3: v3 strict (missing stops key = malformed), v2/v1 migrate with `stops: []` + `legacyScopeMissing` + lossless=false so older formats can NEVER erase current stops; merge = numeric `updatedAt` newer-wins; commitBundle covers the stops key transactionally. Previous-format stops (without the R7 keys) validate and import losslessly — no envelope bump (same rule as R4 close fields). Failed-stop→recovery auto-linking arrives with R4 (evening close).
 
 ## 3b. Evening-close fields (R4, optional on DailyRecord — backward compatible)
 

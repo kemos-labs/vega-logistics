@@ -14,9 +14,13 @@
 //     material edit (numeric ISO comparison drives merge conflicts);
 //   * privacy minimization: phone/addressNotes optional, length-capped,
 //     never required; no identity numbers anywhere in the model.
+//   * shortAddress is OPTIONAL format-only input (SPL AAAA9999 pattern via
+//     compliance.ts); lat/lng are OPTIONAL manual coordinates feeding the
+//     offline R7 suggestion only — never auto-geocoded, never required.
 
 import type { FailureReasonKey } from '@/lib/operationsReporting';
 import { FAILURE_REASON_KEYS } from '@/lib/operationsReporting';
+import { checkShortAddressFormat } from '@/lib/compliance';
 
 export const STOP_STATUSES = ['planned', 'delivered', 'failed', 'returned', 'pending'] as const;
 export type StopStatus = (typeof STOP_STATUSES)[number];
@@ -32,9 +36,14 @@ export interface StopRecord {
   reference?: string;
   stopLabel: string;
   addressNotes?: string;
+  /** SPL Short Address (AAAA9999) — FORMAT-ONLY, never a verified address. */
+  shortAddress?: string;
   phone?: string;
   codAmountSar?: number;
   serviceWindow?: ServiceWindow;
+  /** Optional manual coordinates — offline suggestion input only (R7). */
+  lat?: number;
+  lng?: number;
   driverName?: string;
   carNumber?: string;
   plateNumber?: string;
@@ -52,7 +61,8 @@ export interface StopFieldError {
   code:
     | 'required-missing' | 'invalid-date' | 'impossible-date' | 'too-long'
     | 'invalid-number' | 'negative' | 'invalid-enum' | 'failure-reason-required'
-    | 'not-a-string' | 'invalid-timestamp';
+    | 'not-a-string' | 'invalid-timestamp'
+    | 'invalid-short-address' | 'invalid-coordinate';
 }
 
 export interface StopValidation {
@@ -62,7 +72,7 @@ export interface StopValidation {
 
 const LIMITS = {
   id: 80, customerName: 120, reference: 60, stopLabel: 120, addressNotes: 300,
-  phone: 30, driverName: 120, carNumber: 40, plateNumber: 40, exceptionOwner: 120,
+  shortAddress: 12, phone: 30, driverName: 120, carNumber: 40, plateNumber: 40, exceptionOwner: 120,
 } as const;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -77,6 +87,22 @@ export function isValidStopDate(value: string): boolean {
 /** Collapse whitespace runs without harming Arabic text or diacritics. */
 function cleanText(value: unknown, limit: number): string {
   return typeof value === 'string' ? value.replace(/\s+/gu, ' ').trim().slice(0, limit) : '';
+}
+
+/**
+ * Canonical Short Address form: whitespace stripped, letters uppercased.
+ * Accepts "ABCD1234" and "ABCD 1234" alike; the FORMAT check itself lives
+ * in compliance.ts (single source of truth for the SPL pattern).
+ */
+export function normalizeShortAddress(value: unknown): string {
+  return typeof value === 'string' ? value.replace(/\s+/gu, '').toUpperCase().slice(0, LIMITS.shortAddress) : '';
+}
+
+/** Both coordinates present, finite, and inside world ranges. */
+export function isValidCoordinatePair(lat: unknown, lng: unknown): boolean {
+  return typeof lat === 'number' && typeof lng === 'number'
+    && Number.isFinite(lat) && Number.isFinite(lng)
+    && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 }
 
 /** Stable id: crypto UUID when available, deterministic-safe fallback. */
@@ -145,6 +171,29 @@ export function validateStopRecord(value: unknown): StopValidation {
     }
   }
 
+  // Short Address: optional; when present it must match the SPL format
+  // (format-only — never a verified address). Blank ⇒ absent.
+  const saRaw = raw.shortAddress;
+  if (saRaw !== undefined && saRaw !== null && !(typeof saRaw === 'string' && saRaw.trim() === '')) {
+    if (typeof saRaw !== 'string') errors.push({ field: 'shortAddress', code: 'not-a-string' });
+    else if (saRaw.length > LIMITS.shortAddress) errors.push({ field: 'shortAddress', code: 'too-long' });
+    else if (!checkShortAddressFormat(normalizeShortAddress(saRaw)).ok) {
+      errors.push({ field: 'shortAddress', code: 'invalid-short-address' });
+    }
+  }
+
+  // Coordinates: optional individually, each range-checked when present.
+  for (const field of ['lat', 'lng'] as const) {
+    const v = raw[field];
+    if (v === undefined || v === null) continue;
+    const inRange = field === 'lat'
+      ? (typeof v === 'number' && v >= -90 && v <= 90)
+      : (typeof v === 'number' && v >= -180 && v <= 180);
+    if (typeof v !== 'number' || !Number.isFinite(v) || !inRange) {
+      errors.push({ field, code: 'invalid-coordinate' });
+    }
+  }
+
   const status = raw.status;
   if (typeof status !== 'string' || !(STOP_STATUSES as readonly string[]).includes(status)) {
     errors.push({ field: 'status', code: 'invalid-enum' });
@@ -200,6 +249,14 @@ export function normalizeStopRecord(value: Record<string, unknown>): StopRecord 
   }
   if (typeof value.codAmountSar === 'number' && Number.isFinite(value.codAmountSar) && value.codAmountSar >= 0) {
     record.codAmountSar = value.codAmountSar;
+  }
+  const shortNorm = normalizeShortAddress(value.shortAddress);
+  if (shortNorm !== '' && checkShortAddressFormat(shortNorm).ok) record.shortAddress = shortNorm;
+  if (typeof value.lat === 'number' && Number.isFinite(value.lat) && value.lat >= -90 && value.lat <= 90) {
+    record.lat = Math.round(value.lat * 1e6) / 1e6;
+  }
+  if (typeof value.lng === 'number' && Number.isFinite(value.lng) && value.lng >= -180 && value.lng <= 180) {
+    record.lng = Math.round(value.lng * 1e6) / 1e6;
   }
   if (typeof value.sequence === 'number' && Number.isInteger(value.sequence) && value.sequence >= 0) {
     record.sequence = value.sequence;
@@ -300,7 +357,7 @@ function materiallyEqual(a: StopRecord, b: StopRecord): boolean {
  * contradict the other side — only genuinely differing PRESENT values do.
  */
 function referenceCompatible(a: StopRecord, b: StopRecord): boolean {
-  const fields = ['customerName', 'stopLabel', 'phone', 'addressNotes'] as const;
+  const fields = ['customerName', 'stopLabel', 'phone', 'addressNotes', 'shortAddress'] as const;
   for (const field of fields) {
     const av = cleanText(a[field] ?? '', 300);
     const bv = cleanText(b[field] ?? '', 300);

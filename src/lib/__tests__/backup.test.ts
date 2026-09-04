@@ -636,6 +636,40 @@ describe('backup v3 — stops', () => {
     expect(parsed.file.data.stops!).toEqual([good]);
   });
 
+  it('previous-format stops without R7 keys import losslessly (no migration bump)', () => {
+    const legacy = stop({ reference: 'LEGACY-1' });
+    delete (legacy as Partial<StopRecord>).shortAddress;
+    delete (legacy as Partial<StopRecord>).lat;
+    delete (legacy as Partial<StopRecord>).lng;
+    const parsed = parseBackup(JSON.stringify(buildBackup(bundleWith([legacy]))));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.lossless).toBe(true);
+    expect(parsed.file.data.stops![0].shortAddress).toBeUndefined();
+  });
+
+  it('R7 enrichment round-trips byte-perfect through export/import', () => {
+    const rich = stop({ shortAddress: 'ABCD1234', lat: 24.7136, lng: 46.6753 });
+    const parsed = parseBackup(JSON.stringify(buildBackup(bundleWith([rich]))));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.file.data.stops).toEqual([rich]);
+  });
+
+  it('malformed R7 fields in a backup file warn and clear — the row survives', () => {
+    const good = stop({ reference: 'OK-2' });
+    const poisoned = { ...good, shortAddress: 'WRONG', lat: 999, lng: 'x' };
+    const parsed = parseBackup(JSON.stringify(buildBackup(bundleWith([poisoned as unknown as StopRecord]))));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.dropped.stops).toBe(0);
+    expect(parsed.warnings.some(w => w.includes(':shortAddress:invalid-short-address'))).toBe(true);
+    expect(parsed.warnings.some(w => w.includes(':lat:invalid-coordinate'))).toBe(true);
+    expect(parsed.warnings.some(w => w.includes(':lng:invalid-coordinate'))).toBe(true);
+    expect(parsed.file.data.stops![0].shortAddress).toBeUndefined();
+    expect(parsed.file.data.stops![0].lat).toBeUndefined();
+  });
+
   it('stop merge conflicts use numeric updatedAt: newer wins / tie keeps local / identical ignored', () => {
     const local = [stop({ reference: 'M-1' }, '2026-08-24T10:00:00.000Z')];
     const newer = [{ ...local[0], codAmountSar: 55, updatedAt: '2026-08-24T11:00:00.000Z' }];

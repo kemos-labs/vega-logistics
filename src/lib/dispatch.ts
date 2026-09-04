@@ -138,11 +138,13 @@ export interface RunWorkload {
   /** Optional data — never presented as a requirement. */
   missingPhone: number;
   missingReference: number;
+  /** Stops without a format-valid Short Address (TGA readiness signal). */
+  missingShortAddress: number;
 }
 
 export function runWorkload(stops: StopRecord[]): RunWorkload {
   const windows = { morning: 0, afternoon: 0, evening: 0, unset: 0 };
-  let codTotalSar = 0, missingAddress = 0, missingPhone = 0, missingReference = 0;
+  let codTotalSar = 0, missingAddress = 0, missingPhone = 0, missingReference = 0, missingShortAddress = 0;
   for (const stop of stops) {
     if (stop.serviceWindow === 'morning') windows.morning += 1;
     else if (stop.serviceWindow === 'afternoon') windows.afternoon += 1;
@@ -152,6 +154,7 @@ export function runWorkload(stops: StopRecord[]): RunWorkload {
     if (!stop.addressNotes) missingAddress += 1;
     if (!stop.phone) missingPhone += 1;
     if (!stop.reference) missingReference += 1;
+    if (!stop.shortAddress) missingShortAddress += 1;
   }
-  return { stopCount: stops.length, codTotalSar, windows, missingAddress, missingPhone, missingReference };
+  return { stopCount: stops.length, codTotalSar, windows, missingAddress, missingPhone, missingReference, missingShortAddress };
 }

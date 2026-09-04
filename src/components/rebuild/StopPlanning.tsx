@@ -20,7 +20,7 @@ import StopMap from '@/components/rebuild/StopMap';
 
 type Draft = Record<string, string>;
 
-const EMPTY_DRAFT: Draft = { customerName: '', reference: '', stopLabel: '', addressNotes: '', phone: '', codAmountSar: '', serviceWindow: '' };
+const EMPTY_DRAFT: Draft = { customerName: '', reference: '', stopLabel: '', addressNotes: '', shortAddress: '', phone: '', codAmountSar: '', serviceWindow: '', lat: '', lng: '' };
 
 export function StopPlanning({ stops, setStops, operationDate: controlledDate, onOperationDateChange }: {
   stops: StopRecord[];
@@ -93,6 +93,10 @@ export function StopPlanning({ stops, setStops, operationDate: controlledDate, o
     // reports it (never silently saved as 'no COD'). Blank ⇒ no COD.
     const rawCod = normalizeDigits(draft.codAmountSar.trim());
     const numericCod = rawCod === '' ? undefined : (Number.isFinite(Number(rawCod)) ? Number(rawCod) : Number.NaN);
+    // Coordinates: blank ⇒ absent; unparseable input stays NaN so validation
+    // reports it (never silently saved as 0,0 off the African coast).
+    const numericLat = draft.lat.trim() === '' ? undefined : Number(normalizeDigits(draft.lat.trim()));
+    const numericLng = draft.lng.trim() === '' ? undefined : Number(normalizeDigits(draft.lng.trim()));
     const base = editingId ? stops.find(stop => stop.id === editingId) : undefined;
     const candidateInput = {
       ...(base ?? {}),
@@ -101,9 +105,12 @@ export function StopPlanning({ stops, setStops, operationDate: controlledDate, o
       reference: draft.reference || undefined,
       stopLabel: draft.stopLabel,
       addressNotes: draft.addressNotes || undefined,
+      shortAddress: draft.shortAddress.trim() || undefined,
       phone: draft.phone || undefined,
       codAmountSar: numericCod, // NaN survives for validation; undefined = blank
       serviceWindow: draft.serviceWindow === '' ? undefined : draft.serviceWindow,
+      lat: numericLat,
+      lng: numericLng,
       status: (base?.status ?? 'planned'),
     };
     // Dry-run validation for inline feedback (values preserved on failure).
@@ -161,9 +168,12 @@ export function StopPlanning({ stops, setStops, operationDate: controlledDate, o
       reference: stop.reference ?? '',
       stopLabel: stop.stopLabel,
       addressNotes: stop.addressNotes ?? '',
+      shortAddress: stop.shortAddress ?? '',
       phone: stop.phone ?? '',
       codAmountSar: stop.codAmountSar === undefined ? '' : String(stop.codAmountSar),
       serviceWindow: stop.serviceWindow ?? '',
+      lat: stop.lat === undefined ? '' : String(stop.lat),
+      lng: stop.lng === undefined ? '' : String(stop.lng),
     });
     formRef.current?.scrollIntoView?.({ block: 'nearest' });
   }
@@ -262,6 +272,20 @@ export function StopPlanning({ stops, setStops, operationDate: controlledDate, o
           <label className="bm-field"><span>{t(S + 'fields.addressNotes')}</span>
             <input name="addressNotes" value={draft.addressNotes} onChange={event => setDraft(prev => ({ ...prev, addressNotes: event.target.value }))} />
           </label>
+          <label className="bm-field"><span>{t(S + 'fields.shortAddress')}</span>
+            <input name="shortAddress" aria-describedby="short-format err-shortAddress" value={draft.shortAddress} onChange={event => setDraft(prev => ({ ...prev, shortAddress: event.target.value }))} />
+            <small id="short-format">{t(S + 'formatHint')}</small>
+            {errorText(fieldErrors, 'shortAddress') && <em id="err-shortAddress" role="alert">{errorText(fieldErrors, 'shortAddress')}</em>}
+          </label>
+          <label className="bm-field"><span>{t(S + 'fields.lat')}</span>
+            <input name="lat" inputMode="decimal" aria-describedby="coords-hint err-lat" value={draft.lat} onChange={event => setDraft(prev => ({ ...prev, lat: event.target.value }))} />
+            {errorText(fieldErrors, 'lat') && <em id="err-lat" role="alert">{errorText(fieldErrors, 'lat')}</em>}
+          </label>
+          <label className="bm-field"><span>{t(S + 'fields.lng')}</span>
+            <input name="lng" inputMode="decimal" aria-describedby="coords-hint err-lng" value={draft.lng} onChange={event => setDraft(prev => ({ ...prev, lng: event.target.value }))} />
+            <small id="coords-hint">{t(S + 'coordsHint')}</small>
+            {errorText(fieldErrors, 'lng') && <em id="err-lng" role="alert">{errorText(fieldErrors, 'lng')}</em>}
+          </label>
           <label className="bm-field"><span>{t(S + 'fields.phone')}</span>
             <input name="phone" inputMode="tel" aria-describedby="phone-privacy err-phone" value={draft.phone} onChange={event => setDraft(prev => ({ ...prev, phone: event.target.value }))} />
             <small id="phone-privacy">{t(S + 'privacyNote')}</small>
@@ -303,6 +327,7 @@ export function StopPlanning({ stops, setStops, operationDate: controlledDate, o
                 <span className="bm-stop-main">
                   <strong>{stop.reference ? `${stop.reference} · ` : ''}{stop.customerName}</strong>
                   <span> — {stop.stopLabel}</span>
+                  {stop.shortAddress && <small> · {stop.shortAddress}</small>}
                   {stop.codAmountSar !== undefined && <small> · COD {fmt(stop.codAmountSar)} SAR</small>}
                   <em className={`bm-chip bm-chip-${stop.status}`}>{statusLabel(stop.status)}</em>
                 </span>

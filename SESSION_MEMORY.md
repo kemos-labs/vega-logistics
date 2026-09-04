@@ -2,7 +2,10 @@
 
 > Governance: `AGENTS.md` (durable rules) · Roadmap: `docs/MASTER_PLAN.md` · Claims: `docs/RESEARCH_DOSSIER.md` · Truth audit: `docs/PRODUCT_TRUTH_AUDIT.md`
 
-## R6 operational analytics cycle (this commit)
+## R7 Phase 1 route-lite cycle (this commit)
+Offline suggestion without any network: **(1)** Stop enrichment prerequisite — optional `shortAddress` (SPL format-only via compliance.ts, normalized spaces-stripped/uppercased) + `lat`/`lng` (manual, range-checked, NaN-survives-to-validation) on StopRecord; planning form fields w/ inline errors + focus + native hints; bulk-import aliases EN/AR (العنوان المختصر، خط العرض/الطول; Arabic-Indic digits normalized); workload missing-short-address signal; manifest address cell appends shortAddress; previous-format stops validate losslessly (no envelope bump); backup lossy-warn-and-clear for malformed R7 fields (R4 close-fields rule). **(2)** `src/lib/routeLite.ts` pure suggester — window groups first, greedy nearest-neighbor inside a window when ≥2 coords, stable otherwise; rationale codes; haversine; pure OSRM URL builder + Trip/Route parser (evaluation concrete, network DEFERRED — no fetch/CSP change/demo use). **(3)** DispatchBoard per-run Suggest → side-by-side preview → Accept (transactional 1..N) / Discard + one-step Undo. DATA_MODEL §3 drift corrected (operationDate, customerName snapshot — the doc still showed R2-draft names). Tests: +32 (routeLite domain ×17 + stops ×8 + import ×4 + dispatch ×1 + backup ×3 + stopPlanning UI ×2 + dispatch suggest UI ×2) → 457 total (39 files). Locale parity 1298↔1298 (21 new keys per tree). All gates green.
+
+## R6 operational analytics cycle (previous commit)
 Full R6 implementation per MASTER_PLAN §5-R6: **(1)** Driver scorecard — `buildDriverPerformance()` aggregates stops by driver identity (driverName + carNumber + plateNumber), worst miss rate first, trailing-7-day trend; rendered in ProReport with EN/AR labels + empty state. **(2)** COD remittance-lag trend — `buildCodRemittanceLag()` computes days between operation date and remittance date per day. **(3)** Fuel control — `buildFuelControl()` compares daily fuel cost vs model daily expectation with variance %. **(4)** Failure Pareto — `buildFailurePareto()` computes count + share + cumulative share. **(5)** Customer scorecard + cost-per-delivered-stop + recovery aging/close-rate — already existed, now integrated into the full R6 report model. All metrics: definition + denominator + empty/insufficient states + drilldown + Arabic labels + tabular alternative. Tests: +36 (operationsReporting domain ×23 + reportEngine integration ×8 + ProReport UI ×8) → 425 total (37 files). Locale parity 1272↔1272 (24 new keys per tree, native Arabic). All gates green (tsc, vitest, eslint 0, build, python suite, git diff --check).
 
 ## Driver identity + pre-close reports cycle (previous commit)
@@ -12,13 +15,13 @@ Owner-requested sync slice (early R6): **(1)** `DriverRecord` gains distinct opt
 Full-app review follow-up, zero behavior change intended: (1) stale June-era root docs moved to `docs/archive/` with a README marking them non-authoritative — R9 hazard removed; stray dev logs deleted; (2) all 22 eslint warnings cleared — dead ~200-line `DailyReport` + `MonthlyVariance` components, unused imports/states/helpers in BusinessModelApp/StopPlanning/eveningClose/stops, mock-signature typing in 6 test files (vi.fn generics replace unused rest params); (3) dead empty locale key `businessModel.recovery.thActions` removed from BOTH trees (R3 parity 1244↔1244); (4) unnecessary `as never` cast dropped at backup-banner dismissal.
 ## Current state
 - **Commit:** `$(git rev-parse --short HEAD)` · **Deploy:** https://kemos-labs.github.io/vega-logistics/ green (CI verified, keys live-verified)
-- **Tests:** 425 passing (37 files) · tsc clean · eslint 0 problems (0 warnings) · build ✓ · python suite ✓
+- **Tests:** 457 passing (39 files) · tsc clean · eslint 0 problems (0 warnings) · build ✓ · python suite ✓ · locale parity 1298↔1298
 - Dev URL: http://vega.localhost:8080 (`localhost:3002` = unrelated project)
 
 ## HANDOFF — next agent starts here (2026-08-25)
 1. **Owner acceptance session** (blocking R2–R5 + driver slice): walk the owner through stop planning → dispatch print sheet → evening close → reports (incl. new pre-close per-driver view) → compliance-lite, on a real device, EN+AR. On acceptance: tick MASTER_PLAN checkboxes + record here. On defects: fix under the same release before R6.
-2. **Then R6** per MASTER_PLAN §5-R6 — driver scorecard extends this slice's identity chain; every metric needs definition+denominator+empty states (R8/R10).
-3. **Standing constraints:** eslint stays at literally 0 problems (CI can't see warnings) · locale parity 1247↔1247 · no schema change without old-format fixtures · CSP untouched without env flag.
+2. **Then R7 Phase 2 / R8** per MASTER_PLAN §5-R7/R8 — Phase 2 (self-hosted OSRM) needs owner approval + real coordinate coverage; R8 sync needs KSA-region + PDPL transfer basis documented BEFORE enablement. Every metric needs definition+denominator+empty states (R8/R10).
+3. **Standing constraints:** eslint stays at literally 0 problems (CI can't see warnings) · locale parity 1298↔1298 · no schema change without old-format fixtures · CSP untouched without env flag.
 4. Process reference: AGENTS.md "The proven working loop" + "Hard-won gotchas" — both proven across `f304b7d` and `bb9ee52`.
 
 ## Completed releases

@@ -145,4 +145,34 @@ describe('previewStopImport', () => {
     const result = previewStopImport(csv, [otherDay], DATE);
     expect(result.ok && result.preview.duplicates).toHaveLength(0);
   });
+
+  it('maps Short Address + coordinate aliases (EN + AR) into drafts', () => {
+    const { mapping } = mapHeaders(['customer', 'label', 'short address', 'خط العرض', 'خط الطول']);
+    expect(mapping).toMatchObject({ customer: 0, label: 1, shortAddress: 2, lat: 3, lng: 4 });
+    const csv = 'customer,label,shortaddress,lat,lng\nNinja,Gate 4,ABCD1234,24.7136,46.6753';
+    const result = previewStopImport(csv, [], DATE);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.preview.valid[0]?.draft).toMatchObject({ shortAddress: 'ABCD1234', lat: 24.7136, lng: 46.6753 });
+  });
+
+  it('normalizes Arabic-Indic digits in coordinates and Short Addresses', () => {
+    const csv = 'customer,label,shortaddress,lat\nNinja,Gate,ABCD١٢٣٤,٢٤.٧';
+    const result = previewStopImport(csv, [], DATE);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.preview.valid[0]?.draft).toMatchObject({ shortAddress: 'ABCD1234', lat: 24.7 });
+  });
+
+  it('rejects rows with malformed Short Address or coordinates as invalid (never silent)', () => {
+    const csv = 'customer,label,shortaddress,lat\nNinja,Gate,WRONG,24.7\nNinja,Gate 2,ABCD1234,999';
+    const result = previewStopImport(csv, [], DATE);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.preview.valid).toHaveLength(0);
+    expect(result.preview.invalid).toHaveLength(2);
+    const codes = result.preview.invalid.map(r => r.errors.map(e => `${e.field}:${e.code}`).join(','));
+    expect(codes[0]).toContain('shortAddress:invalid-short-address');
+    expect(codes[1]).toContain('lat:invalid-coordinate');
+  });
 });

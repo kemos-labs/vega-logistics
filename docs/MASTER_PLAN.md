@@ -105,8 +105,12 @@ Short Address format validation; National Address completeness flag; document-ex
 - [x] Recorded-data-only provenance tests for all new metrics
 **Accept:** recorded-data-only provenance test per metric. ✅
 
-### R7 — Route-lite (evaluate AFTER local loop stable)
-Offline manual ordering ships first (R3). Optional OSRM suggestion behind `NEXT_PUBLIC_OSRM_URL`: CSP origin named, OSM attribution visible, timeout fallback, manual order always recoverable, demo-endpoint reliance banned for production.
+### R7 — Route-lite Phase 1: offline suggestion (shipped this cycle — owner live review pending)
+- [x] Stop enrichment (prerequisite): optional `shortAddress` (SPL format-only, normalized) + `lat`/`lng` (manual, range-checked) on StopRecord; planning form w/ inline validation + focus; bulk-import aliases EN/AR; run workload gains missing-short-address signal; manifest prints shortAddress with the address (no new column); previous-format fixtures; backup lossy-warn-and-clear (no envelope bump)
+- [x] `src/lib/routeLite.ts` pure offline suggester: window groups first (morning promises outrank short drives), greedy nearest-neighbor inside a window when ≥2 stops carry coordinates, stable order otherwise; machine-readable rationale codes + empty/insufficient states; haversine helper
+- [x] DispatchBoard per-run Suggest → side-by-side preview (current vs suggested + rationale + offline note) → Accept (transactional, 1..N resequence) / Discard; one-step Undo restores the manual order — manual is always recoverable
+- [x] OSRM network wiring EVALUATED and DEFERRED: pure URL builder + Trip/Route response parser shipped (keeps the evaluation concrete); no fetch, no CSP change, no demo-server use. Rationale: stops had no coordinates until this cycle, and manual+heuristic already answers the ≤50-stop day inside the simplicity budget; self-host decision needs real coordinate coverage first
+- [ ] Phase 2 (needs owner approval + coordinate coverage): self-hosted OSRM behind `NEXT_PUBLIC_OSRM_URL` with named CSP origin, OSM attribution visible, timeout fallback, demo endpoint banned for production
 
 ### R8 — Optional sync (last)
 Supabase free tier behind `NEXT_PUBLIC_SYNC=supabase`: magic-link auth, RLS owner-only, KSA-region project (PDPL transfer gate), local-first boot path, outbox retries, record-level conflict preview, tombstones, account/data deletion path, privacy note shipped in-app.

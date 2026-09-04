@@ -11,6 +11,8 @@ import {
   assignStop, buildDispatchBoard, assignableDrivers, moveStop, runWorkload, runKey, unassignStop,
   type DriverRun, type RunWorkload as Workload,
 } from '@/lib/dispatch';
+import { suggestStopOrder, type RouteSuggestion } from '@/lib/routeLite';
+import { updateStopRecord } from '@/lib/stops';
 import { toDateString } from '@/lib/operationsReporting';
 import type { StopRecord } from '@/lib/stops';
 import type { DriverRecord } from '@/lib/types';
@@ -32,6 +34,10 @@ export function DispatchBoardView({ stops, setStops, drivers, operationDate: con
   const setDate = (d:string) => { if (onOperationDateChange) onOperationDateChange(d); else setInternalDate(d); };
   const [message, setMessage] = useState('');
   const [printRun, setPrintRun] = useState<string | null>(null);
+  // Route-lite (R7 Phase 1): suggestion previews per run + one-step undo of
+  // the last accepted suggestion. Manual order is always recoverable.
+  const [suggestions, setSuggestions] = useState<Record<string, RouteSuggestion>>({});
+  const [lastApplied, setLastApplied] = useState<{ runId: string; prev: Record<string, number | undefined> } | null>(null);
 
   const dayStops = useMemo(() => stops.filter(stop => stop.operationDate === date), [stops, date]);
   const board = useMemo(() => buildDispatchBoard(dayStops), [dayStops]);
@@ -52,6 +58,40 @@ export function DispatchBoardView({ stops, setStops, drivers, operationDate: con
   const doUnassign = (stopId: string) => persist(unassignStop(stops, stopId, new Date().toISOString()));
   const doMove = (stopId: string, direction: 'up' | 'down') => persist(moveStop(stops, stopId, direction, new Date().toISOString()));
 
+  const doSuggest = (run: DriverRun) => {
+    if (run.stops.length < 2) { setMessage(t(S + 'routelite.emptyNote')); return; }
+    setSuggestions(prev => ({ ...prev, [runKey(run)]: suggestStopOrder(run.stops) }));
+  };
+  const doDiscardSuggest = (run: DriverRun) => setSuggestions(prev => {
+    const next = { ...prev };
+    delete next[runKey(run)];
+    return next;
+  });
+  const doAcceptSuggest = (run: DriverRun) => {
+    const runId = runKey(run);
+    const suggestion = suggestions[runId];
+    if (!suggestion) return;
+    const nowIso = new Date().toISOString();
+    const prev: Record<string, number | undefined> = {};
+    for (const stop of run.stops) prev[stop.id] = stop.sequence;
+    const rank = new Map(suggestion.order.map((id, index) => [id, index + 1]));
+    const next = stops.map(stop => rank.has(stop.id)
+      ? updateStopRecord(stop, { sequence: rank.get(stop.id) as number }, nowIso)
+      : stop);
+    if (persist(next, t(S + 'routelite.acceptedMsg'))) {
+      setLastApplied({ runId, prev });
+      doDiscardSuggest(run);
+    }
+  };
+  const doUndoSuggest = () => {
+    if (!lastApplied) return;
+    const nowIso = new Date().toISOString();
+    const next = stops.map(stop => stop.id in lastApplied.prev
+      ? updateStopRecord(stop, { sequence: lastApplied.prev[stop.id] }, nowIso)
+      : stop);
+    if (persist(next)) setLastApplied(null);
+  };
+
   const doPrint = (run: DriverRun) => {
     setPrintRun(runKey(run)); // stable operational identity, NOT display name
     // next frame so the print-only section mounts before the dialog
@@ -59,7 +99,7 @@ export function DispatchBoardView({ stops, setStops, drivers, operationDate: con
   };
 
   const workloadLine = (workload: Workload) =>
-    `${t(S + 'workload.count')}: ${fmt(workload.stopCount)} · ${t(S + 'workload.cod')}: ${fmt(workload.codTotalSar)} · ${t(S + 'workload.morning')}/${t(S + 'workload.afternoon')}/${t(S + 'workload.evening')}: ${fmt(workload.windows.morning)}/${fmt(workload.windows.afternoon)}/${fmt(workload.windows.evening)} · ${t(S + 'workload.missingAddress')}: ${fmt(workload.missingAddress)} · ${t(S + 'workload.missingPhone')}: ${fmt(workload.missingPhone)}${workload.missingReference > 0 ? ` · ${t(S + 'workload.missingReference')}: ${fmt(workload.missingReference)}` : ''}`;
+    `${t(S + 'workload.count')}: ${fmt(workload.stopCount)} · ${t(S + 'workload.cod')}: ${fmt(workload.codTotalSar)} · ${t(S + 'workload.morning')}/${t(S + 'workload.afternoon')}/${t(S + 'workload.evening')}: ${fmt(workload.windows.morning)}/${fmt(workload.windows.afternoon)}/${fmt(workload.windows.evening)} · ${t(S + 'workload.missingAddress')}: ${fmt(workload.missingAddress)} · ${t(S + 'workload.missingPhone')}: ${fmt(workload.missingPhone)} · ${t(S + 'workload.missingShortAddress')}: ${fmt(workload.missingShortAddress)}${workload.missingReference > 0 ? ` · ${t(S + 'workload.missingReference')}: ${fmt(workload.missingReference)}` : ''}`;
 
   const manifestRun = board.runs.find(run => runKey(run) === printRun);
 
@@ -117,10 +157,40 @@ export function DispatchBoardView({ stops, setStops, drivers, operationDate: con
             <div className="bm-run-head">
               <h3>{run.driverName}{run.carNumber ? ` · ${run.carNumber}` : ''}</h3>
               <div className="bm-stop-actions">
+                <button data-testid={`suggest-${runId}`} onClick={() => doSuggest(run)}>{t(S + 'routelite.suggestBtn')}</button>
                 <button data-testid={`print-${runId}`} onClick={() => doPrint(run)}>{t(S + 'printBtn')}</button>
               </div>
             </div>
             <p className="bm-import-note" data-testid={`workload-${run.driverName}`}>{workloadLine(workload)}</p>
+            {lastApplied?.runId === runId && (
+              <p className="bm-import-note" data-testid={`undo-row-${runId}`}>
+                <button data-testid={`undo-${runId}`} onClick={doUndoSuggest}>{t(S + 'routelite.undoBtn')}</button>
+              </p>
+            )}
+            {suggestions[runId] && (
+              <div className="bm-suggest" data-testid={`suggest-preview-${runId}`}>
+                <h4>{t(S + 'routelite.previewTitle')}</h4>
+                <p className="bm-import-note">{suggestions[runId].rationale.map(code => t(S + 'routelite.' + code)).join(' · ')}</p>
+                {suggestions[runId].usedCoords && <p className="bm-import-note">{t(S + 'routelite.coordsNote')}</p>}
+                <div className="bm-suggest-cols">
+                  <div>
+                    <h5>{t(S + 'routelite.currentList')}</h5>
+                    <ol>{run.stops.map(stop => <li key={stop.id}>{stop.reference ? `${stop.reference} · ` : ''}{stop.stopLabel}</li>)}</ol>
+                  </div>
+                  <div>
+                    <h5>{t(S + 'routelite.suggestedList')}</h5>
+                    <ol>{suggestions[runId].order.map(id => {
+                      const stop = run.stops.find(s => s.id === id);
+                      return <li key={id}>{stop?.reference ? `${stop.reference} · ` : ''}{stop?.stopLabel ?? id}</li>;
+                    })}</ol>
+                  </div>
+                </div>
+                <div className="bm-stop-actions">
+                  <button className="bm-primary" data-testid={`accept-${runId}`} onClick={() => doAcceptSuggest(run)}>{t(S + 'routelite.acceptBtn')}</button>
+                  <button data-testid={`discard-${runId}`} onClick={() => doDiscardSuggest(run)}>{t(S + 'routelite.discardBtn')}</button>
+                </div>
+              </div>
+            )}
             <ul className="bm-stops-list">
               {run.stops.map((stop, index) => (
                 <li key={stop.id} className="bm-stop-row" data-testid={`runstop-${stop.reference ?? stop.id}`}>
@@ -165,7 +235,7 @@ export function DispatchBoardView({ stops, setStops, drivers, operationDate: con
                   <td>{stop.reference ?? '—'}</td>
                   <td>{stop.customerName}</td>
                   <td>{stop.stopLabel}</td>
-                  <td>{stop.addressNotes ?? '—'}</td>
+                  <td>{stop.addressNotes ?? '—'}{stop.shortAddress ? ` · ${stop.shortAddress}` : ''}</td>
                   <td>{stop.phone ?? '—'}</td>
                   <td>{stop.codAmountSar === undefined ? '—' : fmt(stop.codAmountSar)}</td>
                   <td>{stop.serviceWindow ? t(S + 'windows.' + stop.serviceWindow) : '—'}</td>

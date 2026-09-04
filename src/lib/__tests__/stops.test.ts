@@ -179,3 +179,62 @@ describe('readStoredStops', () => {
     expect(readStoredStops('"text"').dropped).toBe(0);
   });
 });
+
+describe('R7 stop enrichment — shortAddress + coordinates', () => {
+  it('accepts a format-valid Short Address and normalizes spacing/case', () => {
+    const s = createStopRecord({ operationDate: '2026-08-25', customerName: 'N', stopLabel: 'L', shortAddress: 'abcd 1234' }, NOW_ISO);
+    expect(s.shortAddress).toBe('ABCD1234');
+  });
+
+  it('rejects malformed Short Addresses with a field error', () => {
+    for (const bad of ['ABC123', 'ABCD12345', '1234ABCD', 'ABCD12X4']) {
+      const v = validateStopRecord(validDraft({ shortAddress: bad }));
+      expect(v.errors).toContainEqual({ field: 'shortAddress', code: 'invalid-short-address' });
+    }
+  });
+
+  it('blank Short Address means absent — never stored, never an error', () => {
+    const v = validateStopRecord(validDraft({ shortAddress: '   ' }));
+    expect(v.ok).toBe(true);
+    expect(normalizeStopRecord(validDraft({ shortAddress: '   ' })).shortAddress).toBeUndefined();
+  });
+
+  it('accepts in-range coordinates and rounds to 6 decimals', () => {
+    const s = createStopRecord({ operationDate: '2026-08-25', customerName: 'N', stopLabel: 'L', lat: 24.7136123, lng: 46.6753123 }, NOW_ISO);
+    expect(s.lat).toBeCloseTo(24.713612, 6);
+    expect(s.lng).toBeCloseTo(46.675312, 6);
+  });
+
+  it('rejects out-of-range, non-finite, and non-numeric coordinates', () => {
+    expect(validateStopRecord(validDraft({ lat: 91, lng: 46 })).errors)
+      .toContainEqual({ field: 'lat', code: 'invalid-coordinate' });
+    expect(validateStopRecord(validDraft({ lat: 24, lng: 181 })).errors)
+      .toContainEqual({ field: 'lng', code: 'invalid-coordinate' });
+    expect(validateStopRecord(validDraft({ lat: Number.NaN })).errors)
+      .toContainEqual({ field: 'lat', code: 'invalid-coordinate' });
+    const strLat = validDraft();
+    strLat.lat = '24.7';
+    expect(validateStopRecord(strLat).errors)
+      .toContainEqual({ field: 'lat', code: 'invalid-coordinate' });
+  });
+
+  it('previous-format stops without the new keys stay valid and key-absent', () => {
+    const legacy = validDraft();
+    expect(legacy.shortAddress).toBeUndefined();
+    expect(legacy.lat).toBeUndefined();
+    const v = validateStopRecord(legacy);
+    expect(v.ok).toBe(true);
+    const norm = normalizeStopRecord(legacy);
+    expect(norm.shortAddress).toBeUndefined();
+    expect(norm.lat).toBeUndefined();
+    expect(norm.lng).toBeUndefined();
+  });
+
+  it('updates flow through edit paths with validation', () => {
+    const base = createStopRecord({ operationDate: '2026-08-25', customerName: 'N', stopLabel: 'L' }, NOW_ISO);
+    const next = updateStopRecord(base, { shortAddress: 'wxyz9876', lat: 21.48, lng: 39.19 }, NOW_ISO);
+    expect(next.shortAddress).toBe('WXYZ9876');
+    expect(next.lat).toBeCloseTo(21.48, 6);
+    expect(() => updateStopRecord(base, { shortAddress: 'bad' }, NOW_ISO)).toThrow(/shortAddress:invalid-short-address/);
+  });
+});

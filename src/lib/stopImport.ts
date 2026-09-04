@@ -25,7 +25,8 @@ export const IMPORT_MAX_FILE_BYTES = 400_000;
 export const IMPORT_MAX_ROWS = 500;
 
 export type ImportHeaderField =
-  | 'reference' | 'customer' | 'label' | 'addressNotes' | 'phone' | 'cod' | 'window';
+  | 'reference' | 'customer' | 'label' | 'addressNotes' | 'shortAddress'
+  | 'phone' | 'cod' | 'window' | 'lat' | 'lng';
 
 /** Canonical field → accepted header aliases (normalized: trimmed, lowercased). */
 const HEADER_ALIASES: Record<ImportHeaderField, string[]> = {
@@ -33,9 +34,12 @@ const HEADER_ALIASES: Record<ImportHeaderField, string[]> = {
   customer: ['customer', 'provider', 'client', 'العميل', 'المزود', 'المزوّد', 'الزبون'],
   label: ['stop', 'recipient', 'label', 'destination', 'المستلم', 'الوجهة', 'الوقفة', 'المحطة'],
   addressNotes: ['addressnotes', 'address', 'addressnote', 'notes', 'العنوان', 'وصف العنوان', 'ملاحظات العنوان', 'العنوان الوصفي'],
+  shortAddress: ['shortaddress', 'short address', 'short-address', 'short_address', 'العنوان المختصر', 'العنوان القصير'],
   phone: ['phone', 'mobile', 'tel', 'cell', 'الجوال', 'الهاتف', 'جوال'],
   cod: ['cod', 'cash', 'codamountsar', 'amount', 'الدفع عند الاستلام', 'المبلغ المستحق', 'المبلغ'],
   window: ['window', 'period', 'servicewindow', 'الفترة'],
+  lat: ['lat', 'latitude', 'خط العرض'],
+  lng: ['lng', 'lon', 'long', 'longitude', 'خط الطول'],
 };
 
 function normalizeHeader(raw: string): string {
@@ -196,6 +200,13 @@ export function previewStopImport(
     };
     const codText = pick('cod');
     const cod = codText === '' ? undefined : Number(codText);
+    // Coordinates: blank ⇒ absent; anything unparseable stays NaN so the
+    // row-level validation reports it (never silently saved as 0,0).
+    const latText = pick('lat');
+    const lngText = pick('lng');
+    const lat = latText === '' ? undefined : Number(latText);
+    const lng = lngText === '' ? undefined : Number(lngText);
+    const shortText = pick('shortAddress');
     const windowRaw = pick('window').toLowerCase();
     const serviceWindow = windowRaw === ''
       ? undefined
@@ -208,9 +219,12 @@ export function previewStopImport(
       reference: pick('reference') || undefined,
       stopLabel: pick('label'),
       addressNotes: pick('addressNotes') || undefined,
+      shortAddress: shortText === '' ? undefined : shortText,
       phone: pick('phone') || undefined,
       codAmountSar: cod,
       serviceWindow,
+      lat,
+      lng,
       status: 'planned',
     };
 

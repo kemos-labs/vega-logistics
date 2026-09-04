@@ -292,3 +292,22 @@ describe('StopPlanning — bulk import safety', () => {
     expect(screen.getByTestId('preview-table').textContent).toContain('مطاعم الظاهر');
   });
 });
+
+describe('StopPlanning — R7 address + coordinate capture', () => {
+  it('saves Short Address (normalized) and coordinates through the seam', () => {
+    renderPlanner([]);
+    fillForm({ customerName: 'Ninja', stopLabel: 'Gate 4', shortAddress: 'abcd 1234', lat: '24.7136', lng: '46.6753' });
+    fireEvent.click(screen.getByTestId('save-stop'));
+    expect(commitBundleSpy).toHaveBeenCalledTimes(1);
+    expect(writtenStops()[0]).toMatchObject({ shortAddress: 'ABCD1234', lat: 24.7136, lng: 46.6753 });
+  });
+
+  it('blocks a malformed Short Address inline and never persists', () => {
+    const { setStops } = renderPlanner([]);
+    fillForm({ customerName: 'Ninja', stopLabel: 'Gate 4', shortAddress: 'WRONG' });
+    fireEvent.click(screen.getByTestId('save-stop'));
+    expect(setStops).not.toHaveBeenCalled();
+    expect(commitBundleSpy).not.toHaveBeenCalled();
+    expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
+  });
+});

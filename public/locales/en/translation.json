@@ -1092,6 +1092,8 @@
       "desc": "Create shipment stops by hand or paste them in — review everything before it is saved.",
       "localNote": "Data is saved in THIS browser only. Export a backup from the Scenarios tab to keep it safe.",
       "privacyNote": "Personal data (names, phones, addresses) — enter only what the operation needs.",
+      "formatHint": "Format only: 4 letters then 4 digits — never a verified address.",
+      "coordsHint": "Optional manual coordinates — used only for offline order suggestions.",
       "dateLabel": "Operation date",
       "searchLabel": "Search reference / customer / stop",
       "totals": "{{count}} stops · COD {{cod}} SAR",
@@ -1122,6 +1124,9 @@
         "reference": "Shipment reference",
         "stopLabel": "Stop / recipient label",
         "addressNotes": "Address notes",
+        "shortAddress": "Short address (optional)",
+        "lat": "Latitude (optional)",
+        "lng": "Longitude (optional)",
         "phone": "Phone (optional)",
         "codAmountSar": "COD amount (SAR)",
         "serviceWindow": "Service window"
@@ -1148,7 +1153,9 @@
         "invalid-enum": "Choose a valid option",
         "failure-reason-required": "A failure reason is required for failed/returned stops",
         "not-a-string": "Text expected",
-        "invalid-timestamp": "Invalid timestamp"
+        "invalid-timestamp": "Invalid timestamp",
+        "invalid-short-address": "Use the Short Address format: 4 letters then 4 digits",
+        "invalid-coordinate": "Enter a valid coordinate (lat −90…90, lng −180…180)"
       },
       "import": {
         "tag": "BULK IMPORT",
@@ -1216,7 +1223,23 @@
         "evening": "Evening",
         "missingAddress": "Missing address",
         "missingPhone": "No phone (optional)",
+        "missingShortAddress": "Missing short address",
         "missingReference": "Missing reference"
+      },
+      "routelite": {
+        "suggestBtn": "Suggest order",
+        "previewTitle": "Suggested order preview",
+        "currentList": "Current order",
+        "suggestedList": "Suggested order",
+        "window-groups": "Grouped by service window",
+        "nearest-neighbor": "By entered coordinates (heuristic)",
+        "stable-kept": "Manual order kept",
+        "coordsNote": "Offline heuristic — you decide.",
+        "acceptBtn": "Accept",
+        "discardBtn": "Discard",
+        "undoBtn": "Undo suggestion",
+        "acceptedMsg": "Suggested order applied.",
+        "emptyNote": "Not enough stops to suggest an order."
       },
       "manifest": {
         "title": "Driver sheet — internal run plan",

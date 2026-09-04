@@ -44,7 +44,8 @@ import type { FinancialInput } from '@/lib/types';
 import type { DailyRecord } from '@/lib/operationsReporting';
 import type { RecoveryEntry } from '@/lib/recoveryBoard';
 import type { Scenario } from '@/lib/scenarios';
-import { validateStopRecord, normalizeStopRecord, type StopRecord, type StopFieldError } from '@/lib/stops';
+import { validateStopRecord, normalizeStopRecord, normalizeShortAddress, type StopRecord, type StopFieldError } from '@/lib/stops';
+import { checkShortAddressFormat } from '@/lib/compliance';
 
 function validateStopRecordForBackup(candidate: Record<string, unknown>): StopFieldError[] {
   return validateStopRecord(candidate).errors.filter(e => e.field !== 'id');
@@ -460,6 +461,26 @@ function sanitizeStops(value: unknown[], warn: (msg: string) => void): StopRecor
     const candidate = raw as Record<string, unknown>;
     if (typeof candidate.id !== 'string' || (candidate.id as string).trim() === '') {
       errors.push({ field: 'id', code: 'required-missing' });
+    }
+    // R7 optional enrichment is LOSSY-sanitized, never row-dropping: a bad
+    // shortAddress/coordinate warns and is cleared (R4 close-fields rule).
+    if (candidate.shortAddress !== undefined && candidate.shortAddress !== null) {
+      const norm = normalizeShortAddress(candidate.shortAddress);
+      if (!checkShortAddressFormat(norm).ok) {
+        warn(`stop:index-${index}:shortAddress:invalid-short-address`);
+        delete candidate.shortAddress;
+      }
+    }
+    for (const field of ['lat', 'lng'] as const) {
+      const v = candidate[field];
+      if (v === undefined || v === null) continue;
+      const inRange = field === 'lat'
+        ? (typeof v === 'number' && v >= -90 && v <= 90)
+        : (typeof v === 'number' && v >= -180 && v <= 180);
+      if (typeof v !== 'number' || !Number.isFinite(v) || !inRange) {
+        warn(`stop:index-${index}:${field}:invalid-coordinate`);
+        delete candidate[field];
+      }
     }
     // Delegate remaining rules to validateStopRecord via a dry-run:
     const probe = validateStopRecordForBackup(candidate);

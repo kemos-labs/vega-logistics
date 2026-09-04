@@ -160,4 +160,12 @@ describe('workload & readiness', () => {
       missingAddress: 1, missingPhone: 1, missingReference: 1,
     });
   });
+
+  it('counts stops missing a Short Address (TGA readiness signal)', () => {
+    const w = runWorkload([
+      stop({ shortAddress: 'ABCD1234' }),
+      stop({}),
+    ]);
+    expect(w.missingShortAddress).toBe(1);
+  });
 });
