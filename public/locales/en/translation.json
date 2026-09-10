@@ -396,7 +396,8 @@
         "dispatch": "Assign",
         "close": "Close",
         "report": "Report"
-      }
+      },
+      "logestechs": "LogesTechs live"
     },
     "brand": {
       "subtitle": "Business model"
@@ -973,9 +974,6 @@
       "thDriver": "Driver",
       "thCar": "Car",
       "thPlate": "Plate",
-      "thDelivered": "Delivered",
-      "thMissed": "Missed",
-      "thAttempts": "Attempts",
       "noDriverData": "No stops assigned to drivers yet — assign in Dispatch to populate this scorecard.",
       "codLagHead": "COD remittance lag",
       "codLagDesc": "Days between operation date and cash remittance — shorter is safer.",
@@ -988,7 +986,6 @@
       "fuelControlDesc": "Daily fuel cost against the model's daily expectation — flags overspend >15%.",
       "thActual": "Actual",
       "thModel": "Model day",
-      "thVariance": "Variance",
       "fuelOverModel": "Fuel spend exceeds model day by {{percent}}%",
       "noFuelData": "No recorded daily reports with fuel data yet.",
       "failureParetoHead": "Failure Pareto",
@@ -1379,7 +1376,6 @@
       "reconciled": "Reconciled ✓",
       "draftGuard": "DRAFT — not definitive. No export. Reconcile in Evening Close.",
       "empty": "Close this date to create a report",
-      "noCloseNote": "No close recorded for this date — showing recorded stop deliveries only. Collected and remitted cash appear after the day is closed.",
       "noCloseNote": "No close recorded for this date — showing recorded stop deliveries only. المحصّل (collected) and المحوّل (remitted) appear after the day is closed.",
       "goClose": "Go to Evening Close",
       "noStops": "No stops for this date",

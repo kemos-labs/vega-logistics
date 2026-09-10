@@ -212,10 +212,13 @@ describe('operator-core repair', () => {
     const details = screen.getByTestId('business-plan-assumptions') as HTMLDetailsElement;
     expect(details.open).toBe(false);
     unmount();
-    const rec: DailyRecord = { date: '2026-08-24', completedShipments: 2, failedShipments: 1, loadedShipments: 3, cashCollectedSar: 150, cashRemittedSar: 0, closeStatus: 'reconciled', closedAt: new Date().toISOString(), driversPresent: 2, fuelCost: 10, notes: '', updatedAt: new Date().toISOString() } as DailyRecord;
-    localStorage.setItem('vega-daily-reports-v2', JSON.stringify({ '2026-08-24': rec }));
+    // Date-relative: the 14-slot trend window ends today, so the record must
+    // be dated today (a hardcoded past date ages out of the window).
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const rec: DailyRecord = { date: todayKey, completedShipments: 2, failedShipments: 1, loadedShipments: 3, cashCollectedSar: 150, cashRemittedSar: 0, closeStatus: 'reconciled', closedAt: new Date().toISOString(), driversPresent: 2, fuelCost: 10, notes: '', updatedAt: new Date().toISOString() } as DailyRecord;
+    localStorage.setItem('vega-daily-reports-v2', JSON.stringify({ [todayKey]: rec }));
     // also need a stop to make trend non-empty
-    localStorage.setItem('vega-stops-v1', JSON.stringify([{ id: '1', operationDate: '2026-08-24', customerName: 'C', stopLabel: 'S1', status: 'delivered', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]));
+    localStorage.setItem('vega-stops-v1', JSON.stringify([{ id: '1', operationDate: todayKey, customerName: 'C', stopLabel: 'S1', status: 'delivered', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]));
     render(<BusinessModelApp />);
     fireEvent.click(screen.getByRole('button', { name: /More|المزيد/i }));
     fireEvent.click(screen.getByRole('button', { name: /^Summary$/i }));
@@ -223,7 +226,7 @@ describe('operator-core repair', () => {
     expect(screen.getByTestId('recorded-operations')).toBeTruthy();
     const slots = screen.getAllByTestId('recorded-trend-slot');
     expect(slots).toHaveLength(14);
-    const selectedDateSlot = slots.find(slot => slot.getAttribute('data-date') === '2026-08-24');
+    const selectedDateSlot = slots.find(slot => slot.getAttribute('data-date') === todayKey);
     expect(selectedDateSlot?.getAttribute('data-value')).toBe('2');
     expect(slots.filter(slot => slot.getAttribute('data-value') === '0')).toHaveLength(13);
   });

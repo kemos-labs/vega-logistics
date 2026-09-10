@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useMemo, useRef, useState , useEffect} from 'react';
-import { ClipboardCheck, Route, MapPin, LayoutDashboard, AlertTriangle, BadgeCheck, BarChart3, Building2, CalendarDays, Check, CircleDollarSign, ClipboardList, Download, FileText, Languages, Layers, Menu, Plus, RotateCcw, Search, Settings2, Trash2, Truck, Upload, X } from 'lucide-react';
+import { ClipboardCheck, Route, MapPin, LayoutDashboard, AlertTriangle, BadgeCheck, BarChart3, Building2, CalendarDays, Check, CircleDollarSign, ClipboardList, Download, FileText, Languages, Layers, Menu, Plus, PlugZap, RotateCcw, Search, Settings2, Trash2, Truck, Upload, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import '@/lib/i18n';
 import { useSimulatedData } from '@/hooks/useSimulatedData';
@@ -24,9 +24,10 @@ import ServiceWorkerRegistrar from '@/components/rebuild/ServiceWorkerRegistrar'
 import { validateRecoveryEntries, type RecoveryEntry } from '@/lib/recoveryBoard';
 import { ReportsView } from '@/components/rebuild/ReportsView';
 import { ComplianceLiteView } from '@/components/rebuild/ComplianceLiteView';
+import LogestechsView from '@/components/rebuild/LogestechsView';
 import { resolveTelematicsProvider } from '@/lib/platform/telematics';
 
-type View = 'tower' | 'stops' | 'dispatch' | 'close' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios' | 'compliance';
+type View = 'tower' | 'stops' | 'dispatch' | 'close' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios' | 'compliance' | 'logestechs';
 import { applyBackupMerge, applyLegacyScopedRestore, buildBackup, commitBundle, parseBackup, replaceWithBackup, STORAGE_KEYS, type BackupFileV2, type FollowUpAction, type PersistResult } from '@/lib/backup';
 import { BACKUP_REMINDER_DAYS, BACKUP_REMINDER_KEY, dismissForToday, evaluateBackupReminder, isDismissedToday, markBackedUpNow } from '@/lib/backupReminder';
 import { applyPreviewToRecord, parseProviderMessage, reconcile, type ParseResult, type ProviderPreview } from '@/lib/providerMessageParser';
@@ -148,6 +149,7 @@ export default function BusinessModelApp() {
     { id: 'summary' as const, label: t('businessModel.nav.summary'), icon: BarChart3 },
     { id: 'fleet' as const, label: t('businessModel.nav.fleet'), icon: Truck },
     { id: 'customers' as const, label: t('businessModel.nav.customers'), icon: Building2 },
+    { id: 'logestechs' as const, label: t('businessModel.nav.logestechs', { defaultValue: 'LogesTechs live' }), icon: PlugZap },
     { id: 'costs' as const, label: t('businessModel.nav.costs'), icon: CircleDollarSign },
     { id: 'scenarios' as const, label: t('businessModel.nav.scenarios'), icon: Layers },
     { id: 'actions' as const, label: t('businessModel.nav.actions'), icon: ClipboardList },
@@ -311,6 +313,7 @@ export default function BusinessModelApp() {
         {view === 'customers' && <Page title={t('businessModel.customers.title')} description={t('businessModel.customers.desc')}><EditableTable columns={[t('businessModel.customers.colCustomer'),t('businessModel.customers.colShipmentsDay'),t('businessModel.customers.colPriceShipment'),t('businessModel.customers.colMonthlyRevenue'),'']}>
           {input.providers.map(row => { const evaluation = output.providerEvaluations.find(item => item.id === row.id); return <div className="bm-table-row bm-customer-row" key={row.id}><TextInput ariaLabel={t('businessModel.customers.colCustomer')} value={row.name} onChange={value => changeProvider(row.id,{name:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.customers.colShipmentsDay')}`} value={row.shipmentsPerDay} onChange={value => changeProvider(row.id,{shipmentsPerDay:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.customers.colPriceShipment')}`} value={row.pricePerShipment} onChange={value => changeProvider(row.id,{pricePerShipment:value})} step="0.1" /><strong>{money(evaluation?.monthlyRevenue ?? 0)}</strong><button className="bm-remove" aria-label={`${t('businessModel.common.remove')} ${row.name}`} onClick={() => removeProvider(row.id)}>{t('businessModel.common.remove')}</button></div>})}
         </EditableTable><button className="bm-add" onClick={addProvider}><Plus size={15}/> {t('businessModel.common.addCustomer')}</button></Page>}
+        {view === 'logestechs' && <Page title={t('businessModel.logestechs.title', { defaultValue: 'LogesTechs live feed' })} description={t('businessModel.logestechs.desc', { defaultValue: 'Pull channel volumes, drivers and fleet from your LogesTechs 3PL into the dashboard.' })}><LogestechsView input={input} setProviders={setProviders} setDrivers={setDrivers} updateFinancialInput={updateFinancialInput} /></Page>}
         {view === 'costs' && <Page title={t('businessModel.costs.title')} description={t('businessModel.costs.desc')}><CostSections input={input} output={output} setNumber={setNumber} changeVehicle={changeVehicle} /></Page>}
         {view === 'daily' && <ReportsView operationDate={operationDate} onOperationDateChange={setOperationDate} stops={stops} dailyRecords={dailyRecords} onGotoClose={() => selectView('close')} />}
         {view === 'compliance' && <Page title={t('businessModel.compliance.title')} description={t('businessModel.compliance.desc')}><ComplianceLiteView /></Page>}
