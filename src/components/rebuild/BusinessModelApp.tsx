@@ -59,7 +59,7 @@ export default function BusinessModelApp() {
   const locale = localeOf(i18n.language);
   const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
   const { financialInput: input, financialOutput: output, updateFinancialInput, applyFinancialInput, setVehicleClasses, setProviders, setDrivers, addVehicleClass, addProvider } = useSimulatedData();
-  const [view, setView] = useState<View>('logestechs');
+  const [view, setView] = useState<View>('summary');
   const [operationDate, setOperationDate] = useState(() => toDateString(new Date()));
   useEffect(() => {
     (window as unknown as Record<string, unknown>).__setOperationDate = setOperationDate;
@@ -137,7 +137,7 @@ export default function BusinessModelApp() {
   // Everything else (fleet, costs, scenarios…) lives under "More" — setup
   // tasks the owner does once, not the driver every day.
   const PRIMARY_NAV = [
-    { id: 'logestechs' as const, label: t('businessModel.nav.logestechs', { defaultValue: 'LogesTechs live' }), icon: PlugZap },
+    { id: 'summary' as const, label: t('businessModel.nav.summary'), icon: BarChart3 },
     { id: 'tower' as const, label: t('businessModel.nav.tower'), icon: LayoutDashboard },
     { id: 'stops' as const, label: t('businessModel.nav.stops'), icon: MapPin },
     { id: 'dispatch' as const, label: t('businessModel.nav.dispatch'), icon: Route },
@@ -147,9 +147,9 @@ export default function BusinessModelApp() {
   const MORE_NAV = [
     { id: 'recovery' as const, label: t('businessModel.nav.recovery'), icon: RotateCcw },
     { id: 'compliance' as const, label: t('businessModel.nav.compliance'), icon: BadgeCheck },
-    { id: 'summary' as const, label: t('businessModel.nav.summary'), icon: BarChart3 },
     { id: 'fleet' as const, label: t('businessModel.nav.fleet'), icon: Truck },
     { id: 'customers' as const, label: t('businessModel.nav.customers'), icon: Building2 },
+    { id: 'logestechs' as const, label: t('businessModel.nav.logestechs', { defaultValue: 'LogesTechs live' }), icon: PlugZap },
     { id: 'costs' as const, label: t('businessModel.nav.costs'), icon: CircleDollarSign },
     { id: 'scenarios' as const, label: t('businessModel.nav.scenarios'), icon: Layers },
     { id: 'actions' as const, label: t('businessModel.nav.actions'), icon: ClipboardList },
