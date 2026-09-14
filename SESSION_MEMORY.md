@@ -14,8 +14,8 @@ Owner-requested sync slice (early R6): **(1)** `DriverRecord` gains distinct opt
 ## Hygiene cycle (previous commit)
 Full-app review follow-up, zero behavior change intended: (1) stale June-era root docs moved to `docs/archive/` with a README marking them non-authoritative — R9 hazard removed; stray dev logs deleted; (2) all 22 eslint warnings cleared — dead ~200-line `DailyReport` + `MonthlyVariance` components, unused imports/states/helpers in BusinessModelApp/StopPlanning/eveningClose/stops, mock-signature typing in 6 test files (vi.fn generics replace unused rest params); (3) dead empty locale key `businessModel.recovery.thActions` removed from BOTH trees (R3 parity 1244↔1244); (4) unnecessary `as never` cast dropped at backup-banner dismissal.
 ## Current state
-- **Commit:** `$(git rev-parse --short HEAD)` · **Deploy:** https://kemos-labs.github.io/vega-logistics/ green (CI verified, keys live-verified)
-- **Baseline tests:** 457 passing (39 files) before the current working-tree route slice. Current working tree: 462 tests discovered, 461 passing and 1 pre-existing operator-core UI failure; tsc clean, eslint clean, locale parity 1314↔1314. Production build remains blocked by unavailable Google Fonts in this environment.
+- **Commit:** `b6bcc10` · **Deploy:** https://kemos-labs.github.io/vega-logistics/ HTTP 200; GitHub Actions run `34899847294` succeeded.
+- **Baseline tests:** 457 passing (39 files) before the route slice. Current tree: 462 tests discovered, 461 passing and 1 pre-existing operator-core UI failure; tsc clean, eslint clean, locale parity 1314↔1314. Webpack production build compiled successfully; Turbopack cannot spawn its worker in the sandbox.
 - Dev URL: http://vega.localhost:8080 (`localhost:3002` = unrelated project)
 
 ## 2026-09-15 route-operations framework
