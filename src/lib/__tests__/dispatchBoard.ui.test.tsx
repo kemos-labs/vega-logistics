@@ -42,11 +42,22 @@ const drivers: DriverRecord[] = [
   { id: 'd1', fullName: 'سالم', phone: '', nationalId: '', assignedVehicle: 'Van-1', status: 'active' },
   { id: 'd2', fullName: 'موقوف', phone: '', nationalId: '', assignedVehicle: 'Van-2', status: 'inactive' },
 ];
+const twoDrivers: DriverRecord[] = [
+  drivers[0],
+  { id: 'd3', fullName: 'خالد', phone: '', nationalId: '', assignedVehicle: 'Van-3', status: 'active' },
+];
 
 function renderBoard(stops: StopRecord[]) {
   const setStops = vi.fn();
   render(<DispatchBoardView stops={stops} setStops={setStops} drivers={drivers} />);
   // pin the date to the fixture date
+  fireEvent.change(document.querySelector('[name="dispatch-date"]') as HTMLInputElement, { target: { value: '2026-08-25' } });
+  return { setStops };
+}
+
+function renderBoardWithDrivers(stops: StopRecord[], suppliedDrivers: DriverRecord[]) {
+  const setStops = vi.fn();
+  render(<DispatchBoardView stops={stops} setStops={setStops} drivers={suppliedDrivers} />);
   fireEvent.change(document.querySelector('[name="dispatch-date"]') as HTMLInputElement, { target: { value: '2026-08-25' } });
   return { setStops };
 }
@@ -126,5 +137,24 @@ describe('DispatchBoardView', () => {
     // print fires on the next animation frame
     await new Promise(resolve => setTimeout(resolve, 20));
     expect(printSpy).toHaveBeenCalled();
+  });
+
+  it('daily operator can preview a two-driver split and open a depot-return Maps route', () => {
+    const west = stop({ reference: 'WEST', lat: 24.75, lng: 46.50 });
+    const east = stop({ reference: 'EAST', lat: 24.75, lng: 46.80, driverName: 'سالم', carNumber: 'Van-1', sequence: 1 });
+    renderBoardWithDrivers([west, east], twoDrivers);
+    fireEvent.click(screen.getByTestId('suggest-geographic'));
+    expect(screen.getByTestId('geographic-preview').textContent).toContain('geo.two-coordinate-clusters');
+    fireEvent.click(screen.getByText('businessModel.dispatch.geo.acceptBtn'));
+    const written = writtenStops();
+    expect(written.filter(item => item.driverName).map(item => item.driverName)).toEqual(expect.arrayContaining(['سالم', 'خالد']));
+
+    cleanup();
+    renderBoard([east]);
+    fireEvent.change(screen.getByLabelText('businessModel.dispatch.depotLabel'), { target: { value: 'Riyadh depot' } });
+    fireEvent.click(screen.getByLabelText('businessModel.dispatch.returnDepot'));
+    const mapLink = screen.getByTestId('maps-سالم|Van-1|—') as HTMLAnchorElement;
+    expect(mapLink.href).toContain('origin=Riyadh+depot');
+    expect(mapLink.href).toContain('destination=Riyadh+depot');
   });
 });
