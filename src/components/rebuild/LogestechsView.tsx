@@ -24,9 +24,8 @@ export default function LogestechsView({ input, setProviders, setDrivers, update
   const [copied, setCopied] = useState(false);
 
   const patch = useMemo(
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     () => (summary ? buildApplyPatch(summary, input) : null),
-    [summary],
+    [summary, input],
   );
 
   const webhookUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/logestechs/webhook` : '/api/logestechs/webhook';
