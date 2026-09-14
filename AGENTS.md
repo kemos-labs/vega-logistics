@@ -16,7 +16,7 @@ These rules are durable; session status lives in `SESSION_MEMORY.md`, roadmap in
 New sessions read, in order: **this file** → `SESSION_MEMORY.md` (exact state, last cycles, handoff list) → `docs/MASTER_PLAN.md` (release roadmap R0–R8) → `docs/DATA_MODEL.md` (storage shapes). Then run the full gate suite (see "The proven working loop") BEFORE changing anything, and continue from the resume point below.
 
 **Resume point (this block is updated in every shipped commit):**
-- HEAD `$(git rev-parse --short HEAD)` — shipped this stretch: repo-hygiene (`f304b7d`), driver identity sync + pre-close reports (`bb9ee52`), R6 operational analytics (425 tests, parity 1272↔1272), nav simplification (`b21ee3a`), then R7 Phase 1 route-lite (offline suggestion + stop address/coordinate capture, OSRM network deferred — all gates green, 457 tests, parity 1298↔1298).
+- HEAD `$(git rev-parse --short HEAD)` — shipped this stretch: repo-hygiene (`f304b7d`), driver identity sync + pre-close reports (`bb9ee52`), R6 operational analytics (425 tests, parity 1272↔1272), nav simplification (`b21ee3a`), then R7 Phase 1 route-lite (offline suggestion + stop address/coordinate capture, OSRM network deferred — baseline 457 tests, parity 1298↔1298). Current working tree adds route handoff, Excel import, opt-in OSRM, and geographic split proposal; it must be validated before commit.
 - **Awaiting owner live acceptance:** R2 stop planning · R3 morning dispatch · R4 evening close · R5 compliance-lite · driver/pre-close slice · R6 analytics · R7 Phase 1. They are coded + tested + deployed but NOT marked shipped in MASTER_PLAN until the owner accepts them live.
 - **Next release:** R7 Phase 2 (self-hosted OSRM — needs approval + coordinate coverage) per MASTER_PLAN §5-R7, then R8 optional sync.
 - Open blockers: none. Known limitations live in SESSION_MEMORY.
@@ -75,3 +75,6 @@ One owner, 5–50 vehicles. Every feature usable <30s and saving ≥30 min/week,
 - Dev URL: http://vega.localhost:8080 (portless alias). `localhost:3002` = unrelated Options Trading Terminal — never cite for VEGA.
 - Public: https://kemos-labs.github.io/vega-logistics/
 - Storage inventory & privacy classes: `docs/DATA_MODEL.md`.
+- Daily route operating contract: `docs/ROUTE_OPERATIONS_FRAMEWORK.md`.
+- Logestechs integration is research/read-only until an owner-confirmed tenant contract exists: `docs/LOGESTECHS_INTEGRATION_BOUNDARY.md`.
+- Local `pi` models are optional advisory workers only: `docs/PI_WORKER_POLICY.md`; they never invent coordinates, route distances, or external writes.

@@ -15,6 +15,7 @@ import {
   validateStopRecord, type StopFieldError, type StopRecord, type StopStatus,
 } from '@/lib/stops';
 import { IMPORT_MAX_FILE_BYTES, previewStopImport, type ImportParseResult } from '@/lib/stopImport';
+import { readFirstWorksheetAsCsv } from '@/lib/xlsxStopImport';
 import { toDateString } from '@/lib/operationsReporting';
 import StopMap from '@/components/rebuild/StopMap';
 
@@ -223,7 +224,9 @@ export function StopPlanning({ stops, setStops, operationDate: controlledDate, o
       return;
     }
     try {
-      const text = await file.text();
+      const text = /\.xlsx?$/i.test(file.name)
+        ? await readFirstWorksheetAsCsv(file)
+        : await file.text();
       setFileError('');
       setRawText(text);
     } catch {
@@ -363,7 +366,7 @@ export function StopPlanning({ stops, setStops, operationDate: controlledDate, o
         />
         <div className="bm-provider-row">
           <label className="bm-field"><span>{t(S + 'import.fileLabel')}</span>
-            <input ref={fileRef} type="file" accept=".csv,text/csv,text/plain" onChange={event => void onFileChosen(event.target.files?.[0])} />
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,text/csv,text/plain" onChange={event => void onFileChosen(event.target.files?.[0])} />
           </label>
           <button data-testid="parse-stops-btn" onClick={doParse}>{t(S + 'import.parseBtn')}</button>
           <button onClick={() => { setRawText(''); setFileName(''); setParsed(null); setWarningsAcked(false); }}>{t(S + 'import.clearBtn')}</button>

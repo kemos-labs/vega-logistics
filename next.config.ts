@@ -12,13 +12,18 @@ const devUnsafeEval = process.env.NODE_ENV !== "production" ? " 'unsafe-eval'" :
 // (default) frame-src stays closed and nothing ever loads from google.com.
 // The iframe is frame-src traffic only — connect-src stays 'self'.
 const mapsEmbedOn = process.env.NEXT_PUBLIC_MAPS_EMBED === "on";
+const osrmOrigin = (() => {
+  const raw = process.env.NEXT_PUBLIC_OSRM_URL?.trim();
+  if (!raw) return undefined;
+  try { return new URL(raw).origin; } catch { return undefined; }
+})();
 const csp = [
   `default-src 'self'`,
   `script-src 'self' 'unsafe-inline'${devUnsafeEval}`,
   `style-src 'self' 'unsafe-inline'`,
   `font-src 'self'`,
   `img-src 'self' data: blob:`,
-  `connect-src 'self'`,
+  `connect-src 'self'${osrmOrigin ? ` ${osrmOrigin}` : ""}`,
   ...(mapsEmbedOn ? [`frame-src https://www.google.com https://maps.google.com`] : []),
   `frame-ancestors 'none'`,
 ].join("; ");

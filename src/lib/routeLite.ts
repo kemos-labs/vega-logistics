@@ -33,6 +33,44 @@ export interface RouteSuggestion {
   rationale: RouteRationale[];
 }
 
+/**
+ * Build a shareable Google Maps driving link for the currently reviewed run.
+ * This is a navigation aid only: it does not fetch or assert road distance.
+ * Coordinates are preferred; otherwise the operator's entered label/address
+ * is used with an explicit Riyadh context to reduce same-name ambiguity.
+ */
+export function buildGoogleMapsDirectionsUrl(
+  stops: StopRecord[],
+  options: { depot?: string; returnToDepot?: boolean } = {},
+): string | undefined {
+  if (stops.length === 0) return undefined;
+  const queryFor = (stop: StopRecord): string => stop.lat !== undefined && stop.lng !== undefined
+    && isValidCoordinatePair(stop.lat, stop.lng)
+    ? `${stop.lat},${stop.lng}`
+    : [stop.stopLabel, stop.addressNotes, 'Riyadh, Saudi Arabia'].filter(Boolean).join(', ');
+  const first = options.depot?.trim() || queryFor(stops[0]);
+  const last = options.returnToDepot ? first : queryFor(stops[stops.length - 1]);
+  const middle = stops.slice(options.depot?.trim() ? 0 : 1, options.returnToDepot ? stops.length : -1)
+    .map(queryFor);
+  const params = new URLSearchParams({ api: '1', origin: first, destination: last, travelmode: 'driving' });
+  if (middle.length > 0) params.set('waypoints', middle.join('|'));
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+/** Stable CSV download content for a reviewed driver run. */
+export function buildDriverRouteCsv(stops: StopRecord[]): string {
+  const headers = ['sequence', 'reference', 'customer', 'destination', 'address_notes', 'phone', 'lat', 'lng', 'service_window'];
+  const csvCell = (value: unknown): string => {
+    const text = value === undefined || value === null ? '' : String(value);
+    return `"${text.replaceAll('"', '""')}"`;
+  };
+  const rows = stops.map((stop, index) => [
+    index + 1, stop.reference, stop.customerName, stop.stopLabel, stop.addressNotes,
+    stop.phone, stop.lat, stop.lng, stop.serviceWindow,
+  ].map(csvCell).join(','));
+  return [headers.map(csvCell).join(','), ...rows].join('\n') + '\n';
+}
+
 /** Great-circle distance in km between two WGS84 points. */
 export function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
   const rad = (deg: number) => (deg * Math.PI) / 180;
@@ -134,6 +172,20 @@ export function buildOsrmTripUrl(
   if (!coords.every(c => isValidCoordinatePair(c.lat, c.lng))) return { ok: false, error: 'bad-coord' };
   const chain = coords.map(c => `${c.lng},${c.lat}`).join(';');
   return { ok: true, url: `${baseUrl.trim()}/route/v1/driving/${chain}?overview=false&steps=false` };
+}
+
+/** Build an OSRM Trip URL for coordinate-based stop-order optimization. */
+export function buildOsrmOptimizeUrl(
+  baseUrl: string,
+  coords: Array<{ lat: number; lng: number }>,
+  returnToStart = false,
+): { ok: true; url: string } | { ok: false; error: OsrmUrlError } {
+  if (!/^https?:\/\/[^/\s]+$/.test(baseUrl.trim())) return { ok: false, error: 'bad-base' };
+  if (coords.length < 2) return { ok: false, error: 'too-few-coords' };
+  if (!coords.every(c => isValidCoordinatePair(c.lat, c.lng))) return { ok: false, error: 'bad-coord' };
+  const chain = coords.map(c => `${c.lng},${c.lat}`).join(';');
+  const params = new URLSearchParams({ overview: 'false', steps: 'false', source: 'first', destination: returnToStart ? 'any' : 'last', roundtrip: returnToStart ? 'true' : 'false' });
+  return { ok: true, url: `${baseUrl.trim()}/trip/v1/driving/${chain}?${params.toString()}` };
 }
 
 export type OsrmParseError = 'bad-shape' | 'non-ok' | 'no-route';

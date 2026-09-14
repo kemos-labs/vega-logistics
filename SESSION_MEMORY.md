@@ -15,14 +15,30 @@ Owner-requested sync slice (early R6): **(1)** `DriverRecord` gains distinct opt
 Full-app review follow-up, zero behavior change intended: (1) stale June-era root docs moved to `docs/archive/` with a README marking them non-authoritative — R9 hazard removed; stray dev logs deleted; (2) all 22 eslint warnings cleared — dead ~200-line `DailyReport` + `MonthlyVariance` components, unused imports/states/helpers in BusinessModelApp/StopPlanning/eveningClose/stops, mock-signature typing in 6 test files (vi.fn generics replace unused rest params); (3) dead empty locale key `businessModel.recovery.thActions` removed from BOTH trees (R3 parity 1244↔1244); (4) unnecessary `as never` cast dropped at backup-banner dismissal.
 ## Current state
 - **Commit:** `$(git rev-parse --short HEAD)` · **Deploy:** https://kemos-labs.github.io/vega-logistics/ green (CI verified, keys live-verified)
-- **Tests:** 457 passing (39 files) · tsc clean · eslint 0 problems (0 warnings) · build ✓ · python suite ✓ · locale parity 1298↔1298
+- **Baseline tests:** 457 passing (39 files) before the current working-tree route slice. Current working tree: 462 tests discovered, 461 passing and 1 pre-existing operator-core UI failure; tsc clean, eslint clean, locale parity 1314↔1314. Production build remains blocked by unavailable Google Fonts in this environment.
 - Dev URL: http://vega.localhost:8080 (`localhost:3002` = unrelated project)
 
+## 2026-09-15 route-operations framework
+The durable operating layer is now documented in `docs/ROUTE_OPERATIONS_FRAMEWORK.md`: a new sheet is imported/reviewed, evidence-backed address fields are enriched, stops are grouped using actual data rather than hard-coded district guesses, Dispatch Board route-lite is previewed and accepted manually, and the bilingual driver sheet is printed. It explicitly distinguishes manual order, coordinate heuristic, and future road-router distance.
+
+`docs/LOGESTECHS_INTEGRATION_BOUNDARY.md` records the official documentation and Postman collection as research sources. The public docs expose the API base and endpoint families, but this repo has no verified tenant credentials, authorization contract, response fixtures, webhook signing contract, or write approval. Do not implement sync/write-back from assumptions.
+
+`docs/PI_WORKER_POLICY.md` defines optional local pi workers as bounded advisory reviewers only. They may inspect mappings/ambiguities and critique output, but may not invent coordinates/distances, choose drivers authoritatively, mutate VEGA data, or call external write endpoints. The app remains useful when models are unavailable.
+
+The next practical slice added `buildGoogleMapsDirectionsUrl()` and `buildDriverRouteCsv()` in `src/lib/routeLite.ts`. Dispatch Board now offers a multi-stop driving link and a UTF-8 CSV download for every assigned run. The link is intentionally a navigation aid, not measured road-distance evidence; depot/return routing and OSRM distance measurement remain a later gated phase. Browser visual verification was blocked in this session because no browser surface was available.
+
+Stop Planning now accepts `.xlsx`/`.xls` files by converting the first worksheet to the existing CSV preview path. Validation, duplicate detection, warning acknowledgement, and explicit confirmation remain unchanged.
+
+Official web research verified Google Maps URL requirements (`api=1`, encoded origin/destination/waypoints, driving mode, platform waypoint limits) and OSRM Route/Trip capabilities. VEGA now has an inert self-hosted OSRM adapter plus CSP origin wiring behind `NEXT_PUBLIC_OSRM_URL`; it does not use the public demo, persist unverified km, or run until the owner supplies an approved endpoint and coordinate coverage.
+
+The current working tree also adds `suggestGeographicDriverPlan()`: a deterministic two-driver coordinate proposal with explicit missing-coordinate stops, preview, accept/reject, depot/start input, and return-to-depot Maps links. New targeted tests pass. This is the intended manager workflow, but the full app still has one unrelated existing Vitest UI failure and production build needs network access to fetch Google Fonts.
+
 ## HANDOFF — next agent starts here (2026-08-25)
-1. **Owner acceptance session** (blocking R2–R5 + driver slice): walk the owner through stop planning → dispatch print sheet → evening close → reports (incl. new pre-close per-driver view) → compliance-lite, on a real device, EN+AR. On acceptance: tick MASTER_PLAN checkboxes + record here. On defects: fix under the same release before R6.
+1. **Owner acceptance session** (blocking R2–R5 + driver slice): walk the owner through stop planning → dispatch print sheet → evening close → reports (incl. new pre-close per-driver view) → compliance-lite and the new route framework, on a real device, EN+AR. On acceptance: tick MASTER_PLAN checkboxes + record here. On defects: fix under the same release before R6.
 2. **Then R7 Phase 2 / R8** per MASTER_PLAN §5-R7/R8 — Phase 2 (self-hosted OSRM) needs owner approval + real coordinate coverage; R8 sync needs KSA-region + PDPL transfer basis documented BEFORE enablement. Every metric needs definition+denominator+empty states (R8/R10).
-3. **Standing constraints:** eslint stays at literally 0 problems (CI can't see warnings) · locale parity 1298↔1298 · no schema change without old-format fixtures · CSP untouched without env flag.
-4. Process reference: AGENTS.md "The proven working loop" + "Hard-won gotchas" — both proven across `f304b7d` and `bb9ee52`.
+3. **Logestechs discovery is a separate gated track:** obtain owner-authorized sandbox/read token and sanitized response fixtures before any read-only adapter. Write operations remain last and require explicit approval.
+4. **Standing constraints:** eslint stays at literally 0 problems (CI can't see warnings) · locale parity 1298↔1298 · no schema change without old-format fixtures · CSP untouched without env flag.
+5. Process reference: AGENTS.md "The proven working loop" + "Hard-won gotchas" — both proven across `f304b7d` and `bb9ee52`.
 
 ## Completed releases
 - **P0** — model, reports, recovery board, Arabic UI, PWA (prior cycles)

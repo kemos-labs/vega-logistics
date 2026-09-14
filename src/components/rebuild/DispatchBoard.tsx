@@ -11,8 +11,10 @@ import {
   assignStop, buildDispatchBoard, assignableDrivers, moveStop, runWorkload, runKey, unassignStop,
   type DriverRun, type RunWorkload as Workload,
 } from '@/lib/dispatch';
-import { suggestStopOrder, type RouteSuggestion } from '@/lib/routeLite';
+import { buildDriverRouteCsv, buildGoogleMapsDirectionsUrl, OSM_ATTRIBUTION, suggestStopOrder, type RouteSuggestion } from '@/lib/routeLite';
 import { updateStopRecord } from '@/lib/stops';
+import { measureOsrmRoute } from '@/lib/routeEngine';
+import { suggestGeographicDriverPlan, type GeographicPlanSuggestion } from '@/lib/routePlanning';
 import { toDateString } from '@/lib/operationsReporting';
 import type { StopRecord } from '@/lib/stops';
 import type { DriverRecord } from '@/lib/types';
@@ -38,6 +40,10 @@ export function DispatchBoardView({ stops, setStops, drivers, operationDate: con
   // the last accepted suggestion. Manual order is always recoverable.
   const [suggestions, setSuggestions] = useState<Record<string, RouteSuggestion>>({});
   const [lastApplied, setLastApplied] = useState<{ runId: string; prev: Record<string, number | undefined> } | null>(null);
+  const [routeMeasurements, setRouteMeasurements] = useState<Record<string, { km: number; minutes: number } | 'loading' | 'error'>>({});
+  const [geographicPlan, setGeographicPlan] = useState<GeographicPlanSuggestion | null>(null);
+  const [depot, setDepot] = useState('');
+  const [returnToDepot, setReturnToDepot] = useState(false);
 
   const dayStops = useMemo(() => stops.filter(stop => stop.operationDate === date), [stops, date]);
   const board = useMemo(() => buildDispatchBoard(dayStops), [dayStops]);
@@ -98,6 +104,32 @@ export function DispatchBoardView({ stops, setStops, drivers, operationDate: con
     requestAnimationFrame(() => { window.print(); });
   };
 
+  const doDownload = (run: DriverRun) => {
+    const csv = buildDriverRouteCsv(run.stops);
+    const href = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.download = `vega-route-${run.driverName.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'driver'}-${date}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(href);
+  };
+  const measureRun = async (run: DriverRun) => {
+    const coords = run.stops.filter(stop => stop.lat !== undefined && stop.lng !== undefined).map(stop => ({ lat: stop.lat as number, lng: stop.lng as number }));
+    setRouteMeasurements(prev => ({ ...prev, [runKey(run)]: 'loading' }));
+    const result = await measureOsrmRoute(process.env.NEXT_PUBLIC_OSRM_URL, coords);
+    setRouteMeasurements(prev => ({ ...prev, [runKey(run)]: result.ok ? { km: result.route.distanceM / 1000, minutes: result.route.durationS / 60 } : 'error' }));
+  };
+  const suggestGeographicPlan = () => setGeographicPlan(suggestGeographicDriverPlan(dayStops, driverOptions));
+  const acceptGeographicPlan = () => {
+    if (!geographicPlan || geographicPlan.rationale !== 'two-coordinate-clusters') return;
+    const nowIso = new Date().toISOString();
+    let next = stops;
+    geographicPlan.clusters.forEach(cluster => cluster.stopIds.forEach(stopId => {
+      next = assignStop(next, stopId, cluster.driver, nowIso);
+    }));
+    if (persist(next, t(S + 'geo.acceptedMsg'))) setGeographicPlan(null);
+  };
+
   const workloadLine = (workload: Workload) =>
     `${t(S + 'workload.count')}: ${fmt(workload.stopCount)} · ${t(S + 'workload.cod')}: ${fmt(workload.codTotalSar)} · ${t(S + 'workload.morning')}/${t(S + 'workload.afternoon')}/${t(S + 'workload.evening')}: ${fmt(workload.windows.morning)}/${fmt(workload.windows.afternoon)}/${fmt(workload.windows.evening)} · ${t(S + 'workload.missingAddress')}: ${fmt(workload.missingAddress)} · ${t(S + 'workload.missingPhone')}: ${fmt(workload.missingPhone)} · ${t(S + 'workload.missingShortAddress')}: ${fmt(workload.missingShortAddress)}${workload.missingReference > 0 ? ` · ${t(S + 'workload.missingReference')}: ${fmt(workload.missingReference)}` : ''}`;
 
@@ -117,6 +149,20 @@ export function DispatchBoardView({ stops, setStops, drivers, operationDate: con
           {t(S + 'unassignedCount', { count: fmt(board.unassigned.length) })}
         </output>
       </div>
+      <div className="bm-provider-row">
+        <label className="bm-field"><span>{t(S + 'depotLabel')}</span><input value={depot} onChange={event => setDepot(event.target.value)} placeholder={t(S + 'depotPlaceholder')} /></label>
+        <label className="bm-ack"><input type="checkbox" checked={returnToDepot} onChange={event => setReturnToDepot(event.target.checked)} />{t(S + 'returnDepot')}</label>
+        <button type="button" onClick={suggestGeographicPlan} data-testid="suggest-geographic">{t(S + 'geo.suggestBtn')}</button>
+      </div>
+      {geographicPlan && (
+        <div className="bm-suggest" data-testid="geographic-preview">
+          <h3>{t(S + 'geo.title')}</h3>
+          <p className="bm-import-note">{t(S + `geo.${geographicPlan.rationale}`)}</p>
+          {geographicPlan.clusters.map(cluster => <div key={cluster.driver.id}><strong>{cluster.driver.fullName}</strong><span> · {cluster.stopIds.length} {t(S + 'geo.stops')}</span></div>)}
+          {geographicPlan.missingCoordinateStopIds.length > 0 && <p className="bm-import-warning">{t(S + 'geo.missingCoordinates', { count: geographicPlan.missingCoordinateStopIds.length })}</p>}
+          <div className="bm-stop-actions"><button className="bm-primary" onClick={acceptGeographicPlan} disabled={geographicPlan.rationale !== 'two-coordinate-clusters'}>{t(S + 'geo.acceptBtn')}</button><button onClick={() => setGeographicPlan(null)}>{t(S + 'routelite.discardBtn')}</button></div>
+        </div>
+      )}
 
       {/* Unassigned queue */}
       <h3>{t(S + 'unassignedTitle')}</h3>
@@ -158,9 +204,17 @@ export function DispatchBoardView({ stops, setStops, drivers, operationDate: con
               <h3>{run.driverName}{run.carNumber ? ` · ${run.carNumber}` : ''}</h3>
               <div className="bm-stop-actions">
                 <button data-testid={`suggest-${runId}`} onClick={() => doSuggest(run)}>{t(S + 'routelite.suggestBtn')}</button>
+                {buildGoogleMapsDirectionsUrl(run.stops, { depot: depot || undefined, returnToDepot }) && <a className="bm-button" data-testid={`maps-${runId}`} href={buildGoogleMapsDirectionsUrl(run.stops, { depot: depot || undefined, returnToDepot })} target="_blank" rel="noopener noreferrer">{t(S + 'mapsBtn')}</a>}
+                <button data-testid={`download-${runId}`} onClick={() => doDownload(run)}>{t(S + 'downloadBtn')}</button>
+                {process.env.NEXT_PUBLIC_OSRM_URL && <button data-testid={`measure-${runId}`} onClick={() => void measureRun(run)} disabled={routeMeasurements[runId] === 'loading'}>{t(S + 'measureBtn')}</button>}
                 <button data-testid={`print-${runId}`} onClick={() => doPrint(run)}>{t(S + 'printBtn')}</button>
               </div>
             </div>
+            {routeMeasurements[runId] && routeMeasurements[runId] !== 'loading' && (
+              <p className="bm-import-note" data-testid={`measurement-${runId}`}>
+                {routeMeasurements[runId] === 'error' ? t(S + 'measureError') : `${t(S + 'measureResult')}: ${fmt(routeMeasurements[runId].km)} km · ${fmt(routeMeasurements[runId].minutes)} min · ${OSM_ATTRIBUTION}`}
+              </p>
+            )}
             <p className="bm-import-note" data-testid={`workload-${run.driverName}`}>{workloadLine(workload)}</p>
             {lastApplied?.runId === runId && (
               <p className="bm-import-note" data-testid={`undo-row-${runId}`}>
