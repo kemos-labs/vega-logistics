@@ -14,6 +14,7 @@
 | `language` | raw `'en'`\|`'ar'` (never JSON-stringified) | yes | preference |
 | `vega-last-backup-at-v1` | raw ISO timestamp | **NO — device metadata** (restoring old backups must not suppress reminders) | device metadata |
 | `vega-backup-banner-dismissed:<YYYY-MM-DD>` | `'1'` | no — day-scoped dismissal | device metadata |
+| `vega-nemow-pull-v1` | NemowSummary (first-page Excel dashboard snapshot) | **NO — device metadata** (re-creatable from the source workbook at any time) | device metadata |
 
 `vega-vehicles` / `vega-zones`: persistence deliberately REMOVED (immutable seeds) — review C decision; do not reintroduce without a migration story.
 

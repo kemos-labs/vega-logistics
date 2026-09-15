@@ -12,6 +12,8 @@ import { calculateFinancials } from '@/lib/calculations';
 import { buildProjection, migrateDailyRecords, toDateString, isDefinitiveDailyRecord, type DailyRecord } from '@/lib/operationsReporting';
 import { defaultFinancialInput } from '@/lib/mockData';
 import { readStoredStops, type StopRecord } from '@/lib/stops';
+import { pullNemowPackages, type NemowSummary } from '@/lib/nemowPull';
+import { readNemowWorksheet } from '@/lib/nemowXlsx';
 import { buildControlTowerSnapshot } from '@/lib/controlTower';
 import { ControlTowerView } from '@/components/rebuild/ControlTower';
 import { StopPlanning } from '@/components/rebuild/StopPlanning';
@@ -82,6 +84,10 @@ export default function BusinessModelApp() {
     try { return readStoredStops(localStorage.getItem(STORAGE_KEYS.stops)); } catch { return { stops: [] as StopRecord[], dropped: 0 }; }
   }, []);
   const [stops, setStops] = useLocalStorage<StopRecord[]>(STORAGE_KEYS.stops, bootStops.stops);
+  // Nemow Excel pull (first-page dashboard feed): DISPOSABLE device metadata
+  // (see DATA_MODEL §1) — re-creatable from the source workbook at any time,
+  // deliberately OUTSIDE STORAGE_KEYS + backup files.
+  const [nemowPull, setNemowPull] = useLocalStorage<NemowSummary | null>('vega-nemow-pull-v1', null);
   const [stopsBootDropped, setStopsBootDropped] = useState(bootStops.dropped);
   const recoveryEntries = useMemo(() => validateRecoveryEntries(rawRecoveryEntries), [rawRecoveryEntries]);
   const pendingRecoveries = recoveryEntries.filter(entry => entry.status === 'pending').length;
@@ -297,7 +303,7 @@ export default function BusinessModelApp() {
           </p>
         )}
         {view === 'tower' && <ControlTowerView snapshot={towerSnapshot} onGoto={(target) => selectView(target)} />}
-        {view === 'summary' && <CoreSummary output={output} input={input} fleetCount={fleetCount} driverGap={driverGap} contribution={contribution} risks={risks} onNavigate={selectView} dailyRecords={dailyRecords} stops={stops} operationDate={operationDate} onOperationDateChange={setOperationDate} />}
+        {view === 'summary' && <CoreSummary output={output} input={input} fleetCount={fleetCount} driverGap={driverGap} contribution={contribution} risks={risks} onNavigate={selectView} dailyRecords={dailyRecords} stops={stops} operationDate={operationDate} onOperationDateChange={setOperationDate} nemow={nemowPull} onNemowPull={setNemowPull} />}
         {view === 'fleet' && <Page title={t('businessModel.fleet.title')} description={t('businessModel.fleet.newDesc')}><div className="bm-roster"><div className="bm-roster-head"><h2>{t('businessModel.fleet.rosterTitle')}</h2><span>{t('businessModel.fleet.rosterCount',{count:input.drivers.length})}</span></div><EditableTable columns={[t('businessModel.fleet.colDriverName'),t('businessModel.fleet.colPhone'),t('businessModel.fleet.colAssignedVehicle'),t('businessModel.fleet.colCarNumber'),t('businessModel.fleet.colPlateNumber'),t('businessModel.fleet.colStatus'),'']}>
 {input.drivers.map(driver => <div className="bm-table-row bm-driver-row" key={driver.id}><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colDriverName')}`} value={driver.fullName} onChange={value => changeDriver(driver.id,{fullName:value})} /><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colPhone')}`} value={driver.phone} onChange={value => changeDriver(driver.id,{phone:value})} /><input aria-label={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colAssignedVehicle')}`} list="bm-vehicle-names" value={driver.assignedVehicle} onChange={event => changeDriver(driver.id,{assignedVehicle:event.target.value})} /><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colCarNumber')}`} value={driver.carNumber ?? ''} onChange={value => changeDriver(driver.id,{carNumber:value})} /><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colPlateNumber')}`} value={driver.plateNumber ?? ''} onChange={value => changeDriver(driver.id,{plateNumber:value})} /><select aria-label={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colStatus')}`} value={driver.status} onChange={event => changeDriver(driver.id,{status:event.target.value as DriverRecord['status']})}><option value="active">{t('businessModel.common.active')}</option><option value="inactive">{t('businessModel.common.inactive')}</option></select>{driverConfirmId === driver.id ? (
                   <span className="bm-delete-confirm" data-testid={`confirm-remove-${driver.id}`}>
@@ -329,7 +335,7 @@ export default function BusinessModelApp() {
 }
 
 function Page({ title, description, children }: { title:string; description:string; children:React.ReactNode }) { return <><div className="bm-page-head"><h1>{title}</h1><p>{description}</p></div>{children}</>; }
-function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNavigate,dailyRecords,stops,operationDate,onOperationDateChange }: { output:ReturnType<typeof useSimulatedData>['financialOutput']; input:FinancialInput; fleetCount:number; driverGap:number; contribution:number; risks:RiskItem[]; onNavigate:(view:View)=>void; dailyRecords:Record<string,DailyRecord>; stops: StopRecord[]; operationDate: string; onOperationDateChange: (d:string)=>void }) {
+function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNavigate,dailyRecords,stops,operationDate,onOperationDateChange,nemow,onNemowPull }: { output:ReturnType<typeof useSimulatedData>['financialOutput']; input:FinancialInput; fleetCount:number; driverGap:number; contribution:number; risks:RiskItem[]; onNavigate:(view:View)=>void; dailyRecords:Record<string,DailyRecord>; stops: StopRecord[]; operationDate: string; onOperationDateChange: (d:string)=>void; nemow: NemowSummary | null; onNemowPull: (value: NemowSummary | null) => void }) {
   const [hydrated, setHydrated] = React.useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration gate
   React.useEffect(() => { setHydrated(true); }, []);
@@ -359,7 +365,99 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
   const codRemitted = windowRecords.reduce((a,r)=>a+(r.cashRemittedSar||0),0);
   const codOutstanding = Math.max(0, codCollected - codRemitted);
   const hasRecordForSelected = definitive.some(r => r.date === operationDate);
+  // Nemow Excel pull (first-page dashboard feed): file → pure pull engine →
+  // disposable local snapshot. Failures keep the previous snapshot untouched.
+  const nemowFileRef = React.useRef<HTMLInputElement>(null);
+  const [nemowBusy, setNemowBusy] = React.useState(false);
+  const [nemowMsg, setNemowMsg] = React.useState('');
+  const num1 = (value: number) => new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value);
+  const onNemowFile = async (file: File | undefined, reset: () => void) => {
+    if (!file) return;
+    setNemowBusy(true);
+    setNemowMsg('');
+    try {
+      const { fileName, sheetName, aoa } = await readNemowWorksheet(file);
+      const result = pullNemowPackages(aoa, fileName, sheetName, new Date().toISOString());
+      if (result.ok) {
+        onNemowPull(result.summary);
+      } else if (result.error === 'missing-headers') {
+        setNemowMsg(t('businessModel.summary.nemow.errorHeaders', { missing: (result.missing ?? []).join('، ') }));
+      } else {
+        setNemowMsg(t(`businessModel.summary.nemow.${result.error === 'empty' ? 'errorEmpty' : result.error === 'no-rows' ? 'errorRows' : 'errorLarge'}`));
+      }
+    } catch {
+      setNemowMsg(t('businessModel.summary.nemow.errorLarge'));
+    } finally {
+      setNemowBusy(false);
+      reset();
+    }
+  };
+  const nemowMaxStatus = nemow && nemow.statuses.length > 0 ? nemow.statuses[0].count : 1;
+  const nemowMaxDriver = nemow && nemow.drivers.length > 0 ? nemow.drivers[0].total : 1;
+  const nemowMaxDay = nemow && nemow.days.length > 0 ? Math.max(1, ...nemow.days.map(d => d.total)) : 1;
   return <><div className="bm-page-head bm-summary-head"><div><h1>{t('businessModel.summary.title')}</h1><p>{t('businessModel.summary.subtitle')}</p></div><div className="bm-head-actions"><label className="bm-field" style={{minWidth:160}}><span>{t('businessModel.close.dateLabel')}</span><input type="date" value={operationDate} onChange={e=>onOperationDateChange(e.target.value)} data-testid="summary-date" /></label><button onClick={()=>onNavigate(hasRecordForSelected ? 'daily' : 'close')}><FileText size={15}/> {hasRecordForSelected ? t('businessModel.summary.viewReport', {defaultValue:'View report'}) : t('businessModel.summary.closeSelectedDate', {defaultValue:'Close selected date'})}</button><button onClick={()=>onNavigate('costs')}><Settings2 size={15}/> {t('businessModel.summary.editCosts')}</button></div></div>
+    <section className="bm-panel" data-testid="nemow-dashboard" style={{borderLeft: '4px solid var(--pine)', marginBottom: 12}}>
+      <div className="bm-panel-head"><div><span>{t('businessModel.summary.nemow.tag')}</span><h2>{t('businessModel.summary.nemow.title')}</h2><p>{t('businessModel.summary.nemow.desc')}</p></div><div className="bm-head-actions"><input ref={nemowFileRef} data-testid="nemow-file" type="file" accept=".xlsx,.xls" hidden disabled={nemowBusy} onChange={event => { const picked = event.target.files?.[0]; void onNemowFile(picked, () => { event.target.value = ''; }); }} /><button className="bm-primary" onClick={() => nemowFileRef.current?.click()} disabled={nemowBusy} data-testid="nemow-pull-btn">{nemow ? t('businessModel.summary.nemow.pullAgain') : t('businessModel.summary.nemow.pullBtn')}</button>{nemow && <button onClick={() => { onNemowPull(null); setNemowMsg(''); }} data-testid="nemow-clear-btn">{t('businessModel.summary.nemow.clearBtn')}</button>}</div></div>
+      {nemowMsg !== '' && <p className="bm-import-warning" role="alert" data-testid="nemow-message">{nemowMsg}</p>}
+      {nemowBusy && <p className="bm-import-note" data-testid="nemow-loading">{t('businessModel.summary.nemow.loading')}</p>}
+      {!nemow && !nemowBusy && nemowMsg === '' && <p className="bm-import-note" data-testid="nemow-empty">{t('businessModel.summary.nemow.emptyHint')}</p>}
+      {nemow && (
+        <>
+          <p className="bm-import-note" data-testid="nemow-meta">{nemow.fileName} · {nemow.sheetName} · {fmtDateMedium(locale, nemow.pulledAt)}</p>
+          <section className="bm-kpis" data-testid="nemow-kpis">
+            <Kpi label={t('businessModel.summary.nemow.kpiTotal')} value={num(nemow.total)} />
+            <Kpi label={t('businessModel.summary.nemow.kpiDelivered')} value={num(nemow.delivered)} tone="good" />
+            <Kpi label={t('businessModel.summary.nemow.kpiPending')} value={num(nemow.pending)} tone={nemow.pending > 0 ? 'bad' : ''} />
+            <Kpi label={t('businessModel.summary.nemow.kpiCompletion')} value={`${num1(nemow.completionPct)}%`} tone={nemow.completionPct >= 90 ? 'good' : ''} />
+          </section>
+          <dl className="bm-import-counts" data-testid="nemow-money">
+            <div><dt>{t('businessModel.summary.nemow.codTotal')}</dt><dd>{money(nemow.codTotalSar)}</dd></div>
+            <div><dt>{t('businessModel.summary.nemow.codDelivered')}</dt><dd>{money(nemow.codDeliveredSar)}</dd></div>
+            <div><dt>{t('businessModel.summary.nemow.drivers')}</dt><dd>{num(nemow.driversTotal)}</dd></div>
+            <div><dt>{t('businessModel.summary.nemow.statuses')}</dt><dd>{num(nemow.statuses.length)}</dd></div>
+          </dl>
+          <h3>{t('businessModel.summary.nemow.statusTitle')}</h3>
+          <div className="bm-cust-list" data-testid="nemow-statuses">
+            {nemow.statuses.slice(0, 6).map(slice => (
+              <div key={slice.status} className="bm-cust-row" title={`${slice.status}: ${slice.count}`}>
+                <span className="name">{slice.status}</span>
+                <i><b className={slice.status === 'تم توصيلها' ? 'good' : slice.count / nemow.total >= 0.1 ? 'average' : undefined} style={{ width: `${Math.max(2, (slice.count / nemowMaxStatus) * 100)}%` }} /></i>
+                <strong>{num(slice.count)}</strong>
+                <small>{num1(slice.sharePct)}%</small>
+              </div>
+            ))}
+          </div>
+          {nemow.driversTotal > 0 ? (
+            <>
+              <h3>{t('businessModel.summary.nemow.driverTitle')}</h3>
+              <div className="bm-cust-list" data-testid="nemow-drivers">
+                {nemow.drivers.map(row => (
+                  <div key={row.driver} className="bm-cust-row" title={`${row.driver}: ${row.delivered}/${row.total}`}>
+                    <span className="name">{row.driver}</span>
+                    <i><b style={{ width: `${Math.max(2, (row.total / nemowMaxDriver) * 100)}%` }} /></i>
+                    <strong>{num(row.total)}</strong>
+                    <small>{num(row.delivered)}</small>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="bm-import-note" data-testid="nemow-no-driver">{t('businessModel.summary.nemow.noDriver')}</p>
+          )}
+          {nemow.days.length > 0 && nemow.daysEnd && (
+            <>
+              <h3>{t('businessModel.summary.nemow.trendTitle')}</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(14,1fr)', gap: 6, alignItems: 'end', height: 90, marginTop: 12 }} data-testid="nemow-trend">
+                {nemow.days.map(slot => {
+                  const h = slot.total === 0 ? 4 : Math.max(8, Math.round((slot.total / nemowMaxDay) * 70));
+                  return <div key={slot.day} data-testid="nemow-trend-slot" data-date={slot.day} data-value={slot.total} style={{ display: 'grid', justifyItems: 'center', gap: 4 }}><div style={{ width: '100%', height: h, background: slot.total === 0 ? 'var(--line-soft)' : 'var(--pine)', borderRadius: 4, opacity: slot.total === 0 ? 0.35 : 1 }} title={`${slot.day}: ${slot.delivered}/${slot.total}`}></div><small style={{ font: '7px var(--font-ibm-plex-mono)', color: 'var(--faint)' }}>{slot.day.slice(5)}</small></div>;
+                })}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </section>
     <section className="bm-panel" data-testid="daily-route-operations" style={{borderLeft: '4px solid var(--pine)', marginBottom: 12}}>
       <div className="bm-panel-head"><div><span>{t('businessModel.summary.routeTag')}</span><h2>{t('businessModel.summary.routeHead')}</h2><p>{t('businessModel.summary.routeDesc')}</p></div><div className="bm-head-actions"><button className="bm-primary" onClick={()=>onNavigate('stops')}>{t('businessModel.summary.routeImportBtn')}</button><button onClick={()=>onNavigate('dispatch')}>{t('businessModel.summary.routeDispatchBtn')}</button></div></div>
       <div className="bm-import-note">{t('businessModel.summary.routeSteps')}</div>
