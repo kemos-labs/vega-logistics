@@ -85,6 +85,7 @@ describe('operator-core repair', () => {
     // Summary is under More
     fireEvent.click(screen.getByRole('button', { name: /More|المزيد/i }));
     fireEvent.click(screen.getByRole('button', { name: /^Summary$/i }));
+    expect(screen.getByTestId('daily-route-operations')).toBeTruthy();
     expect((document.querySelector('[data-testid="summary-date"]') as HTMLInputElement).value).toBe(newDate);
   });
 

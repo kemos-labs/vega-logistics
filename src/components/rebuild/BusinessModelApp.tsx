@@ -360,6 +360,10 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
   const codOutstanding = Math.max(0, codCollected - codRemitted);
   const hasRecordForSelected = definitive.some(r => r.date === operationDate);
   return <><div className="bm-page-head bm-summary-head"><div><h1>{t('businessModel.summary.title')}</h1><p>{t('businessModel.summary.subtitle')}</p></div><div className="bm-head-actions"><label className="bm-field" style={{minWidth:160}}><span>{t('businessModel.close.dateLabel')}</span><input type="date" value={operationDate} onChange={e=>onOperationDateChange(e.target.value)} data-testid="summary-date" /></label><button onClick={()=>onNavigate(hasRecordForSelected ? 'daily' : 'close')}><FileText size={15}/> {hasRecordForSelected ? t('businessModel.summary.viewReport', {defaultValue:'View report'}) : t('businessModel.summary.closeSelectedDate', {defaultValue:'Close selected date'})}</button><button onClick={()=>onNavigate('costs')}><Settings2 size={15}/> {t('businessModel.summary.editCosts')}</button></div></div>
+    <section className="bm-panel" data-testid="daily-route-operations" style={{borderLeft: '4px solid var(--pine)', marginBottom: 12}}>
+      <div className="bm-panel-head"><div><span>{t('businessModel.summary.routeTag')}</span><h2>{t('businessModel.summary.routeHead')}</h2><p>{t('businessModel.summary.routeDesc')}</p></div><div className="bm-head-actions"><button className="bm-primary" onClick={()=>onNavigate('stops')}>{t('businessModel.summary.routeImportBtn')}</button><button onClick={()=>onNavigate('dispatch')}>{t('businessModel.summary.routeDispatchBtn')}</button></div></div>
+      <div className="bm-import-note">{t('businessModel.summary.routeSteps')}</div>
+    </section>
     <section className="bm-panel" data-testid="recorded-operations" style={{borderLeft: '4px solid var(--pine)', marginBottom:12}}>
       <div className="bm-panel-head"><div><span>{t('businessModel.summary.recordedTag')}</span><h2>{t('businessModel.summary.recordedHead')}</h2><p>{t('businessModel.summary.recordedDesc')}</p></div></div>
       {!hasRecorded ? (

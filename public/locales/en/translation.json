@@ -621,6 +621,12 @@
     "summary": {
       "title": "Operations summary",
       "subtitle": "Recorded operations are primary; planning assumptions are separate below.",
+      "routeTag": "DAILY ROUTE OPERATIONS",
+      "routeHead": "Plan and send today’s driver routes",
+      "routeDesc": "Upload Excel orders, review warnings, split stops geographically, open Google Maps, download driver files, and print driver sheets.",
+      "routeImportBtn": "Upload orders",
+      "routeDispatchBtn": "Open dispatch",
+      "routeSteps": "Excel upload → validation → geographic split → Google Maps route → driver CSV / print sheet",
       "recordToday": "Record today",
       "editCosts": "Edit company costs",
       "kpiRevenue": "Monthly revenue",
