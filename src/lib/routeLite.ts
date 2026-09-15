@@ -160,13 +160,27 @@ export function suggestStopOrder(stops: StopRecord[]): RouteSuggestion {
 /** OSM attribution duty (shown with any OSRM-derived output, per licence). */
 export const OSM_ATTRIBUTION = '© OpenStreetMap contributors';
 
-export type OsrmUrlError = 'bad-base' | 'too-few-coords' | 'bad-coord';
+export type OsrmUrlError = 'bad-base' | 'too-few-coords' | 'bad-coord' | 'banned-demo';
+
+/**
+ * The public OSRM demo server (router.project-osrm.org) has no SLA and a
+ * fair-use policy — it is BANNED for production use. Only an
+ * owner-approved self-hosted endpoint behind NEXT_PUBLIC_OSRM_URL may run.
+ */
+function isBannedDemoHost(trimmedBase: string): boolean {
+  let hostname = '';
+  try { hostname = new URL(trimmedBase).hostname.toLowerCase(); } catch { return false; }
+  return hostname === 'router.project-osrm.org'
+    || hostname === 'project-osrm.org'
+    || hostname.endsWith('.project-osrm.org');
+}
 
 /** Build an OSRM Route-service URL for the given coordinate chain. */
 export function buildOsrmTripUrl(
   baseUrl: string,
   coords: Array<{ lat: number; lng: number }>,
 ): { ok: true; url: string } | { ok: false; error: OsrmUrlError } {
+  if (isBannedDemoHost(baseUrl.trim())) return { ok: false, error: 'banned-demo' };
   if (!/^https?:\/\/[^/\s]+$/.test(baseUrl.trim())) return { ok: false, error: 'bad-base' };
   if (coords.length < 2) return { ok: false, error: 'too-few-coords' };
   if (!coords.every(c => isValidCoordinatePair(c.lat, c.lng))) return { ok: false, error: 'bad-coord' };
@@ -180,6 +194,7 @@ export function buildOsrmOptimizeUrl(
   coords: Array<{ lat: number; lng: number }>,
   returnToStart = false,
 ): { ok: true; url: string } | { ok: false; error: OsrmUrlError } {
+  if (isBannedDemoHost(baseUrl.trim())) return { ok: false, error: 'banned-demo' };
   if (!/^https?:\/\/[^/\s]+$/.test(baseUrl.trim())) return { ok: false, error: 'bad-base' };
   if (coords.length < 2) return { ok: false, error: 'too-few-coords' };
   if (!coords.every(c => isValidCoordinatePair(c.lat, c.lng))) return { ok: false, error: 'bad-coord' };

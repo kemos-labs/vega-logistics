@@ -19,9 +19,11 @@ export async function measureOsrmRoute(
 ): Promise<RouteEngineResult> {
   if (!baseUrl?.trim()) return { ok: false, error: 'not-configured' };
   const built = buildOsrmOptimizeUrl(baseUrl, coords, options.returnToStart ?? false);
+  // The banned public demo server is rejected at URL-build time and is
+  // NEVER contacted: the manual order stays untouched (offline fallback).
   if (!built.ok) return { ok: false, error: 'invalid-input' };
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs ?? 8000);
+  const timeout = globalThis.setTimeout(() => controller.abort(), options.timeoutMs ?? 8000);
   try {
     const response = await fetch(built.url, { signal: controller.signal, headers: { Accept: 'application/json' } });
     if (!response.ok) return { ok: false, error: 'network' };
@@ -32,6 +34,6 @@ export async function measureOsrmRoute(
   } catch (error) {
     return { ok: false, error: error instanceof DOMException && error.name === 'AbortError' ? 'timeout' : 'network' };
   } finally {
-    window.clearTimeout(timeout);
+    globalThis.clearTimeout(timeout);
   }
 }
