@@ -50,7 +50,7 @@ describe('nemow first-page dashboard', () => {
     expect(kpis.textContent).toContain('1');
     expect(kpis.textContent).toContain('2');
     expect(screen.getByTestId('nemow-statuses').textContent).toContain('تم إرجاعها');
-    expect(screen.getByTestId('nemow-drivers').textContent).toContain('driver-A');
+    expect(screen.getByTestId('nemow-no-driver')).toBeTruthy();
     expect(screen.getByTestId('nemow-money').textContent).toContain('468');
     expect(screen.getByTestId('nemow-trend')).toBeTruthy();
     expect(screen.getByTestId('nemow-meta').textContent).toContain('f.xlsx');
@@ -73,5 +73,23 @@ describe('nemow first-page dashboard', () => {
     fireEvent.click(screen.getByTestId('nemow-clear-btn'));
     expect(screen.getByTestId('nemow-empty')).toBeTruthy();
     expect(localStorage.getItem(KEY)).toBe('null');
+  });
+
+  it('shows provenance, city workload, and selected-date comparison for v2 pulls', () => {
+    seed(summarize(AOA));
+    render(<BusinessModelApp />);
+    expect(screen.getByTestId('nemow-source-reconciliation').textContent).toContain('Source rows');
+    expect(screen.getByTestId('nemow-cities').textContent).toContain('الرياض');
+    expect(screen.getByTestId('nemow-selected-compare')).toBeTruthy();
+  });
+
+  it('suppresses legacy metrics until the workbook is re-imported', () => {
+    const legacy = summarize(AOA);
+    delete (legacy as { schemaVersion?: number }).schemaVersion;
+    seed(legacy);
+    render(<BusinessModelApp />);
+    expect(screen.getByTestId('nemow-legacy-suppressed')).toBeTruthy();
+    expect(screen.queryByTestId('nemow-kpis')).toBeNull();
+    expect(screen.queryByTestId('nemow-statuses')).toBeNull();
   });
 });

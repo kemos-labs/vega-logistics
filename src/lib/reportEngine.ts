@@ -206,7 +206,9 @@ function buildTotals(series: DeliveryPoint[], records: Record<string, DailyRecor
     codShipments: sourceRecords.reduce((sum, rec) => sum + (rec.codShipments ?? 0), 0),
     prepaidShipments: sourceRecords.reduce((sum, rec) => sum + (rec.prepaidShipments ?? 0), 0),
     cashCollectedSar: sourceRecords.reduce((sum, rec) => sum + (rec.cashCollectedSar ?? 0), 0),
-    cashOutstandingSar: sourceRecords.reduce((sum, rec) => sum + (rec.cashCollectedSar ?? 0) - (rec.cashRemittedSar ?? 0), 0),
+    // Keep the report's "outstanding" semantic aligned with Control Tower and
+    // evening close: over-remittance is credit, never negative outstanding.
+    cashOutstandingSar: Math.max(0, sourceRecords.reduce((sum, rec) => sum + (rec.cashCollectedSar ?? 0) - (rec.cashRemittedSar ?? 0), 0)),
     reasonTotals: aggregateFailureReasons(sourceRecords),
   };
 }

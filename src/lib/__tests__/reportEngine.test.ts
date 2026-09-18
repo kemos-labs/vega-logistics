@@ -328,6 +328,15 @@ describe('report engine — COD remittance', () => {
     expect(model.totals.cashCollectedSar).toBe(1850);
     expect(model.totals.cashOutstandingSar).toBe(750);
   });
+
+  it('does not label over-remittance as negative outstanding cash', () => {
+    const dates = windowDates(2);
+    const records = {
+      [dates[0]]: record(dates[0], 4, 0, { cashCollectedSar: 100, cashRemittedSar: 150 }),
+    };
+    const model = buildReportModel({ kind: 'pro', locale: 'en', record: records[dates[0]], records, input, output, focusDate: FOCUS, windowDays: 2 });
+    expect(model.totals.cashOutstandingSar).toBe(0);
+  });
 });
 
 function byDate(series: Array<{ date: string }>, date: string): { date: string; recorded?: boolean; delivered?: number } {

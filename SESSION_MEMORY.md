@@ -2,6 +2,12 @@
 
 > Governance: `AGENTS.md` (durable rules) · Roadmap: `docs/MASTER_PLAN.md` · Claims: `docs/RESEARCH_DOSSIER.md` · Truth audit: `docs/PRODUCT_TRUTH_AUDIT.md`
 
+## Nemow source alignment and visible dashboard review (2026-09-18)
+
+The importer now consumes the sanitized contract generated from `/data/Nemow Logistics/config/nemow_columns.json`. It selects preferred worksheets, excludes totals and integration rows, applies returned/cancelled precedence, excludes `ارجعت بواسطة` from driver analytics, preserves invalid/missing COD as coverage states, and exposes mutually exclusive buckets, source reconciliation, period, city/status/trend detail, and selected-date comparison on the first page. The compact economics block is visibly labeled as model-derived. Root workflow corrections keep weekly returned/cancelled counts separate and clamp report-engine outstanding cash at zero to match Control Tower; over-remittance remains a separate close credit.
+
+Verification for this change: 502 Vitest tests, 98 root pytest tests, TypeScript, ESLint, contract parity, and whitespace checks passed. Webpack production build needs re-run in CI because this environment’s Next build intermittently fails while parsing `tsc --showConfig`; the direct TypeScript command is clean. Browser visual checks confirmed the local first page and responsive action layout; local file upload was blocked by the Brave extension’s file URL permission.
+
 ## Nemow first-page dashboard cycle (this commit)
 Owner-asked: landing page is a professional dashboard fed by Nemow Excel. **(1)** `src/lib/nemowPull.ts` pure pull engine — tolerant Arabic header mapping for both observed variants (`Packages` + `Driver Packages Report`), المجموع row never counted, delivered = `تم توصيلها` exactly, Arabic-Indic digits, Date/DD-MM/YYYY/ISO day keys, summary = totals/completion/COD/status split/top-8 drivers/cities/14-day window; 8 unit tests. **(2)** `src/lib/nemowXlsx.ts` thin file adapter (exceljs dynamic import, first sheet → aoa, 5MB cap). **(3)** CoreSummary hero `nemow-dashboard`: KPI cards + COD strip + status bars + driver list (honest no-driver note) + 14-day strip + pull-again/clear; snapshot in disposable `vega-nemow-pull-v1` (DATA_MODEL §1, outside backups); 24 locale keys both trees; 4 UI tests (seeded render/empty/no-driver/clear). Tests 487 (45 files), parity 1345↔1345, all gates green.
 

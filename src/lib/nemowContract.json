@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "resolution_rule": "Aliases are tried in the listed order and PER ROW the first non-empty cell wins. Never pick a column just because it exists: an existing-but-empty column must not shadow a populated fallback column.",
+  "sheets_preferred": [
+    "Packages",
+    "Driver Packages Report"
+  ],
+  "fields": {
+    "barcode": [
+      "باركود",
+      "باركود الطرد",
+      "رقم الشحنة",
+      "رقم بوليصة"
+    ],
+    "recipient_name": [
+      "إسم المستقبل",
+      "اسم المستقبل"
+    ],
+    "recipient_phone": [
+      "هاتف المستقبل",
+      "رقم المستقبل",
+      "رقم هاتف المستقبل 2",
+      "رقم هاتف المستقبل"
+    ],
+    "city": [
+      "المدينة",
+      "مدينة المستقبل",
+      "مدينة المرسل",
+      "الفرع الحالي"
+    ],
+    "district": [
+      "الحي",
+      "حي المستقبل",
+      "حي المرسل"
+    ],
+    "national_address": [
+      "العنوان الوطني",
+      "عنوان المستقبل"
+    ],
+    "status": [
+      "الحالة"
+    ],
+    "delivery_date": [
+      "تاريخ التوصيل",
+      "تاريخ الموصول"
+    ],
+    "last_activity_date": [
+      "تا ريخ اخر حركة",
+      "تاريخ اخر حركة",
+      "تاريخ آخر حركة"
+    ],
+    "pickup_date": [
+      "تاريخ أول تحميل",
+      "تاريخ التحميل"
+    ],
+    "collection_date": [
+      "تاريخ إستلام التحصيل",
+      "تاريخ استلام التحصيل"
+    ],
+    "first_destination_date": [
+      "تاريخ أول وجهة نهائية"
+    ],
+    "content": [
+      "محتوى الطرد",
+      "ملاحظات",
+      "سبب العالق"
+    ],
+    "driver": [
+      "إسم السائق",
+      "اسم السائق",
+      "إسم المندوب"
+    ],
+    "returned_by": [
+      "ارجعت بواسطة"
+    ],
+    "merchant": [
+      "إسم المتجر",
+      "اسم المتجر"
+    ],
+    "creator": [
+      "منشئ الطرد"
+    ],
+    "sender": [
+      "إسم المرسل",
+      "اسم المرسل"
+    ],
+    "account": [
+      "إسم الزبون",
+      "اسم الزبون"
+    ],
+    "partner": [
+      "اسم الشريك"
+    ],
+    "branch": [
+      "الفرع الحالي",
+      "مدينة المرسل"
+    ],
+    "cod": [
+      "التحصيل الأصلي",
+      "التحصيل",
+      "cod",
+      "المبلغ"
+    ],
+    "source": [
+      "مصدر الطرد",
+      "مصدر"
+    ],
+    "delivered_by": [
+      "تم توصيلها بواسطة",
+      "سلمت الى المرسل بواسطة"
+    ],
+    "pod": [
+      "المرفقات 1",
+      "المرفقات 2",
+      "المرفقات 3",
+      "المرفقات 4",
+      "المرفقات 5",
+      "المرفقات 6",
+      "المرفقات 7",
+      "المرفقات 8",
+      "المرفقات 9",
+      "المرفقات 10",
+      "المرفقات 11"
+    ]
+  },
+  "name_chain": [
+    "recipient_name",
+    "merchant",
+    "creator",
+    "sender"
+  ],
+  "date_chain": [
+    "delivery_date",
+    "last_activity_date",
+    "pickup_date",
+    "collection_date",
+    "first_destination_date"
+  ],
+  "business_tokens": {
+    "totals_row": [
+      "المجموع",
+      "الاجمالي",
+      "الإجمالي",
+      "إجمالي",
+      "total"
+    ],
+    "delivered": [
+      "تم توصيلها"
+    ],
+    "cancelled": [
+      "ملغاة",
+      "ملغي"
+    ],
+    "returned": [
+      "إرجاع",
+      "مرتجع"
+    ],
+    "untouched_driver": [
+      "تيست",
+      "test"
+    ],
+    "integration_sources": [
+      "سلة"
+    ]
+  }
+}

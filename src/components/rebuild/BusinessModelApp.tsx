@@ -28,6 +28,7 @@ import { ReportsView } from '@/components/rebuild/ReportsView';
 import { ComplianceLiteView } from '@/components/rebuild/ComplianceLiteView';
 import LogestechsView from '@/components/rebuild/LogestechsView';
 import { resolveTelematicsProvider } from '@/lib/platform/telematics';
+import { buildNemowBuckets, nemowCodCoverage, type NemowBucketKey } from '@/lib/nemowDashboard';
 
 type View = 'tower' | 'stops' | 'dispatch' | 'close' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios' | 'compliance' | 'logestechs';
 import { applyBackupMerge, applyLegacyScopedRestore, buildBackup, commitBundle, parseBackup, replaceWithBackup, STORAGE_KEYS, type BackupFileV2, type FollowUpAction, type PersistResult } from '@/lib/backup';
@@ -347,7 +348,7 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
   const categories=Object.entries(output.costBreakdown).filter(([key])=>!['costPerShipment','total'].includes(key)) as [string,number][];
   const shipmentsPerCar=output.totalDailyShipments/Math.max(1,fleetCount);
   const definitive = Object.values(dailyRecords).filter(r => isDefinitiveDailyRecord(r));
-  const hasRecorded = hydrated && definitive.length > 0;
+  const hasRecorded = hydrated && (definitive.some(r => r.date === operationDate) || stops.some(s => s.operationDate === operationDate));
   const dayStopsForSummary = stops.filter(s => s.operationDate === operationDate);
   const sumDelivered = dayStopsForSummary.filter(s=>s.status==='delivered').length;
   const sumReturned = dayStopsForSummary.filter(s=>s.status==='returned').length;
@@ -365,6 +366,10 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
   const codRemitted = windowRecords.reduce((a,r)=>a+(r.cashRemittedSar||0),0);
   const codOutstanding = Math.max(0, codCollected - codRemitted);
   const hasRecordForSelected = definitive.some(r => r.date === operationDate);
+  const selectedRecord = definitive.find(r => r.date === operationDate);
+  const selectedRecordedDelivered = selectedRecord?.completedShipments ?? 0;
+  const selectedRecordedFailed = selectedRecord?.failedShipments ?? 0;
+  const selectedImportedDay = nemow?.days.find(day => day.day === operationDate);
   // Nemow Excel pull (first-page dashboard feed): file → pure pull engine →
   // disposable local snapshot. Failures keep the previous snapshot untouched.
   const nemowFileRef = React.useRef<HTMLInputElement>(null);
@@ -395,15 +400,21 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
   const nemowMaxStatus = nemow && nemow.statuses.length > 0 ? nemow.statuses[0].count : 1;
   const nemowMaxDriver = nemow && nemow.drivers.length > 0 ? nemow.drivers[0].total : 1;
   const nemowMaxDay = nemow && nemow.days.length > 0 ? Math.max(1, ...nemow.days.map(d => d.total)) : 1;
+  const nemowBuckets = nemow ? buildNemowBuckets(nemow) : [];
+  const nemowMaxCity = nemow && nemow.cities.length > 0 ? nemow.cities[0].count : 1;
+  const bucketLabel = (key: NemowBucketKey) => t(`businessModel.summary.nemow.bucket.${key}`);
+  const bucketClass = (key: NemowBucketKey) => key === 'delivered' ? 'good' : key === 'active' ? 'average' : 'bad';
   return <><div className="bm-page-head bm-summary-head"><div><h1>{t('businessModel.summary.title')}</h1><p>{t('businessModel.summary.subtitle')}</p></div><div className="bm-head-actions"><label className="bm-field" style={{minWidth:160}}><span>{t('businessModel.close.dateLabel')}</span><input type="date" value={operationDate} onChange={e=>onOperationDateChange(e.target.value)} data-testid="summary-date" /></label><button onClick={()=>onNavigate(hasRecordForSelected ? 'daily' : 'close')}><FileText size={15}/> {hasRecordForSelected ? t('businessModel.summary.viewReport', {defaultValue:'View report'}) : t('businessModel.summary.closeSelectedDate', {defaultValue:'Close selected date'})}</button><button onClick={()=>onNavigate('costs')}><Settings2 size={15}/> {t('businessModel.summary.editCosts')}</button></div></div>
     <section className="bm-panel" data-testid="nemow-dashboard" style={{borderLeft: '4px solid var(--pine)', marginBottom: 12}}>
-      <div className="bm-panel-head"><div><span>{t('businessModel.summary.nemow.tag')}</span><h2>{t('businessModel.summary.nemow.title')}</h2><p>{t('businessModel.summary.nemow.desc')}</p></div><div className="bm-head-actions"><input ref={nemowFileRef} data-testid="nemow-file" type="file" accept=".xlsx,.xls" hidden disabled={nemowBusy} onChange={event => { const picked = event.target.files?.[0]; void onNemowFile(picked, () => { event.target.value = ''; }); }} /><button className="bm-primary" onClick={() => nemowFileRef.current?.click()} disabled={nemowBusy} data-testid="nemow-pull-btn">{nemow ? t('businessModel.summary.nemow.pullAgain') : t('businessModel.summary.nemow.pullBtn')}</button>{nemow && <button onClick={() => { onNemowPull(null); setNemowMsg(''); }} data-testid="nemow-clear-btn">{t('businessModel.summary.nemow.clearBtn')}</button>}</div></div>
+      <div className="bm-panel-head"><div><span>{t('businessModel.summary.nemow.tag')}</span><h2>{t('businessModel.summary.nemow.title')}</h2><p>{t('businessModel.summary.nemow.desc')}</p></div><div className="bm-head-actions"><input ref={nemowFileRef} data-testid="nemow-file" type="file" accept=".xlsx" hidden disabled={nemowBusy} onChange={event => { const picked = event.target.files?.[0]; void onNemowFile(picked, () => { event.target.value = ''; }); }} /><button className="bm-primary" onClick={() => nemowFileRef.current?.click()} disabled={nemowBusy} data-testid="nemow-pull-btn">{nemow ? t('businessModel.summary.nemow.pullAgain') : t('businessModel.summary.nemow.pullBtn')}</button>{nemow && <button onClick={() => { onNemowPull(null); setNemowMsg(''); }} data-testid="nemow-clear-btn">{t('businessModel.summary.nemow.clearBtn')}</button>}</div></div>
       {nemowMsg !== '' && <p className="bm-import-warning" role="alert" data-testid="nemow-message">{nemowMsg}</p>}
       {nemowBusy && <p className="bm-import-note" data-testid="nemow-loading">{t('businessModel.summary.nemow.loading')}</p>}
       {!nemow && !nemowBusy && nemowMsg === '' && <p className="bm-import-note" data-testid="nemow-empty">{t('businessModel.summary.nemow.emptyHint')}</p>}
       {nemow && (
         <>
           <p className="bm-import-note" data-testid="nemow-meta">{nemow.fileName} · {nemow.sheetName} · {fmtDateMedium(locale, nemow.pulledAt)}</p>
+          {nemow.schemaVersion !== 2 ? <div className="bm-import-warning" data-testid="nemow-legacy-suppressed">{t('businessModel.summary.nemow.legacyNote')}</div> : <>
+          <div className="bm-nemow-source" data-testid="nemow-source-reconciliation"><strong>{t('businessModel.summary.nemow.sourceEquation', { source: num(nemow.sourceTotal ?? nemow.total), excluded: num(nemow.excludedIntegration ?? 0), operational: num(nemow.total) })}</strong><span>{t('businessModel.summary.nemow.period', { start: nemow.periodStart ?? '—', end: nemow.periodEnd ?? '—' })}</span><span>{t('businessModel.summary.nemow.coverageLine', { dates: num(nemow.coverage?.missingDate ?? 0), cod: num(nemow.coverage?.missingCod ?? 0), cities: num(nemow.coverage?.missingCity ?? 0), drivers: num(nemow.coverage?.missingDriver ?? 0) })}</span></div>
           <section className="bm-kpis" data-testid="nemow-kpis">
             <Kpi label={t('businessModel.summary.nemow.kpiTotal')} value={num(nemow.total)} />
             <Kpi label={t('businessModel.summary.nemow.kpiDelivered')} value={num(nemow.delivered)} tone="good" />
@@ -411,14 +422,25 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
             <Kpi label={t('businessModel.summary.nemow.kpiCompletion')} value={`${num1(nemow.completionPct)}%`} tone={nemow.completionPct >= 90 ? 'good' : ''} />
           </section>
           <dl className="bm-import-counts" data-testid="nemow-money">
-            <div><dt>{t('businessModel.summary.nemow.codTotal')}</dt><dd>{money(nemow.codTotalSar)}</dd></div>
-            <div><dt>{t('businessModel.summary.nemow.codDelivered')}</dt><dd>{money(nemow.codDeliveredSar)}</dd></div>
+            <div><dt>{t('businessModel.summary.nemow.codTotal')}</dt><dd>{nemow.codTotalSar === null ? '—' : money(nemow.codTotalSar)}</dd></div>
+            <div><dt>{t('businessModel.summary.nemow.codDelivered')}</dt><dd>{nemow.codDeliveredSar === null ? '—' : money(nemow.codDeliveredSar)}</dd></div>
+            <div><dt>{t('businessModel.summary.nemow.codCoverage')}</dt><dd>{t(`businessModel.summary.nemow.coverage.${nemowCodCoverage(nemow)}`)}</dd></div>
             <div><dt>{t('businessModel.summary.nemow.drivers')}</dt><dd>{num(nemow.driversTotal)}</dd></div>
             <div><dt>{t('businessModel.summary.nemow.statuses')}</dt><dd>{num(nemow.statuses.length)}</dd></div>
           </dl>
+          <p className="bm-import-note">{t('businessModel.summary.nemow.codImportNote')}</p>
+          {nemow.schemaVersion !== 2 && <p className="bm-import-warning" data-testid="nemow-legacy-note">{t('businessModel.summary.nemow.legacyNote')}</p>}
+          <section className="bm-nemow-grid" data-testid="nemow-buckets">
+            <div><h3>{t('businessModel.summary.nemow.bucketTitle')}</h3><div className="bm-cust-list">
+              {nemowBuckets.length > 0 ? nemowBuckets.map(bucket => <div key={bucket.key} className="bm-cust-row"><span className="name">{bucketLabel(bucket.key)}</span><i><b className={bucketClass(bucket.key)} style={{ width: `${Math.max(bucket.count ? 2 : 0, (bucket.count / Math.max(1, nemow.total)) * 100)}%` }} /></i><strong>{num(bucket.count)}</strong><small>{num1(bucket.sharePct)}%</small></div>) : <p className="bm-import-note">{t('businessModel.summary.nemow.legacyBuckets')}</p>}
+            </div></div>
+            {nemow.cities.length > 0 && <div data-testid="nemow-cities"><h3>{t('businessModel.summary.nemow.cityTitle')}</h3><div className="bm-cust-list">
+              {nemow.cities.map(city => <div key={city.city} className="bm-cust-row"><span className="name">{city.city}</span><i><b style={{ width: `${Math.max(2, (city.count / nemowMaxCity) * 100)}%` }} /></i><strong>{num(city.count)}</strong><small>{num1((city.count / nemow.total) * 100)}%</small></div>)}
+            </div></div>}
+          </section>
           <h3>{t('businessModel.summary.nemow.statusTitle')}</h3>
           <div className="bm-cust-list" data-testid="nemow-statuses">
-            {nemow.statuses.slice(0, 6).map(slice => (
+            {nemow.statuses.map(slice => (
               <div key={slice.status} className="bm-cust-row" title={`${slice.status}: ${slice.count}`}>
                 <span className="name">{slice.status}</span>
                 <i><b className={slice.status === 'تم توصيلها' ? 'good' : slice.count / nemow.total >= 0.1 ? 'average' : undefined} style={{ width: `${Math.max(2, (slice.count / nemowMaxStatus) * 100)}%` }} /></i>
@@ -436,7 +458,7 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
                     <span className="name">{row.driver}</span>
                     <i><b style={{ width: `${Math.max(2, (row.total / nemowMaxDriver) * 100)}%` }} /></i>
                     <strong>{num(row.total)}</strong>
-                    <small>{num(row.delivered)}</small>
+                    <small>{row.total > 0 ? `${num(row.delivered)} · ${num1((row.delivered / row.total) * 100)}%` : '—'}</small>
                   </div>
                 ))}
               </div>
@@ -450,11 +472,15 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(14,1fr)', gap: 6, alignItems: 'end', height: 90, marginTop: 12 }} data-testid="nemow-trend">
                 {nemow.days.map(slot => {
                   const h = slot.total === 0 ? 4 : Math.max(8, Math.round((slot.total / nemowMaxDay) * 70));
-                  return <div key={slot.day} data-testid="nemow-trend-slot" data-date={slot.day} data-value={slot.total} style={{ display: 'grid', justifyItems: 'center', gap: 4 }}><div style={{ width: '100%', height: h, background: slot.total === 0 ? 'var(--line-soft)' : 'var(--pine)', borderRadius: 4, opacity: slot.total === 0 ? 0.35 : 1 }} title={`${slot.day}: ${slot.delivered}/${slot.total}`}></div><small style={{ font: '7px var(--font-ibm-plex-mono)', color: 'var(--faint)' }}>{slot.day.slice(5)}</small></div>;
+                  const dh = slot.total === 0 ? 0 : Math.max(3, Math.round((slot.delivered / nemowMaxDay) * 70));
+                  return <div key={slot.day} className="bm-nemow-day" data-testid="nemow-trend-slot" data-date={slot.day} data-value={slot.total}><div className="bm-nemow-bars"><i style={{ height: h }} /><b style={{ height: dh }} /></div><small>{slot.day.slice(5)}</small><em>{num(slot.delivered)}/{num(slot.total)}</em></div>;
                 })}
               </div>
+              <p className="bm-import-note">{t('businessModel.summary.nemow.trendLegend')}</p>
             </>
           )}
+          <div className="bm-nemow-compare" data-testid="nemow-selected-compare"><strong>{t('businessModel.summary.nemow.selectedCompareTitle')}</strong><span>{t('businessModel.summary.nemow.selectedImported', { count: num(selectedImportedDay?.total ?? 0) })}</span><span>{t('businessModel.summary.nemow.selectedClose', { count: selectedRecord ? num(selectedRecordedDelivered + selectedRecordedFailed) : '—' })}</span><small>{t('businessModel.summary.nemow.activityDateCaveat')}</small></div>
+          </>}
         </>
       )}
     </section>
@@ -462,6 +488,7 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
       <div className="bm-panel-head"><div><span>{t('businessModel.summary.routeTag')}</span><h2>{t('businessModel.summary.routeHead')}</h2><p>{t('businessModel.summary.routeDesc')}</p></div><div className="bm-head-actions"><button className="bm-primary" onClick={()=>onNavigate('stops')}>{t('businessModel.summary.routeImportBtn')}</button><button onClick={()=>onNavigate('dispatch')}>{t('businessModel.summary.routeDispatchBtn')}</button></div></div>
       <div className="bm-import-note">{t('businessModel.summary.routeSteps')}</div>
     </section>
+    <section className="bm-panel bm-compact-economics" data-testid="compact-economics"><div className="bm-panel-head"><div><span>{t('businessModel.summary.businessPlanTag')}</span><h2>{t('businessModel.summary.compactEconomicsTitle')}</h2><p>{t('businessModel.summary.compactEconomicsNote')}</p></div><button onClick={()=>onNavigate('costs')}>{t('businessModel.summary.editCosts')}</button></div><div className="bm-kpis"><Kpi label={t('businessModel.summary.kpiRevenue')} value={money(output.totalRevenue)} /><Kpi label={t('businessModel.summary.kpiCost')} value={money(output.totalCost)} /><Kpi label={t('businessModel.summary.kpNetResult')} value={money(output.netMargin)} tone={output.netMargin < 0 ? 'bad' : 'good'} /><Kpi label={t('businessModel.summary.kpiCostShipment')} value={money(output.costPerShipment,2)} /></div><div className="bm-head-actions"><button onClick={()=>onNavigate('recovery')}>{t('businessModel.summary.openRecovery')}</button><button onClick={()=>onNavigate('daily')}>{t('businessModel.summary.openReports')}</button></div></section>
     <section className="bm-panel" data-testid="recorded-operations" style={{borderLeft: '4px solid var(--pine)', marginBottom:12}}>
       <div className="bm-panel-head"><div><span>{t('businessModel.summary.recordedTag')}</span><h2>{t('businessModel.summary.recordedHead')}</h2><p>{t('businessModel.summary.recordedDesc')}</p></div></div>
       {!hasRecorded ? (
@@ -472,9 +499,9 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
       ) : (
         <div>
           <dl className="bm-import-counts" data-testid="summary-recorded-kpis">
-            <div><dt>{t('businessModel.summary.recordedDelivered', { defaultValue: 'Delivered (selected date)' })}</dt><dd data-testid="summary-selected-delivered">{sumDelivered}</dd></div>
+            <div><dt>{t('businessModel.summary.recordedDelivered', { defaultValue: 'Delivered (selected date)' })}</dt><dd data-testid="summary-selected-delivered">{selectedRecord ? selectedRecordedDelivered : sumDelivered}</dd></div>
             <div><dt>{t('businessModel.summary.recordedReturned', { defaultValue: 'Failed+Returned (selected)' })}</dt><dd>{sumReturned}</dd></div>
-            <div><dt>{t('businessModel.summary.recordedPending', { defaultValue: 'Pending (selected)' })}</dt><dd>{sumPending}</dd></div>
+            <div><dt>{t('businessModel.summary.recordedPending', { defaultValue: 'Pending (selected)' })}</dt><dd>{selectedRecord ? selectedRecordedFailed : sumPending}</dd></div>
             <div><dt>{t('businessModel.summary.recordedCompletion', { defaultValue: 'Completion (all recorded)' })}</dt><dd>{completion}%</dd></div>
             <div><dt>{t('businessModel.summary.recordedCodCollected', { defaultValue: 'COD collected' })}</dt><dd>{codCollected} SAR</dd></div>
             <div><dt>{t('businessModel.summary.recordedCodOutstanding', { defaultValue: 'Outstanding' })}</dt><dd>{codOutstanding} SAR</dd></div>
