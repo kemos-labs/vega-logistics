@@ -2,6 +2,9 @@
 
 > Governance: `AGENTS.md` (durable rules) · Roadmap: `docs/MASTER_PLAN.md` · Claims: `docs/RESEARCH_DOSSIER.md` · Truth audit: `docs/PRODUCT_TRUTH_AUDIT.md`
 
+## Security hardening cycle (2026-09-20)
+DM-review patch landed with one addition: **(1)** `src/app/api/logestechs/webhook/route.ts` — unsigned webhooks are now REJECTED in production when `LOGESTECHS_WEBHOOK_SECRET` is unset (fail-closed, 503 with hint; warning log actually emitted in non-production), and the GET event feed is gated behind the same production session check as the operations snapshot route (`Cache-Control: no-store`). **(2)** `ComplianceLiteView` mapped inputs get a `key` prop. **(3)** `operatorCoreRepair.test.tsx` async state updates wrapped in `act()`. **(4)** Review addition: the `summary … 14-slot trend` test was time-of-day flaky — its fixture used the UTC date while the app's `hasRecorded` gate needs the LOCAL `operationDate` (failed 00:00–03:00 at +03:00); fixture now uses the app's own `toDateString()`. Gates verified locally on the patched tree: tsc clean, vitest 502/502 (re-run at 02:52 local, inside the previously failing window), eslint 0, build passed, python suite pass, parity 1375↔1375, `git diff --check` clean. Driver count/salary single-source-of-truth fix (roster revert bug from `setState`-updater side effects, dead `VehicleClass.driverSalary`, `MonthlyTotals` using fleetCount) is DIAGNOSED but NOT yet implemented — owner-approved plan pending.
+
 ## Nemow source alignment and visible dashboard review (2026-09-18)
 
 The importer now consumes the sanitized contract generated from `/data/Nemow Logistics/config/nemow_columns.json`. It selects preferred worksheets, excludes totals and integration rows, applies returned/cancelled precedence, excludes `ارجعت بواسطة` from driver analytics, preserves invalid/missing COD as coverage states, and exposes mutually exclusive buckets, source reconciliation, period, city/status/trend detail, and selected-date comparison on the first page. The compact economics block is visibly labeled as model-derived. Root workflow corrections keep weekly returned/cancelled counts separate and clamp report-engine outstanding cash at zero to match Control Tower; over-remittance remains a separate close credit.
@@ -26,8 +29,8 @@ Owner-requested sync slice (early R6): **(1)** `DriverRecord` gains distinct opt
 ## Hygiene cycle (previous commit)
 Full-app review follow-up, zero behavior change intended: (1) stale June-era root docs moved to `docs/archive/` with a README marking them non-authoritative — R9 hazard removed; stray dev logs deleted; (2) all 22 eslint warnings cleared — dead ~200-line `DailyReport` + `MonthlyVariance` components, unused imports/states/helpers in BusinessModelApp/StopPlanning/eveningClose/stops, mock-signature typing in 6 test files (vi.fn generics replace unused rest params); (3) dead empty locale key `businessModel.recovery.thActions` removed from BOTH trees (R3 parity 1244↔1244); (4) unnecessary `as never` cast dropped at backup-banner dismissal.
 ## Current state
-- **Commit:** `b6bcc10` · **Deploy:** https://kemos-labs.github.io/vega-logistics/ HTTP 200; GitHub Actions run `34899847294` succeeded.
-- **Baseline tests:** 457 passing (39 files) before the route slice. Current tree: 462 tests discovered, 461 passing and 1 pre-existing operator-core UI failure; tsc clean, eslint clean, locale parity 1314↔1314. Webpack production build compiled successfully; Turbopack cannot spawn its worker in the sandbox.
+- **Commit:** `252144d` + security-hardening commit on top · **Deploy:** https://kemos-labs.github.io/vega-logistics/ HTTP 200; latest GitHub Actions run succeeded.
+- **Baseline tests:** 502 passing (46 files) with the security cycle; tsc clean, eslint clean, locale parity 1375↔1375. Webpack production build compiled successfully locally (2026-09-20).
 - Dev URL: http://vega.localhost:8080 (`localhost:3002` = unrelated project)
 
 ## 2026-09-15 route-operations framework

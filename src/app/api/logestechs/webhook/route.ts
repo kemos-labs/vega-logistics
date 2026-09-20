@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import type { LTWebhookEvent } from '@/lib/logestechs/types';
+import { productionSessionRequired, readRequestSession } from '@/lib/platform/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,10 +15,21 @@ function hexEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-async function verifySignature(raw: string, signature: string | null): Promise<boolean> {
+type SignatureCheck = 'ok' | 'bad-signature' | 'no-secret-rejected';
+
+async function verifySignature(raw: string, signature: string | null): Promise<SignatureCheck> {
   const secret = process.env.LOGESTECHS_WEBHOOK_SECRET;
-  if (!secret) return true; // no secret configured → accept (log warning)
-  if (!signature) return false;
+  if (!secret) {
+    // No secret configured: any caller could forge events. That is only
+    // tolerable outside production (local/demo wiring); reject otherwise.
+    if (productionSessionRequired()) return 'no-secret-rejected';
+    console.warn(
+      '[logestechs/webhook] LOGESTECHS_WEBHOOK_SECRET is not set — accepting unsigned webhook payloads. ' +
+      'This is only safe in local/demo mode; set the secret before going live.',
+    );
+    return 'ok';
+  }
+  if (!signature) return 'bad-signature';
   try {
     const enc = new TextEncoder();
     const key = await crypto.subtle.importKey(
@@ -25,9 +37,9 @@ async function verifySignature(raw: string, signature: string | null): Promise<b
     );
     const mac = await crypto.subtle.sign('HMAC', key, enc.encode(raw));
     const expected = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, '0')).join('');
-    return hexEqual(expected, signature.replace(/^sha256=/, '').toLowerCase());
+    return hexEqual(expected, signature.replace(/^sha256=/, '').toLowerCase()) ? 'ok' : 'bad-signature';
   } catch {
-    return false;
+    return 'bad-signature';
   }
 }
 
@@ -41,7 +53,14 @@ async function verifySignature(raw: string, signature: string | null): Promise<b
 export async function POST(req: Request) {
   const raw = await req.text();
   const sig = req.headers.get('x-logestechs-signature') ?? req.headers.get('x-signature');
-  if (!(await verifySignature(raw, sig))) {
+  const check = await verifySignature(raw, sig);
+  if (check === 'no-secret-rejected') {
+    return NextResponse.json(
+      { ok: false, error: 'webhook secret not configured', hint: 'Set LOGESTECHS_WEBHOOK_SECRET before enabling production mode.' },
+      { status: 503 },
+    );
+  }
+  if (check === 'bad-signature') {
     return NextResponse.json({ ok: false, error: 'bad signature' }, { status: 401 });
   }
   let body: LTWebhookEvent;
@@ -58,7 +77,21 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, queued: body.topic });
 }
 
-/** GET /api/logestechs/webhook — recent events for the dashboard feed. */
-export async function GET() {
-  return NextResponse.json({ ok: true, count: recent.length, events: recent.slice(0, 30) });
+/**
+ * GET /api/logestechs/webhook — recent events for the dashboard feed.
+ * Received events can carry customer/driver/shipment data, so in production
+ * mode this requires the same validated server session as the other
+ * operations reads (see src/lib/platform/session.ts).
+ */
+export async function GET(request: NextRequest) {
+  if (productionSessionRequired() && !readRequestSession(request)) {
+    return NextResponse.json(
+      { ok: false, error: 'unauthorized', message: 'A validated server session is required in production mode.' },
+      { status: 401, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+  return NextResponse.json(
+    { ok: true, count: recent.length, events: recent.slice(0, 30) },
+    { headers: { 'Cache-Control': 'no-store' } },
+  );
 }

@@ -5,6 +5,7 @@ import { ReportsView } from '@/components/rebuild/ReportsView';
 import { exportOperationalExcel, buildOperationalWorkbookData, getOperationalExcelLabels } from '@/lib/operationsReportExport';
 import type { StopRecord } from '@/lib/stops';
 import type { DailyRecord } from '@/lib/operationsReporting';
+import { toDateString } from '@/lib/operationsReporting';
 import en from '../../../public/locales/en/translation.json';
 import ar from '../../../public/locales/ar/translation.json';
 
@@ -164,7 +165,9 @@ describe('operator-core repair', () => {
     rerender(<ReportsView operationDate="2026-08-24" onOperationDateChange={() => {}} stops={stops} dailyRecords={{ '2026-08-24': reconciled }} onGotoClose={() => {}} />);
     const excelBtn2 = screen.getByTestId('reports-export-excel');
     expect(excelBtn2.hasAttribute('disabled')).toBe(false);
-    fireEvent.click(excelBtn2);
+    await act(async () => {
+      fireEvent.click(excelBtn2);
+    });
     expect(vi.mocked(exportOperationalExcel)).toHaveBeenCalledWith(expect.objectContaining({ date: '2026-08-24' }));
     const call = vi.mocked(exportOperationalExcel).mock.calls[0][0];
     expect(call.runs.length).toBe(1);
@@ -215,7 +218,10 @@ describe('operator-core repair', () => {
     unmount();
     // Date-relative: the 14-slot trend window ends today, so the record must
     // be dated today (a hardcoded past date ages out of the window).
-    const todayKey = new Date().toISOString().slice(0, 10);
+    // Use the app's LOCAL date helper — UTC ISO would be one day behind the
+    // app's operationDate between local midnight and the timezone offset
+    // (e.g. 00:00–03:00 at +03:00), flaking the test at night.
+    const todayKey = toDateString(new Date());
     const rec: DailyRecord = { date: todayKey, completedShipments: 2, failedShipments: 1, loadedShipments: 3, cashCollectedSar: 150, cashRemittedSar: 0, closeStatus: 'reconciled', closedAt: new Date().toISOString(), driversPresent: 2, fuelCost: 10, notes: '', updatedAt: new Date().toISOString() } as DailyRecord;
     localStorage.setItem('vega-daily-reports-v2', JSON.stringify({ [todayKey]: rec }));
     // also need a stop to make trend non-empty
@@ -305,8 +311,10 @@ describe('operator-core repair', () => {
     expect(document.querySelector('[data-testid="print-company-sheet"]')?.textContent).toContain('Ali');
     expect(document.querySelector('[data-testid="print-company-sheet"]')?.textContent).toContain('Omar');
     expect(document.querySelector('[data-testid="print-company-sheet"]')?.textContent).not.toContain('Ahmed');
-    window.dispatchEvent(new Event('afterprint'));
-    await new Promise(r => setTimeout(r, 0));
+    await act(async () => {
+      window.dispatchEvent(new Event('afterprint'));
+      await new Promise(r => setTimeout(r, 0));
+    });
     // change fixture
     const stopsB: StopRecord[] = [
       { id: '3', operationDate: '2026-08-24', customerName: 'CustC', stopLabel: 'S3', status: 'delivered', driverName: 'Fatima', carNumber: 'Z', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as unknown as StopRecord,
@@ -317,8 +325,10 @@ describe('operator-core repair', () => {
     expect(document.querySelector('[data-testid="print-company-sheet"]')?.textContent).not.toContain('Ali');
     window.print = orig;
     global.requestAnimationFrame = origRAF;
-    window.dispatchEvent(new Event('afterprint'));
-    await new Promise(r => setTimeout(r, 0));
+    await act(async () => {
+      window.dispatchEvent(new Event('afterprint'));
+      await new Promise(r => setTimeout(r, 0));
+    });
   });
 
   it('run manifest is full and bilingual', async () => {
@@ -352,8 +362,10 @@ describe('operator-core repair', () => {
     expect(text).toContain('مستند تشغيلي داخلي');
     window.print = orig;
     global.requestAnimationFrame = origRAF;
-    window.dispatchEvent(new Event('afterprint'));
-    await new Promise(r => setTimeout(r, 0));
+    await act(async () => {
+      window.dispatchEvent(new Event('afterprint'));
+      await new Promise(r => setTimeout(r, 0));
+    });
   });
 
 });

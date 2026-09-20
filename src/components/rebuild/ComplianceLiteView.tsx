@@ -57,6 +57,7 @@ export function ComplianceLiteView() {
 
   const field = (label: string, key: keyof AddrDraft | keyof RecDraft, setter: (fn: (prev: never) => never) => void, current: string) => (
     <input
+      key={key}
       className="bm-input"
       aria-label={label}
       placeholder={label}
