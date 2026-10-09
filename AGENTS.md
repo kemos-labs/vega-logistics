@@ -78,3 +78,7 @@ One owner, 5–50 vehicles. Every feature usable <30s and saving ≥30 min/week,
 - Daily route operating contract: `docs/ROUTE_OPERATIONS_FRAMEWORK.md`.
 - Logestechs integration is research/read-only until an owner-confirmed tenant contract exists: `docs/LOGESTECHS_INTEGRATION_BOUNDARY.md`.
 - Local `pi` models are optional advisory workers only: `docs/PI_WORKER_POLICY.md`; they never invent coordinates, route distances, or external writes.
+
+## Backend continuation handoff — 2026-10-09
+
+Follow `/data/Nemow Logistics/vega-logistics/docs/BACKEND_UPGRADE_PHASE.md` for optional backend groundwork. Complete daily payload and owner-only maintenance adapters remain unused by operator screens; additive migrations are checked in, not applied. Do not confuse these seams or static Pages deployment with live Supabase/R8 completion. Staging RLS/auth/region evidence, conflict/outbox handling and source import remain open.

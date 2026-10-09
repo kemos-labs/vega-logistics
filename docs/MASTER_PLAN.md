@@ -166,3 +166,7 @@ Native local category coverage extended to all six source maintenance categories
 ## Verified publication checkpoint — 2026-10-09
 
 Code release `d26f9dd7ba09dce1965a5401a8861a2d9f9228ba` was pushed to main; [Pages workflow 37942529747](https://github.com/kemos-labs/vega-logistics/actions/runs/37942529747) completed successfully. The hosted browser shows all six maintenance categories plus Service History and no console errors. Local checks: 558 tests/52 files, all six gates, 1485 matching locale keys. Owner acceptance remains separate. Employee modules, original record migration, food evidence and unattended operations remain unfinished. Native maintenance category coverage does not close those acceptance gates.
+
+## Backend continuation — 2026-10-09
+
+Owner-requested next backend phase: inspect the original Supabase implementation and repair VEGA persistence/session seams, including an owner-scoped native maintenance adapter and additive migration. Scope, evidence and remaining staging/configuration gates: `/data/Nemow Logistics/vega-logistics/docs/BACKEND_UPGRADE_PHASE.md`. This increment does not enable R8 sync, migrate live source records, or deploy server APIs on GitHub Pages.

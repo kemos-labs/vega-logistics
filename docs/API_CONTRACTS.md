@@ -58,3 +58,9 @@ Before this route can serve real operations data:
 - Apply pagination, field selection and rate limits.
 - Keep raw provider references out of unauthorized responses.
 - Add contract tests for tenant isolation and stale-data behavior.
+
+## Backend continuation boundaries — 2026-10-09
+
+The maintenance backend increment is a library adapter and SQL migration, not a newly exposed public API. Owner identity is supplied by authenticated application wiring and enforced by database RLS; no multi-company sharing contract is implemented. Existing server-issued session verification is hardened without introducing a login/token issuer. GitHub Pages still excludes server routes. Activation and live verification follow `/data/Nemow Logistics/vega-logistics/docs/BACKEND_UPGRADE_PHASE.md`.
+
+Custom `x-vega-session` tokens use `{userId, tenantId, role, exp}` where `exp` is an integer UTC epoch in **milliseconds**, not JWT seconds. Exactly two canonical base64url components and typed claims are required. `NODE_ENV=production` requires session checks by default; only explicitly selected `VEGA_RUNTIME_MODE=simulation` bypasses this for simulation handlers. Browser Supabase ownership and server sessions remain separate seams; there is no role/tenant identity bridge or login issuer in this increment.

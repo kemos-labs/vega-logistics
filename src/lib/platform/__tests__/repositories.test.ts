@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { LocalModelRepository, SupabaseModelRepository, resolveRepository, type ModelRepository } from '../repositories';
 import type { DailyRecord } from '@/lib/operationsReporting';
 import type { Scenario } from '@/lib/scenarios';
 import { defaultFinancialInput } from '@/lib/mockData';
+import * as db from '../db/client';
 
 function makeRecord(date: string): DailyRecord {
   return { date, completedShipments: 10, failedShipments: 1, fuelCost: 55.5, driversPresent: 8, notes: 'ok', updatedAt: '2026-08-21T00:00:00.000Z' };
@@ -39,11 +40,13 @@ function fakeClient(userId = 'user-1') {
         },
         delete() {
           return {
-            eq(col: string, value: unknown) {
-              const next = rows.filter(r => r[col] !== value || (col !== 'user_id' && r.user_id !== userId));
-              // chainable second eq handled by re-filtering on both calls below
-              tables[table] = next;
-              return Promise.resolve({ error: null });
+            eq(firstColumn: string, firstValue: unknown) {
+              return {
+                eq(secondColumn: string, secondValue: unknown) {
+                  tables[table] = rows.filter(row => !(row[firstColumn] === firstValue && row[secondColumn] === secondValue));
+                  return Promise.resolve({ error: null });
+                },
+              };
             },
           };
         },
@@ -55,6 +58,7 @@ function fakeClient(userId = 'user-1') {
 
 describe('LocalModelRepository', () => {
   beforeEach(() => localStorage.clear());
+  afterEach(() => vi.restoreAllMocks());
 
   it('round-trips financial input, daily records and scenarios', async () => {
     const repo: ModelRepository = new LocalModelRepository();
@@ -76,6 +80,27 @@ describe('LocalModelRepository', () => {
     expect((await repo.loadScenarios()).map(s => s.id)).toEqual(['s2']);
   });
 
+  it('rejects quota errors without reporting a successful write', async () => {
+    const repo = new LocalModelRepository();
+    await repo.saveDailyRecord(makeRecord('2026-08-20'));
+    const original = localStorage.getItem('vega-daily-reports-v2');
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+    await expect(repo.saveDailyRecord(makeRecord('2026-08-21'))).rejects.toThrow('quota');
+    expect(localStorage.getItem('vega-daily-reports-v2')).toBe(original);
+  });
+
+  it.each(['null', '[]', '{"2026-08-20":{}}'])('preserves malformed stored data %s', async raw => {
+    localStorage.setItem('vega-daily-reports-v2', raw);
+    await expect(new LocalModelRepository().saveDailyRecord(makeRecord('2026-08-20'))).rejects.toThrow();
+    expect(localStorage.getItem('vega-daily-reports-v2')).toBe(raw);
+  });
+
+  it('reads legacy empty timestamps without rewriting them', async () => {
+    const record = { ...makeRecord('2026-08-20'), updatedAt: '' };
+    localStorage.setItem('vega-daily-reports-v2', JSON.stringify({ [record.date]: record }));
+    expect(await new LocalModelRepository().loadDailyRecords()).toEqual({ [record.date]: record });
+  });
+
   it('overwrites a daily record for the same date', async () => {
     const repo = new LocalModelRepository();
     await repo.saveDailyRecord(makeRecord('2026-08-20'));
@@ -87,7 +112,8 @@ describe('LocalModelRepository', () => {
   it('survives corrupted localStorage JSON', async () => {
     localStorage.setItem('vega-daily-reports-v2', '{not json');
     const repo = new LocalModelRepository();
-    expect(await repo.loadDailyRecords()).toEqual({});
+    await expect(repo.saveDailyRecord(makeRecord('2026-08-20'))).rejects.toThrow();
+    expect(localStorage.getItem('vega-daily-reports-v2')).toBe('{not json');
   });
 });
 
@@ -111,10 +137,60 @@ describe('SupabaseModelRepository', () => {
     });
   });
 
+  it('preserves complete versioned records and filters other owners', async () => {
+    const { client, tables } = fakeClient();
+    const repo = new SupabaseModelRepository(client as never, 'user-1');
+    const record: DailyRecord = { ...makeRecord('2026-08-20'), cashCollectedSar: 0, cashRemittedSar: 0, loadedShipments: 14, returnedShipments: 1, pendingShipments: 3, closeStatus: 'draft', codExpectedSar: 90, codAdjustmentNote: 'manual', tomorrowNote: 'follow up', failureReasons: { other: 1 }, customerBreakdown: { tard: { delivered: 10, missed: 1 } }, driverName: 'driver', codRemittedOn: '2026-08-21', weatherCondition: 'sand', podStatus: 'partial' };
+    await repo.saveDailyRecord(record);
+    tables.daily_records.push({ user_id: 'other', report_date: '2026-08-21', record_payload: { version: 1, record: makeRecord('2026-08-21') } });
+    expect(await repo.loadDailyRecords()).toEqual({ [record.date]: record });
+    expect(tables.daily_records[0].record_payload).toEqual({ version: 1, record });
+  });
+
+  it('keeps legacy cash unknown and rejects malformed versioned cash', async () => {
+    const { client, tables } = fakeClient();
+    tables.daily_records.push({ user_id: 'user-1', report_date: '2026-08-20' });
+    const repo = new SupabaseModelRepository(client as never, 'user-1');
+    expect((await repo.loadDailyRecords())['2026-08-20'].cashCollectedSar).toBeUndefined();
+    tables.daily_records[0].record_payload = { version: 1, record: { ...makeRecord('2026-08-20'), cashCollectedSar: '0' } };
+    await expect(repo.loadDailyRecords()).rejects.toThrow('cashCollectedSar');
+    tables.daily_records[0].record_payload = { version: 2, record: makeRecord('2026-08-20') };
+    await expect(repo.loadDailyRecords()).rejects.toThrow('version');
+  });
+
+  it.each([{ closeStatus: ['draft'] }, { updatedAt: '2026-08-20' }, { closedAt: 'garbage' }, { codRemittedOn: '2026-02-30' }])('rejects malformed versioned fields %j', async patch => {
+    const { client, tables } = fakeClient();
+    tables.daily_records.push({ user_id: 'user-1', report_date: '2026-08-20', record_payload: { version: 1, record: { ...makeRecord('2026-08-20'), ...patch } } });
+    await expect(new SupabaseModelRepository(client as never, 'user-1').loadDailyRecords()).rejects.toThrow();
+  });
+
+  it('propagates remote writes errors', async () => {
+    const { client } = fakeClient();
+    const from = client.from.bind(client);
+    vi.spyOn(client, 'from').mockImplementation(table => ({ ...from(table), upsert: async () => ({ error: { message: 'permission denied' } }) as never }));
+    const repo = new SupabaseModelRepository(client as never, 'user-1');
+    await expect(repo.saveDailyRecord(makeRecord('2026-08-20'))).rejects.toThrow('permission denied');
+  });
+
+  it('deletes only the authenticated owner record for the date', async () => {
+    const { client, tables } = fakeClient();
+    tables.daily_records.push({ user_id: 'user-1', report_date: '2026-08-20' }, { user_id: 'other', report_date: '2026-08-20' });
+    await new SupabaseModelRepository(client as never, 'user-1').deleteDailyRecord('2026-08-20');
+    expect(tables.daily_records).toEqual([{ user_id: 'other', report_date: '2026-08-20' }]);
+  });
+
   it('create() returns null without a session', async () => {
     const { client } = fakeClient();
     (client.auth as { getSession: () => Promise<unknown> }).getSession = async () => ({ data: { session: null }, error: null });
-    expect(await SupabaseModelRepository.create.call({ client } as never)).toBeNull();
+    vi.spyOn(db, 'getSupabaseClient').mockResolvedValueOnce(client as never);
+    expect(await SupabaseModelRepository.create()).toBeNull();
+  });
+
+  it('does not switch to local after an explicit cloud session failure', async () => {
+    const { client } = fakeClient();
+    client.auth.getSession = async () => ({ data: null, error: { message: 'expired' } }) as never;
+    vi.spyOn(db, 'getSupabaseClient').mockResolvedValueOnce(client as never);
+    await expect(resolveRepository('supabase')).rejects.toThrow('expired');
   });
 
   it('upsert then load round-trips scenarios', async () => {
@@ -134,4 +210,8 @@ describe('resolveRepository', () => {
     const repo = await resolveRepository();
     expect(repo.kind).toBe('local');
   });
+  it('requires explicit configured cloud selection', async () => {
+    await expect(resolveRepository('supabase')).rejects.toThrow('requires configuration');
+  });
+
 });

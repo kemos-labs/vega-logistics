@@ -28,7 +28,7 @@ export interface SupabaseQueryClient {
 }
 
 export function isSupabaseConfigured(): boolean {
-  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+  return process.env.NEXT_PUBLIC_SYNC === 'supabase' && Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 }
 
 let client: SupabaseQueryClient | null = null;
