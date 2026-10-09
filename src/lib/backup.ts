@@ -46,6 +46,7 @@ import type { RecoveryEntry } from '@/lib/recoveryBoard';
 import type { Scenario } from '@/lib/scenarios';
 import { validateStopRecord, normalizeStopRecord, normalizeShortAddress, type StopRecord, type StopFieldError } from '@/lib/stops';
 import { checkShortAddressFormat } from '@/lib/compliance';
+import { emptyMaintenanceState, migrateMaintenanceState, validateMaintenanceState, mergeMaintenanceState, VEHICLE_MAINTENANCE_STORAGE_KEY, type MaintenanceState } from '@/lib/vehicleMaintenance';
 
 function validateStopRecordForBackup(candidate: Record<string, unknown>): StopFieldError[] {
   return validateStopRecord(candidate).errors.filter(e => e.field !== 'id');
@@ -55,7 +56,7 @@ function normalizeStopRecordForBackup(candidate: Record<string, unknown>): StopR
 }
 
 export const BACKUP_FORMAT = 'vega-logistics-backup' as const;
-export const BACKUP_VERSION = 3 as const;
+export const BACKUP_VERSION = 5 as const;
 
 /** Authoritative inventory of user-state localStorage keys (see header). */
 export const STORAGE_KEYS = {
@@ -66,6 +67,7 @@ export const STORAGE_KEYS = {
   followUpActions: 'vega-followup-actions-v1',
   stops: 'vega-stops-v1',
   language: 'language',
+  maintenanceState: VEHICLE_MAINTENANCE_STORAGE_KEY,
 } as const;
 
 /** Follow-up action row as persisted under `vega-followup-actions-v1`. */
@@ -79,6 +81,8 @@ export interface FollowUpAction {
 }
 
 export interface BackupData {
+  /** Absent in legacy v1-v3 backups; omission preserves existing maintenance. */
+  maintenanceState?: MaintenanceState;
   financialInput: FinancialInput;
   dailyRecords: Record<string, DailyRecord>;
   scenarios: Scenario[];
@@ -94,11 +98,14 @@ export interface BackupFileV2 {
   format: typeof BACKUP_FORMAT;
   version: typeof BACKUP_VERSION;
   exportedAt: string;
+  /** Parser provenance only: v4 omitted incidents and the new vehicle metadata. */
+  legacyMaintenanceScopeMissing?: true;
   data: BackupData;
 }
 
 /** The slice of live application state backups round-trip. */
 export interface StateBundle {
+  maintenanceState?: MaintenanceState;
   financialInput: FinancialInput;
   dailyRecords: Record<string, DailyRecord>;
   scenarios: Scenario[];
@@ -120,7 +127,7 @@ export type ParsedBackup =
   | {
       ok: true;
       file: BackupFileV2;
-      migratedFrom?: 1 | 2;
+      migratedFrom?: 1 | 2 | 3 | 4;
       warnings: string[];
       dropped: { days: number; scenarios: number; recoveryEntries: number; followUpActions: number; stops: number };
       /** false ⇒ destructive Replace must be disabled in the UI. */
@@ -515,7 +522,7 @@ export function buildBackup(
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    data: structuredClone({ ...bundle, language }),
+    data: structuredClone({ ...bundle, maintenanceState: bundle.maintenanceState ?? emptyMaintenanceState(), language }),
   };
 }
 
@@ -605,27 +612,44 @@ export function parseBackup(raw: string): ParsedBackup {
     };
   }
 
-  // ── v3 strict ──
-  if (parsed.format !== BACKUP_FORMAT || parsed.version !== BACKUP_VERSION) {
+  // v3 has stops but predates maintenance; preserve omitted scope on restore.
+  if (parsed.version === 3 && parsed.format === BACKUP_FORMAT) {
+    const legacy = parseV3ShapedData(parsed, warn, warnings);
+    if (!legacy.ok) return { ok: false, error: legacy.error };
+    return { ok: true, migratedFrom: 3, warnings: [...warnings, 'legacy-v3:no-maintenance-stored'],
+      dropped: legacy.dropped, lossless: false, legacyScopeMissing: true, contentLoss: legacy.contentLoss,
+      file: { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: normalizeIso(parsed.exportedAt) ?? '', data: legacy.data } };
+  }
+
+  // v4 predates incidents and vehicle metadata; it cannot authorize complete replacement.
+  const historicalV4 = parsed.format === BACKUP_FORMAT && parsed.version === 4;
+  // ── v5 strict ──
+  if (parsed.format !== BACKUP_FORMAT || (parsed.version !== BACKUP_VERSION && !historicalV4)) {
     return { ok: false, error: 'unsupported-format' };
   }
   if (!isRecord(parsed.data)) return { ok: false, error: 'data-container-invalid' };
 
+  const maintenanceState = historicalV4 && isRecord(parsed.data.maintenanceState) && parsed.data.maintenanceState.version === 1
+    ? migrateMaintenanceState(parsed.data.maintenanceState)
+    : validateMaintenanceState(parsed.data.maintenanceState) ? structuredClone(parsed.data.maintenanceState) : null;
+  if (!maintenanceState || (historicalV4 && (parsed.data.maintenanceState as Record<string, unknown>).version !== 1)) return { ok: false, error: 'maintenance-state-invalid' };
   const shaped = parseV3ShapedData(parsed, warn, warnings);
   if (!shaped.ok) return { ok: false, error: shaped.error };
 
   return {
     ok: true,
     warnings,
+    ...(historicalV4 ? { migratedFrom: 4 as const, legacyScopeMissing: true } : {}),
     dropped: shaped.dropped,
     // ANY warning means the file did not survive byte-perfect ⇒ lossy.
-    lossless: warnings.length === 0,
+    lossless: !historicalV4 && warnings.length === 0,
     contentLoss: warnings.length > 0,
     file: {
       format: BACKUP_FORMAT,
       version: BACKUP_VERSION,
+      ...(historicalV4 ? { legacyMaintenanceScopeMissing: true as const } : {}),
       exportedAt: normalizeIso(parsed.exportedAt) ?? '',
-      data: { ...shaped.data, ...(shaped.language ? { language: shaped.language } : {}) },
+      data: { ...shaped.data, maintenanceState, ...(shaped.language ? { language: shaped.language } : {}) },
     },
   };
 }
@@ -801,6 +825,7 @@ export function applyBackupMerge(current: StateBundle, file: BackupFileV2): { ne
     (a, b) => JSON.stringify(a) !== JSON.stringify(b),
   );
 
+  const maintenance = mergeMaintenanceState(current.maintenanceState ?? emptyMaintenanceState(), maintenanceIncomingForScope(current, file));
   const inputsIdentical = JSON.stringify(current.financialInput) === JSON.stringify(file.data.financialInput);
 
   return {
@@ -813,8 +838,9 @@ export function applyBackupMerge(current: StateBundle, file: BackupFileV2): { ne
         .map(({ id, ...rest }) => ({ ...rest, id: Number(id) }))
         .sort((a, b) => a.id - b.id),
       stops: stops.merged as StopRecord[],
+      maintenanceState: maintenance.state,
     },
-    stats: sum(days.stats, scenarios.stats, recovery.stats, actions.stats, stops.stats, {
+    stats: sum(days.stats, scenarios.stats, recovery.stats, actions.stats, stops.stats, maintenance.stats, {
       added: 0,
       updated: 0,
       conflicts: inputsIdentical ? 0 : 1,
@@ -823,8 +849,25 @@ export function applyBackupMerge(current: StateBundle, file: BackupFileV2): { ne
   };
 }
 
+/** Historical v4 did not express metadata removal. Preserve only that missing scope;
+ * current v5 rows retain normal whole-row newer-wins semantics, including deliberate clears. */
+function maintenanceIncomingForScope(current: StateBundle, file: BackupFileV2): MaintenanceState {
+  const incoming = structuredClone(file.data.maintenanceState ?? emptyMaintenanceState());
+  if (!file.legacyMaintenanceScopeMissing) return incoming;
+  const vehicles = new Map(current.maintenanceState?.vehicles.map(v => [v.id, v]));
+  incoming.vehicles = incoming.vehicles.map(vehicle => {
+    const old = vehicles.get(vehicle.id);
+    return { ...vehicle,
+      ...(old?.model !== undefined && vehicle.model === undefined ? { model: old.model } : {}),
+      ...(old?.city !== undefined && vehicle.city === undefined ? { city: old.city } : {}),
+      ...(old?.insuranceExpiryDate !== undefined && vehicle.insuranceExpiryDate === undefined ? { insuranceExpiryDate: old.insuranceExpiryDate } : {}),
+    };
+  });
+  return incoming;
+}
+
 /** Replace-mode application: wholesale adoption of the backup file. */
-export function replaceWithBackup(_current: StateBundle, file: BackupFileV2): StateBundle {
+export function replaceWithBackup(current: StateBundle, file: BackupFileV2): StateBundle {
   return structuredClone({
     financialInput: file.data.financialInput,
     dailyRecords: file.data.dailyRecords,
@@ -834,6 +877,10 @@ export function replaceWithBackup(_current: StateBundle, file: BackupFileV2): St
     // Legacy formats carry stops: [] — the UI's lossless gate prevents them
     // from ever reaching this path with current stops present.
     stops: file.data.stops ?? [],
+    // Scoped legacy restore cannot erase incident history or its linked vehicles.
+    maintenanceState: file.legacyMaintenanceScopeMissing
+      ? mergeMaintenanceState(current.maintenanceState ?? emptyMaintenanceState(), maintenanceIncomingForScope(current, file)).state
+      : file.data.maintenanceState ?? current.maintenanceState ?? emptyMaintenanceState(),
   });
 }
 
@@ -950,6 +997,7 @@ export function applyLegacyScopedRestore(current: StateBundle, file: BackupFileV
     scenarios: structuredClone(file.data.scenarios),
     recoveryEntries: current.recoveryEntries,
     followUpActions: current.followUpActions,
+    maintenanceState: current.maintenanceState ?? emptyMaintenanceState(),
     stops: current.stops ?? [], // collections absent from legacy formats are never replaced by them
   };
   const incomingDays = Object.keys(next.dailyRecords).length;

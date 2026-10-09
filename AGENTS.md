@@ -16,10 +16,10 @@ These rules are durable; session status lives in `SESSION_MEMORY.md`, roadmap in
 New sessions read, in order: **this file** → `SESSION_MEMORY.md` (exact state, last cycles, handoff list) → `docs/MASTER_PLAN.md` (release roadmap R0–R8) → `docs/DATA_MODEL.md` (storage shapes). Then run the full gate suite (see "The proven working loop") BEFORE changing anything, and continue from the resume point below.
 
 **Resume point (this block is updated in every shipped commit):**
-- HEAD `b6bcc10` — deployed this stretch: remote Logestechs landing/feed commits (`1da1110`/`03a8c88`/`434e346`), route handoff, Excel import, opt-in OSRM adapter, geographic split proposal, depot/return Maps links, and merged Logestechs lint fix. GitHub Pages deployment succeeded; current working tree must remain clean after docs updates.
-- **Awaiting owner live acceptance:** R2 stop planning · R3 morning dispatch · R4 evening close · R5 compliance-lite · driver/pre-close slice · R6 analytics · R7 Phase 1. They are coded + tested + deployed but NOT marked shipped in MASTER_PLAN until the owner accepts them live.
-- **Next release:** R7 Phase 2 (self-hosted OSRM — needs approval + coordinate coverage) per MASTER_PLAN §5-R7, then R8 optional sync.
-- Open blockers: none. Known limitations live in SESSION_MEMORY.
+- Latest verified predecessor: `58b3a9e` (security hardening). The 9 October source-maintenance/cash release and live receipt are tracked in `SESSION_MEMORY.md` and `/data/Nemow Logistics/work/maintenance-expansion-2026-10-09/`.
+- **Awaiting owner acceptance:** broader R2–R7 daily operations plus native maintenance. Passing software/Pages gates does not imply owner acceptance or food suitability.
+- **Current continuation:** native six-category maintenance + history, MaintenanceState v2 / backup v5. Original live data and employee suite remain unmigrated. Read `docs/SOURCE_APP_TAB_COVERAGE.md` for the remaining sequence.
+- Optional sync is last (R8); external writes, telemetry and unattended operation require their documented contracts.
 
 ## The proven working loop (operationalizes R1)
 This exact shape has produced only green deploys since adoption:
@@ -38,7 +38,7 @@ This exact shape has produced only green deploys since adoption:
 - Test mock spies: type via vitest generics `vi.fn<(...callArgs: unknown[]) => Result>(() => ({…}))` — keeps spread-forwarding call sites type-safe AND lint-clean (unused rest params fail lint).
 - `toMatchObject` distinguishes absent-key vs `undefined` value; assert optional absence with `.toBeUndefined()`.
 - UI tests have no global setup: rendering `BusinessModelApp` pulls in `@/lib/i18n` → English strings; rendering components directly relies on `defaultValue` fallbacks. Always `localStorage.clear(); cleanup()` in `beforeEach`.
-- Locale parity: flatten both trees and compare key counts (currently 1247↔1247) before every push.
+- Locale parity: flatten both trees and compare key counts (currently 1485↔1485) before every push.
 - One CI vitest flake occurred (`9a601bb` run) — unhandled errors never reproduced locally; identical tree passed minutes later. Re-run the workflow before suspecting the tree.
 
 ## R1 — Truth gates before every push

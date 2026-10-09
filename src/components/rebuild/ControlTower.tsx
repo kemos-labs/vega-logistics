@@ -16,14 +16,14 @@ export function ControlTowerView({ snapshot, onGoto }: { snapshot: ControlTowerS
   // Workflow step indicator: where is the operator in today's cycle?
   const stepDone = (step: number) => {
     if (step === 1) return wf.stopsPlanned > 0;
-    if (step === 2) return wf.stopsAssigned > 0;
-    if (step === 3) return wf.closeStatus === 'draft' || wf.closeStatus === 'reconciled';
+    if (step === 2) return wf.stopsPlanned > 0 && wf.stopsAssigned === wf.stopsPlanned;
+    if (step === 3) return wf.closeStatus === 'reconciled';
     return false;
   };
   const stepCurrent = () => {
     if (wf.stopsPlanned === 0) return 1;
     if (wf.stopsAssigned < wf.stopsPlanned) return 2;
-    if (wf.closeStatus === 'open' || wf.closeStatus === 'no-stops') return 3;
+    if (wf.closeStatus !== 'reconciled') return 3;
     return 4; // all done
   };
   const currentStep = stepCurrent();
@@ -73,7 +73,7 @@ export function ControlTowerView({ snapshot, onGoto }: { snapshot: ControlTowerS
         </ul>
       )}
       {snapshot.actions.length === 0 && (
-        <p className="bm-import-note" data-testid="tower-clear">{t(S + 'allClear')}</p>
+        <p className="bm-import-note" data-testid="tower-clear">{t(S + 'noRecordedActions')}</p>
       )}
 
       {/* Yesterday row */}
@@ -92,7 +92,9 @@ export function ControlTowerView({ snapshot, onGoto }: { snapshot: ControlTowerS
       <dl className="bm-tower-grid" data-testid="tower-strip">
         <div>
           <dt>{t(S + 'codOutstanding')}</dt>
-          <dd data-testid="tower-cod">{fmt(snapshot.codOutstandingSar)} <small>SAR</small></dd>
+          <dd data-testid="tower-cod">{snapshot.codOutstandingSar === null
+            ? t(S + 'cashUnknown') : <>{fmt(snapshot.codOutstandingSar)} <small>SAR</small></>}</dd>
+          {snapshot.codMissingDates.length > 0 && <p className="bm-import-note">{t(S + 'cashCoverage', { count: snapshot.codMissingDates.length })}</p>}
         </div>
         <div>
           <dt>{t(S + 'recoveryOpen')}</dt>
@@ -111,7 +113,7 @@ export function ControlTowerView({ snapshot, onGoto }: { snapshot: ControlTowerS
             {currentStep === 1 ? t('businessModel.nav.workflow.plan') : currentStep === 2 ? t('businessModel.nav.workflow.dispatch') : t('businessModel.nav.workflow.close')}
           </button>
         )}
-        {currentStep === 4 && <p className="bm-import-note" data-testid="tower-clear">{t(S + 'allClear')}</p>}
+        {currentStep === 4 && <p className="bm-import-note" data-testid="tower-report-ready">{t(S + 'todayReconciled')}</p>}
         <button onClick={() => onGoto('recovery')}>{t(S + 'goRecovery')}</button>
       </div>
     </section>

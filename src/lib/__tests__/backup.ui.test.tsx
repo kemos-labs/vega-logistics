@@ -61,6 +61,7 @@ let lastSpies: ReturnType<typeof createSpies> | undefined;
 function createSpies() {
   return {
       setStops: vi.fn(),
+    setMaintenanceState: vi.fn(),
     setDailyRecords: vi.fn(),
     setScenarios: vi.fn(),
     setRecoveryEntries: vi.fn(),
@@ -79,6 +80,8 @@ function renderView(current: StateBundle, language = 'en') {
     <ScenarioView
       stops={current.stops ?? []}
       setStops={spies.setStops}
+      maintenanceState={current.maintenanceState}
+      setMaintenanceState={spies.setMaintenanceState}
       input={current.financialInput}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       output={{} as any}
@@ -137,7 +140,7 @@ describe('exported file language (contract E-1)', () => {
     const text = await created[0].text();
     const parsedFile = JSON.parse(text) as { format: string; version: number; data: { language?: string } };
     expect(parsedFile.format).toBe('vega-logistics-backup');
-    expect(parsedFile.version).toBe(3); // v3 envelope since the stops upgrade
+    expect(parsedFile.version).toBe(5); // v5 carries incidents and vehicle details
     expect(parsedFile.data.language).toBe('ar'); // active language captured in the export
   });
 });
@@ -402,5 +405,23 @@ describe('snapshot-read failure aborts restore in the UI (contract F4)', () => {
     } finally {
       Storage.prototype.getItem = originalGetItem;
     }
+  });
+});
+
+describe('maintenance v4 scope in the real restore UI', () => {
+  it('disables full Replace and preserves incidents when an older maintenance backup is merged', async () => {
+    const maintenance = { version: 2 as const, vehicles: [{id:'v',carNumber:'N1',plate:'',availability:'workshop' as const,updatedAt:T0}], records: [], incidents: [{id:'incident',vehicleId:'v',type:'breakdown' as const,date:'2026-08-20',description:'Open case',estimatedCostSar:null,status:'open' as const,updatedAt:T0}] };
+    const current = bundle({maintenanceState:maintenance});
+    const {spies} = renderView(current);
+    const base = buildBackup(bundle());
+    const historical = {...base,version:4,data:{...base.data,maintenanceState:{version:1,vehicles:[],records:[]}}};
+    chooseFile(new File([JSON.stringify(historical)],'v4.json',{type:'application/json'}));
+    await expectPreview();
+    expect((screen.getByTestId('import-replace') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByTestId('import-warning')).toBeNull();
+    fireEvent.click(screen.getByTestId('import-merge'));
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.maintenanceState)!);
+    expect(saved.incidents).toEqual(maintenance.incidents); expect(saved.vehicles).toEqual(maintenance.vehicles);
+    expect(spies.setMaintenanceState).toHaveBeenCalledWith(saved);
   });
 });

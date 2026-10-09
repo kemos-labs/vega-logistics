@@ -265,7 +265,7 @@ describe('R4-C — identity, KPI truth, strict validation', () => {
     const customers = bcp(records, { providers: [] } as never);
     expect(customers.find(row => row.name === 'ghost')).toBeUndefined();
     const tower = buildControlTowerSnapshot({ records, recoveryEntries: [], plannedShipmentsPerDay: 10, nowMs: Date.parse('2026-08-23T12:00:00Z'), backup: null });
-    expect(tower.codOutstandingSar).toBe(0); // draft's 999 collected invisible
+    expect(tower.codOutstandingSar).toBeNull(); // draft excluded; remaining cash coverage is incomplete
     expect(tower.actions.some(a => a.id === 'draft-close')).toBe(true); // tower PROMPTS to finish drafts
   });
 

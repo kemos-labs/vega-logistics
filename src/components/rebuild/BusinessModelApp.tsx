@@ -1,5 +1,8 @@
 'use client';
 
+import { VehicleMaintenanceView, useVehicleMaintenance } from '@/components/rebuild/VehicleMaintenanceView';
+import type { MaintenanceState } from '@/lib/vehicleMaintenance';
+import { summarizeCashEvidence } from '@/lib/cashEvidence';
 import * as React from 'react';
 import { useMemo, useRef, useState , useEffect} from 'react';
 import { ClipboardCheck, Route, MapPin, LayoutDashboard, AlertTriangle, BadgeCheck, BarChart3, Building2, CalendarDays, Check, CircleDollarSign, ClipboardList, Download, FileText, Languages, Layers, Menu, Plus, PlugZap, RotateCcw, Search, Settings2, Trash2, Truck, Upload, X } from 'lucide-react';
@@ -30,8 +33,8 @@ import LogestechsView from '@/components/rebuild/LogestechsView';
 import { resolveTelematicsProvider } from '@/lib/platform/telematics';
 import { buildNemowBuckets, nemowCodCoverage, type NemowBucketKey } from '@/lib/nemowDashboard';
 
-type View = 'tower' | 'stops' | 'dispatch' | 'close' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios' | 'compliance' | 'logestechs';
-import { applyBackupMerge, applyLegacyScopedRestore, buildBackup, commitBundle, parseBackup, replaceWithBackup, STORAGE_KEYS, type BackupFileV2, type FollowUpAction, type PersistResult } from '@/lib/backup';
+type View = 'maintenance' | 'tower' | 'stops' | 'dispatch' | 'close' | 'summary' | 'drivers' | 'fleet' | 'customers' | 'costs' | 'daily' | 'risks' | 'recovery' | 'actions' | 'scenarios' | 'compliance' | 'logestechs';
+import { applyBackupMerge, applyLegacyScopedRestore, buildBackup, commitBundle, parseBackup, replaceWithBackup, BACKUP_VERSION, STORAGE_KEYS, type BackupFileV2, type FollowUpAction, type PersistResult } from '@/lib/backup';
 import { BACKUP_REMINDER_DAYS, BACKUP_REMINDER_KEY, dismissForToday, evaluateBackupReminder, isDismissedToday, markBackedUpNow } from '@/lib/backupReminder';
 import { applyPreviewToRecord, parseProviderMessage, reconcile, type ParseResult, type ProviderPreview } from '@/lib/providerMessageParser';
 import { createScenario, type Scenario } from '@/lib/scenarios';
@@ -63,6 +66,7 @@ export default function BusinessModelApp() {
   const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
   const { financialInput: input, financialOutput: output, updateFinancialInput, applyFinancialInput, setVehicleClasses, setProviders, setDrivers, addVehicleClass, addProvider } = useSimulatedData();
   const [view, setView] = useState<View>('summary');
+  const maintenance = useVehicleMaintenance();
   const [operationDate, setOperationDate] = useState(() => toDateString(new Date()));
   useEffect(() => {
     (window as unknown as Record<string, unknown>).__setOperationDate = setOperationDate;
@@ -116,7 +120,7 @@ export default function BusinessModelApp() {
   // Meaningful data = any real records OR a model tuned away from defaults —
   // both represent work a backup protects.
   const modelModified = useMemo(() => JSON.stringify(input) !== JSON.stringify(defaultFinancialInput), [input]);
-  const hasMeaningfulData = Object.keys(dailyRecords).length > 0 || scenarios.length > 0 || recoveryEntries.length > 0 || modelModified;
+  const hasMeaningfulData = Object.keys(dailyRecords).length > 0 || scenarios.length > 0 || recoveryEntries.length > 0 || modelModified || maintenance.state.vehicles.length > 0 || maintenance.state.records.length > 0;
   const backupReminder = useMemo(() => evaluateBackupReminder(reminderNowMs, lastBackupAt, hasMeaningfulData), [reminderNowMs, lastBackupAt, hasMeaningfulData]);
   const bannerDismissed = useMemo(() => isDismissedToday(reminderNowMs), [reminderNowMs]);
   const todayStops = useMemo(() => stops.filter(s => s.operationDate === operationDate), [stops, operationDate]);
@@ -154,6 +158,7 @@ export default function BusinessModelApp() {
   const MORE_NAV = [
     { id: 'recovery' as const, label: t('businessModel.nav.recovery'), icon: RotateCcw },
     { id: 'compliance' as const, label: t('businessModel.nav.compliance'), icon: BadgeCheck },
+    { id: 'maintenance' as const, label: t('businessModel.maintenanceWorkspace.nav'), icon: Truck },
     { id: 'fleet' as const, label: t('businessModel.nav.fleet'), icon: Truck },
     { id: 'customers' as const, label: t('businessModel.nav.customers'), icon: Building2 },
     { id: 'logestechs' as const, label: t('businessModel.nav.logestechs', { defaultValue: 'LogesTechs live' }), icon: PlugZap },
@@ -284,7 +289,7 @@ export default function BusinessModelApp() {
     </aside>
 
     <div className="bm-shell">
-      <header className="bm-top"><button className="bm-menu" aria-label={t('businessModel.a11y.openNavigation')} onClick={() => setMobileNav(true)}><Menu size={19} /></button><div><strong>{NAV.find(item => item.id === view)?.label}</strong><span>{view === 'tower' || view === 'stops' || view === 'dispatch' || view === 'close' || view === 'daily' || view === 'summary' || view === 'compliance' ? t('businessModel.header.subtitleDaily', {defaultValue: 'Daily operations — recorded truth'}) : view === 'fleet' || view === 'customers' || view === 'costs' || view === 'scenarios' ? t('businessModel.header.subtitlePlanning', {defaultValue: 'Planning assumptions — not recorded'}) : t('businessModel.header.subtitle')}</span></div><div className="bm-search"><Search size={14}/><input aria-label={t('businessModel.search.placeholder')} placeholder={t('businessModel.search.placeholder')} value={search} onChange={event=>setSearch(event.target.value)}/>{search&&<div className="bm-search-results">{NAV.filter(item=>item.label.toLowerCase().includes(search.toLowerCase())).map(item=><button key={item.id} onClick={()=>{selectView(item.id);setSearch('');}}>{item.label}</button>)}{input.drivers.filter(driver=>driver.fullName.toLowerCase().includes(search.toLowerCase())).map(driver=><button key={driver.id} onClick={()=>{selectView('fleet');setSearch('');}}>{t('businessModel.search.driverResult',{name:driver.fullName})}</button>)}{input.providers.filter(provider=>provider.name.toLowerCase().includes(search.toLowerCase())).map(provider=><button key={provider.id} onClick={()=>{selectView('customers');setSearch('');}}>{t('businessModel.search.customerResult',{name:provider.name})}</button>)}</div>}</div><button className="bm-lang" onClick={switchLanguage} aria-label={lng === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}><Languages size={14}/>{lng === 'ar' ? 'English' : 'العربية'}</button><div className="bm-status"><i /> {t('businessModel.status.localModel')}</div></header>
+      <header className="bm-top"><button className="bm-menu" aria-label={t('businessModel.a11y.openNavigation')} onClick={() => setMobileNav(true)}><Menu size={19} /></button><div><strong>{NAV.find(item => item.id === view)?.label}</strong><span>{view === 'tower' || view === 'stops' || view === 'dispatch' || view === 'close' || view === 'daily' || view === 'summary' || view === 'maintenance' || view === 'compliance' ? t('businessModel.header.subtitleDaily', {defaultValue: 'Daily operations — recorded truth'}) : view === 'fleet' || view === 'customers' || view === 'costs' || view === 'scenarios' ? t('businessModel.header.subtitlePlanning', {defaultValue: 'Planning assumptions — not recorded'}) : t('businessModel.header.subtitle')}</span></div><div className="bm-search"><Search size={14}/><input aria-label={t('businessModel.search.placeholder')} placeholder={t('businessModel.search.placeholder')} value={search} onChange={event=>setSearch(event.target.value)}/>{search&&<div className="bm-search-results">{NAV.filter(item=>item.label.toLowerCase().includes(search.toLowerCase())).map(item=><button key={item.id} onClick={()=>{selectView(item.id);setSearch('');}}>{item.label}</button>)}{input.drivers.filter(driver=>driver.fullName.toLowerCase().includes(search.toLowerCase())).map(driver=><button key={driver.id} onClick={()=>{selectView('fleet');setSearch('');}}>{t('businessModel.search.driverResult',{name:driver.fullName})}</button>)}{input.providers.filter(provider=>provider.name.toLowerCase().includes(search.toLowerCase())).map(provider=><button key={provider.id} onClick={()=>{selectView('customers');setSearch('');}}>{t('businessModel.search.customerResult',{name:provider.name})}</button>)}</div>}</div><button className="bm-lang" onClick={switchLanguage} aria-label={lng === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}><Languages size={14}/>{lng === 'ar' ? 'English' : 'العربية'}</button><div className="bm-status"><i /> {t('businessModel.status.localModel')}</div></header>
         {hydrated && backupReminder.visible && !bannerDismissed && (
           <BackupBanner
             reason={backupReminder.reason}
@@ -305,7 +310,8 @@ export default function BusinessModelApp() {
         )}
         {view === 'tower' && <ControlTowerView snapshot={towerSnapshot} onGoto={(target) => selectView(target)} />}
         {view === 'summary' && <CoreSummary output={output} input={input} fleetCount={fleetCount} driverGap={driverGap} contribution={contribution} risks={risks} onNavigate={selectView} dailyRecords={dailyRecords} stops={stops} operationDate={operationDate} onOperationDateChange={setOperationDate} nemow={nemowPull} onNemowPull={setNemowPull} />}
-        {view === 'fleet' && <Page title={t('businessModel.fleet.title')} description={t('businessModel.fleet.newDesc')}><div className="bm-roster"><div className="bm-roster-head"><h2>{t('businessModel.fleet.rosterTitle')}</h2><span>{t('businessModel.fleet.rosterCount',{count:input.drivers.length})}</span></div><EditableTable columns={[t('businessModel.fleet.colDriverName'),t('businessModel.fleet.colPhone'),t('businessModel.fleet.colAssignedVehicle'),t('businessModel.fleet.colCarNumber'),t('businessModel.fleet.colPlateNumber'),t('businessModel.fleet.colStatus'),'']}>
+        {view === 'maintenance' && <VehicleMaintenanceView state={maintenance.state} commit={maintenance.commit} error={maintenance.error} loaded={maintenance.loaded} />}
+        {view === 'fleet' && <Page title={t('businessModel.fleet.title')} description={t('businessModel.fleet.newDesc')}><button onClick={() => selectView('maintenance')}>{t('businessModel.maintenanceWorkspace.openWorkspace')}</button><div className="bm-roster"><div className="bm-roster-head"><h2>{t('businessModel.fleet.rosterTitle')}</h2><span>{t('businessModel.fleet.rosterCount',{count:input.drivers.length})}</span></div><EditableTable columns={[t('businessModel.fleet.colDriverName'),t('businessModel.fleet.colPhone'),t('businessModel.fleet.colAssignedVehicle'),t('businessModel.fleet.colCarNumber'),t('businessModel.fleet.colPlateNumber'),t('businessModel.fleet.colStatus'),'']}>
 {input.drivers.map(driver => <div className="bm-table-row bm-driver-row" key={driver.id}><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colDriverName')}`} value={driver.fullName} onChange={value => changeDriver(driver.id,{fullName:value})} /><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colPhone')}`} value={driver.phone} onChange={value => changeDriver(driver.id,{phone:value})} /><input aria-label={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colAssignedVehicle')}`} list="bm-vehicle-names" value={driver.assignedVehicle} onChange={event => changeDriver(driver.id,{assignedVehicle:event.target.value})} /><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colCarNumber')}`} value={driver.carNumber ?? ''} onChange={value => changeDriver(driver.id,{carNumber:value})} /><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colPlateNumber')}`} value={driver.plateNumber ?? ''} onChange={value => changeDriver(driver.id,{plateNumber:value})} /><select aria-label={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colStatus')}`} value={driver.status} onChange={event => changeDriver(driver.id,{status:event.target.value as DriverRecord['status']})}><option value="active">{t('businessModel.common.active')}</option><option value="inactive">{t('businessModel.common.inactive')}</option></select>{driverConfirmId === driver.id ? (
                   <span className="bm-delete-confirm" data-testid={`confirm-remove-${driver.id}`}>
                     <span>{t('businessModel.fleet.confirmRemove', {defaultValue:'Remove?'})}</span>
@@ -325,7 +331,7 @@ export default function BusinessModelApp() {
         {view === 'daily' && <ReportsView operationDate={operationDate} onOperationDateChange={setOperationDate} stops={stops} dailyRecords={dailyRecords} onGotoClose={() => selectView('close')} />}
         {view === 'compliance' && <Page title={t('businessModel.compliance.title')} description={t('businessModel.compliance.desc')}><ComplianceLiteView /></Page>}
         {view === 'risks' && <Page title={t('businessModel.risks.title')} description={t('businessModel.risks.desc')}><div className="bm-risk-table"><div className="bm-risk-head"><span>{t('businessModel.risks.thStatus')}</span><span>{t('businessModel.risks.thRisk')}</span><span>{t('businessModel.risks.thValue')}</span><span>{t('businessModel.risks.thReason')}</span></div>{risks.map(risk => <div className="bm-risk-row" key={risk.titleKey}><span className={risk.level === 'controlled' ? 'ok' : 'bad'}>{levelLabel[risk.level]}</span><strong>{t(`businessModel.risks.${risk.titleKey}`)}</strong><span>{risk.value}</span><p>{risk.detail}</p></div>)}</div></Page>}
-        {view === 'scenarios' && <ScenarioView input={input} output={output} scenarios={scenarios} setScenarios={setScenarios} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} actions={actions} setActions={setActions} stops={stops} setStops={setStops} applyFinancialInput={applyFinancialInput} onBackedUp={() => { const iso = new Date().toISOString(); markBackedUpNow(); setLastBackupAt(iso); bumpReminderClock(); }} />}
+        {view === 'scenarios' && <ScenarioView input={input} output={output} scenarios={scenarios} setScenarios={setScenarios} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} actions={actions} setActions={setActions} stops={stops} setStops={setStops} maintenanceState={maintenance.state} setMaintenanceState={maintenance.acceptRestored} maintenanceError={maintenance.error} applyFinancialInput={applyFinancialInput} onBackedUp={() => { const iso = new Date().toISOString(); markBackedUpNow(); setLastBackupAt(iso); bumpReminderClock(); }} />}
         {view === 'recovery' && <Page title={t('businessModel.recovery.recovery')} description={t('businessModel.recovery.recoveryDesc')}><RecoveryBoard entries={recoveryEntries} setEntries={setRecoveryEntries} /></Page>}
         {view === 'actions' && <Page title={t('businessModel.actionsPage.title')} description={t('businessModel.actionsPage.desc')}><div className="bm-actions">{actions.map(action => <div className={action.done ? 'done' : ''} key={action.id}><button aria-label={action.done ? action.text : action.text} onClick={() => setActions(rows => rows.map(row => row.id === action.id ? {...row,done:!row.done,updatedAt:new Date().toISOString()}:row))}>{action.done ? <Check size={15}/> : null}</button><span><strong>{action.text}</strong><small>{action.owner}</small></span></div>)}</div></Page>}
       </main>
@@ -362,9 +368,10 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
   const aggDel = windowRecords.reduce((a,r)=>a+(r.completedShipments||0),0);
   const aggFailed = windowRecords.reduce((a,r)=>a+(r.failedShipments||0),0);
   const completion = aggDel+aggFailed>0 ? (aggDel/(aggDel+aggFailed)*100).toFixed(1) : '—';
-  const codCollected = windowRecords.reduce((a,r)=>a+(r.cashCollectedSar||0),0);
-  const codRemitted = windowRecords.reduce((a,r)=>a+(r.cashRemittedSar||0),0);
-  const codOutstanding = Math.max(0, codCollected - codRemitted);
+  const cash = summarizeCashEvidence(windowRecords);
+  const cashText = (value: number | null) => value === null
+    ? t('businessModel.report.cashUnknown') : `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value)} SAR`;
+
   const hasRecordForSelected = definitive.some(r => r.date === operationDate);
   const selectedRecord = definitive.find(r => r.date === operationDate);
   const selectedRecordedDelivered = selectedRecord?.completedShipments ?? 0;
@@ -503,8 +510,8 @@ function CoreSummary({ output,input,fleetCount,driverGap,contribution,risks,onNa
             <div><dt>{t('businessModel.summary.recordedReturned', { defaultValue: 'Failed+Returned (selected)' })}</dt><dd>{sumReturned}</dd></div>
             <div><dt>{t('businessModel.summary.recordedPending', { defaultValue: 'Pending (selected)' })}</dt><dd>{selectedRecord ? selectedRecordedFailed : sumPending}</dd></div>
             <div><dt>{t('businessModel.summary.recordedCompletion', { defaultValue: 'Completion (all recorded)' })}</dt><dd>{completion}%</dd></div>
-            <div><dt>{t('businessModel.summary.recordedCodCollected', { defaultValue: 'COD collected' })}</dt><dd>{codCollected} SAR</dd></div>
-            <div><dt>{t('businessModel.summary.recordedCodOutstanding', { defaultValue: 'Outstanding' })}</dt><dd>{codOutstanding} SAR</dd></div>
+            <div><dt>{t('businessModel.summary.recordedCodCollected', { defaultValue: 'COD collected' })}</dt><dd>{cashText(cash.collectedSar)}</dd></div>
+            <div><dt>{t('businessModel.summary.recordedCodOutstanding', { defaultValue: 'Outstanding' })}</dt><dd>{cashText(cash.outstandingSar)}</dd></div>
           </dl>
 
         </div>
@@ -818,7 +825,7 @@ export function BackupBanner({ reason, days, onCta, onDismiss }: { reason: 'neve
   );
 }
 
-export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDailyRecords,recoveryEntries,setRecoveryEntries,actions,setActions,stops,setStops,applyFinancialInput,onBackedUp}:{input:FinancialInput;output:ReturnType<typeof useSimulatedData>['financialOutput'];scenarios:Scenario[];setScenarios:(value:Scenario[]|((prev:Scenario[])=>Scenario[]))=>void;dailyRecords:Record<string,DailyRecord>;setDailyRecords:(value:Record<string,DailyRecord>|((prev:Record<string,DailyRecord>)=>Record<string,DailyRecord>))=>void;recoveryEntries:RecoveryEntry[];setRecoveryEntries:(value:RecoveryEntry[]|((prev:RecoveryEntry[])=>RecoveryEntry[]))=>void;actions:FollowUpAction[];setActions:(value:FollowUpAction[]|((prev:FollowUpAction[])=>FollowUpAction[]))=>void;stops:StopRecord[];setStops:(value:StopRecord[]|((prev:StopRecord[])=>StopRecord[]))=>void;applyFinancialInput:(next:FinancialInput)=>void;onBackedUp:()=>void}) {
+export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDailyRecords,recoveryEntries,setRecoveryEntries,actions,setActions,stops,setStops,maintenanceState,setMaintenanceState,maintenanceError,applyFinancialInput,onBackedUp}:{input:FinancialInput;output:ReturnType<typeof useSimulatedData>['financialOutput'];scenarios:Scenario[];setScenarios:(value:Scenario[]|((prev:Scenario[])=>Scenario[]))=>void;dailyRecords:Record<string,DailyRecord>;setDailyRecords:(value:Record<string,DailyRecord>|((prev:Record<string,DailyRecord>)=>Record<string,DailyRecord>))=>void;recoveryEntries:RecoveryEntry[];setRecoveryEntries:(value:RecoveryEntry[]|((prev:RecoveryEntry[])=>RecoveryEntry[]))=>void;actions:FollowUpAction[];setActions:(value:FollowUpAction[]|((prev:FollowUpAction[])=>FollowUpAction[]))=>void;stops:StopRecord[];setStops:(value:StopRecord[]|((prev:StopRecord[])=>StopRecord[]))=>void;maintenanceState?:MaintenanceState;setMaintenanceState?:(value:MaintenanceState)=>void;maintenanceError?:string;applyFinancialInput:(next:FinancialInput)=>void;onBackedUp:()=>void}) {
   const { t, i18n } = useTranslation();
   const locale = localeOf(i18n.language);
   const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
@@ -829,19 +836,20 @@ export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,s
   const save=()=>{ setScenarios(prev=>[...prev, createScenario(name,input,prev)]); setName(''); setMessage(t(S+'savedMessage')); };
   const load=(scenario:Scenario)=>{ applyFinancialInput(structuredClone(scenario.input)); setMessage(t(S+'loadedMessage',{name:scenario.name})); };
   const remove=(id:string)=>setScenarios(prev=>prev.filter(s=>s.id!==id));
-  const [pendingImport,setPendingImport]=useState<{file:BackupFileV2;migratedFrom?:1|2;warnings:string[];lossless:boolean;contentLoss?:boolean}|null>(null);
-  const bundle=useMemo(()=>({financialInput:input,dailyRecords,scenarios,recoveryEntries,followUpActions:actions,stops}),[input,dailyRecords,scenarios,recoveryEntries,actions,stops]);
+  const [pendingImport,setPendingImport]=useState<{file:BackupFileV2;migratedFrom?:1|2|3|4;warnings:string[];lossless:boolean;contentLoss?:boolean}|null>(null);
+  const bundle=useMemo(()=>({financialInput:input,dailyRecords,scenarios,recoveryEntries,followUpActions:actions,stops,maintenanceState}),[input,dailyRecords,scenarios,recoveryEntries,actions,stops,maintenanceState]);
   const previewStats=useMemo(()=>{
     if(!pendingImport) return null;
     return applyBackupMerge(bundle,pendingImport.file).stats;
   },[pendingImport,bundle]);
   const activeLanguage = i18n.language === 'ar' ? 'ar' : 'en';
   const downloadBackup=()=>{
+    if (maintenanceError) { setMessage(t('businessModel.maintenanceWorkspace.' + maintenanceError)); return; }
     const backup=buildBackup(bundle,activeLanguage);
     const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const anchor=document.createElement('a');
-    anchor.href=url; anchor.download=`vega-backup-v3-${toDateString(new Date())}.json`;
+    anchor.href=url; anchor.download=`vega-backup-v${BACKUP_VERSION}-${toDateString(new Date())}.json`;
     document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
     onBackedUp(); // reminder metadata written here only — never inside backup files
     setMessage(t(S+'backupDownloaded'));
@@ -867,13 +875,15 @@ export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,s
     setDailyRecords(next.dailyRecords); setScenarios(next.scenarios);
     setRecoveryEntries(next.recoveryEntries); setActions(next.followUpActions);
     if (next.stops) setStops(next.stops);
+    if (next.maintenanceState) setMaintenanceState?.(next.maintenanceState);
   };
   const switchLanguageIfAny=(lang?:string)=>{ if(lang){ void i18n.changeLanguage(lang); window.dispatchEvent(new CustomEvent('vega:set-language',{detail:lang})); } };
   const doMerge=()=>{
+    if (maintenanceError) { setMessage(t('businessModel.maintenanceWorkspace.' + maintenanceError)); return; }
     if(!pendingImport) return;
     const {next}=applyBackupMerge(bundle,pendingImport.file);
-    // merge keeps current model inputs AND current language — only the five data keys are written
-    const result=commitBundle({financialInput:next.financialInput,dailyRecords:next.dailyRecords,scenarios:next.scenarios,recoveryEntries:next.recoveryEntries,followUpActions:next.followUpActions,stops:next.stops},undefined,{keys:['financialInput','dailyRecords','scenarios','recoveryEntries','followUpActions','stops']});
+    // Merge retains model inputs and language; recorded collections persist transactionally.
+    const result=commitBundle({financialInput:next.financialInput,dailyRecords:next.dailyRecords,scenarios:next.scenarios,recoveryEntries:next.recoveryEntries,followUpActions:next.followUpActions,stops:next.stops,maintenanceState:next.maintenanceState},undefined,{keys:['financialInput','dailyRecords','scenarios','recoveryEntries','followUpActions','stops','maintenanceState']});
     if(!result.persistedOk){ finishOk(result,''); return; }
     applyState(next);
     finishOk(result,t(S+'mergeDoneMessage'));
@@ -917,21 +927,26 @@ export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,s
     </section>
     <section className="bm-panel bm-export-card" id="bm-backup-card" tabIndex={-1}><div><span>{t(S+'backupTag')}</span><h2>{t(S+'backupHead')}</h2><p>{t(S+'backupDesc')}</p></div>
       <div><button onClick={downloadBackup}><Download size={15}/> {t(S+'downloadBackup')}</button><button onClick={()=>fileRef.current?.click()}><Upload size={15}/> {t(S+'importBackup')}</button><input ref={fileRef} type="file" accept="application/json,.json" style={{display:'none'}} aria-label={t(S+'importFileAria')} onChange={event=>{const file=event.target.files?.[0]; if(file) void importBackup(file); event.target.value='';}} /></div>
+      {maintenanceError && <p role="alert">{t('businessModel.maintenanceWorkspace.' + maintenanceError)}</p>}
       {pendingImport&&<div className="bm-import-preview" data-testid="import-preview">
         <h3>{t(S+'previewHead')}</h3>
         {pendingImport.migratedFrom===1&&<p className="bm-import-note" data-testid="legacy-note">{t(S+'legacyNote')}</p>}
         {pendingImport.migratedFrom===1&&pendingImport.contentLoss&&<p className="bm-import-warning" data-testid="corrupt-legacy-warning">{t(S+'corruptLegacyWarning')}</p>}
-        {!pendingImport.lossless&&<p className="bm-import-warning" data-testid="import-warning">{t(S+'droppedWarning')}</p>}
+        {(pendingImport.file.legacyMaintenanceScopeMissing || (pendingImport.migratedFrom && !pendingImport.file.data.maintenanceState)) && <p className="bm-import-note">{t('businessModel.maintenanceWorkspace.legacyBackup')}</p>}
+        {!pendingImport.lossless && (![3,4].includes(pendingImport.migratedFrom ?? 0) || pendingImport.contentLoss) &&<p className="bm-import-warning" data-testid="import-warning">{t(S+'droppedWarning')}</p>}
         <dl className="bm-import-counts">
           <div><dt>{t(S+'countDays')}</dt><dd>{Object.keys(pendingImport.file.data.dailyRecords).length}</dd></div>
           <div><dt>{t(S+'countScenarios')}</dt><dd>{pendingImport.file.data.scenarios.length}</dd></div>
           <div><dt>{t(S+'countRecovery')}</dt><dd>{pendingImport.file.data.recoveryEntries.length}</dd></div>
           <div><dt>{t(S+'countActions')}</dt><dd>{pendingImport.file.data.followUpActions.length}</dd></div>
+          <div><dt>{t('businessModel.maintenanceWorkspace.vehicles')}</dt><dd>{pendingImport.file.data.maintenanceState?.vehicles.length ?? '—'}</dd></div>
+          <div><dt>{t('businessModel.maintenanceWorkspace.history')}</dt><dd>{pendingImport.file.data.maintenanceState?.records.length ?? '—'}</dd></div>
+          <div><dt>{t('businessModel.maintenanceWorkspace.incidentHistory')}</dt><dd>{pendingImport.file.data.maintenanceState?.incidents.length ?? '—'}</dd></div>
         </dl>
         <p className="bm-import-note">{t(S+'keptInputsNote')}</p>
         <div className="bm-import-choices">
-          <button className="bm-primary" data-testid="import-merge" onClick={doMerge}>{t(S+'mergeBtn')}</button>
-          <button data-testid="import-replace" onClick={doReplace} disabled={!pendingImport.lossless} title={!pendingImport.lossless?t(S+'droppedWarning'):undefined}>{t(S+'replaceBtn')}</button>
+          <button className="bm-primary" data-testid="import-merge" onClick={doMerge} disabled={!!maintenanceError}>{t(S+'mergeBtn')}</button>
+          <button data-testid="import-replace" onClick={doReplace} disabled={!pendingImport.lossless} title={!pendingImport.lossless ? ([3,4].includes(pendingImport.migratedFrom ?? 0) && !pendingImport.contentLoss ? t('businessModel.maintenanceWorkspace.legacyBackup') : t(S+'droppedWarning')) : undefined}>{t(S+'replaceBtn')}</button>
           {pendingImport.migratedFrom===1&&<button data-testid="import-legacy" onClick={doLegacyScope} disabled={!!pendingImport.contentLoss}>{t(S+'legacyScopeBtn')}</button>}
           <button data-testid="import-cancel" onClick={()=>{setPendingImport(null);setMessage('');}}>{t(S+'cancelBtn')}</button>
         </div>

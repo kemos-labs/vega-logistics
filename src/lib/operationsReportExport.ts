@@ -3,6 +3,7 @@
 // Typed pure builder + ExcelJS writer, existing dependency only.
 
 import type { DailyRecord } from '@/lib/operationsReporting';
+import { summarizeCashEvidence } from '@/lib/cashEvidence';
 import type { StopRecord } from '@/lib/stops';
 
 export interface OperationalRun {
@@ -21,11 +22,11 @@ export interface OperationalCompanyRow {
   returned: number;
   pending: number;
   codExpected: number;
-  collected: number;
-  remitted: number;
-  outstanding: number;
-  uncollected: number;
-  overRemitted: number;
+  collected: number | null;
+  remitted: number | null;
+  outstanding: number | null;
+  uncollected: number | null;
+  overRemitted: number | null;
   podGaps: number;
 }
 
@@ -44,11 +45,13 @@ export function buildOperationalWorkbookData(params: {
   const returned = stops.filter(s => s.status === 'returned').length;
   const pending = stops.filter(s => s.status === 'pending' || s.status === 'planned' || s.status === 'failed').length;
   const codExpected = stops.filter(s => s.status === 'delivered').reduce((sum, s) => sum + (s.codAmountSar ?? 0), 0);
-  const collected = record.cashCollectedSar ?? 0;
-  const remitted = record.cashRemittedSar ?? 0;
-  const outstanding = Math.max(0, collected - remitted);
-  const uncollected = Math.max(0, codExpected - collected);
-  const overRemitted = Math.max(0, remitted - collected);
+  const cash = summarizeCashEvidence([record]);
+  const collected = cash.collectedSar;
+  const remitted = cash.remittedSar;
+  const outstanding = cash.outstandingSar;
+  const uncollected = collected === null ? null : Math.max(0, codExpected - collected);
+  const overRemitted = collected === null || remitted === null ? null : Math.max(0, remitted - collected);
+
   const podGaps = stops.filter(s => s.status === 'delivered' && s.podStatus !== 'complete').length;
   const status = record.closeStatus === 'reconciled' ? 'reconciled' : !record.closeStatus ? 'legacy' : 'draft';
 
@@ -143,9 +146,11 @@ export async function exportOperationalExcel(params: {
   wb.creator = 'VEGA Logistics OS';
   const labels = getOperationalExcelLabels(lang);
 
+  const cashCell = (value: number | null) => value === null ? (lang === 'ar' ? 'غير معروف (بيانات النقد غير مكتملة)' : 'Unknown (missing cash evidence)') : value;
+
   const ws1 = wb.addWorksheet(labels.sheets.company);
   ws1.addRow(labels.headers.company);
-  ws1.addRow([data.company.date, labels.status(data.company.status), data.company.stops, data.company.delivered, data.company.returned, data.company.pending, data.company.codExpected, data.company.collected, data.company.remitted, data.company.outstanding, data.company.uncollected, data.company.overRemitted, data.company.podGaps]);
+  ws1.addRow([data.company.date, labels.status(data.company.status), data.company.stops, data.company.delivered, data.company.returned, data.company.pending, data.company.codExpected, cashCell(data.company.collected), cashCell(data.company.remitted), cashCell(data.company.outstanding), cashCell(data.company.uncollected), cashCell(data.company.overRemitted), data.company.podGaps]);
   ws1.getRow(1).font = { bold: true };
 
   const ws2 = wb.addWorksheet(labels.sheets.runs);

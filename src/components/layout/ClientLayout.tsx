@@ -45,7 +45,8 @@ export default function ClientLayout({
         suppressHydrationWarning
         style={{ direction: lang === 'ar' ? 'rtl' : 'ltr', visibility: mounted ? 'visible' : 'hidden' }}
       >
-        {children}
+        {/* Browser storage and locale formatting must first render after hydration. */}
+        {mounted ? children : null}
       </div>
     </I18nextProvider>
   );

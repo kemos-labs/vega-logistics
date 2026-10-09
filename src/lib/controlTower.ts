@@ -9,6 +9,7 @@
 // labelled planned; missing days are "no data", never zero-filled.
 
 import { isDefinitiveDailyRecord, toDateString, type DailyRecord } from '@/lib/operationsReporting';
+import { summarizeCashEvidence } from '@/lib/cashEvidence';
 import { RECOVERY_TARGETS, type RecoveryEntry } from '@/lib/recoveryBoard';
 import type { BackupReminderState } from '@/lib/backupReminder';
 
@@ -40,7 +41,9 @@ export interface ControlTowerWorkflow {
 
 export interface ControlTowerSnapshot {
   yesterday: TowerYesterday | null;
-  codOutstandingSar: number;
+  codOutstandingSar: number | null;
+  /** Definitive days lacking a known collection or remittance amount. */
+  codMissingDates: string[];
   podGapDates: string[];
   recoveryOpen: number;
   recoveryOverdue: number;
@@ -89,14 +92,11 @@ export function buildControlTowerSnapshot(inputSpec: ControlTowerInput): Control
     };
   }
 
-  // ── COD outstanding across ALL recorded days. Raw balance nets globally
-  // (remittances pay down older cash); displayed outstanding clamps at zero —
-  // over-remittance credit representation arrives in R4.
-  let codBalanceRaw = 0;
-  for (const record of Object.values(records)) {
-    codBalanceRaw += Math.max(0, Number(record.cashCollectedSar) || 0) - Math.max(0, Number(record.cashRemittedSar) || 0);
-  }
-  const codOutstandingSar = Math.max(0, codBalanceRaw);
+  // Cash balances require both recorded collection and remittance amounts.
+  // Missing evidence cannot be substituted with zero or netted against known days.
+  const cashEvidence = summarizeCashEvidence(Object.values(records));
+  const codMissingDates = cashEvidence.missingDates;
+  const codOutstandingSar = cashEvidence.outstandingSar;
 
   // ── POD gaps (partial/none), most recent first, cap 7 shown upstream
   const podGapDates = Object.values(records)
@@ -119,7 +119,10 @@ export function buildControlTowerSnapshot(inputSpec: ControlTowerInput): Control
   if (backup?.visible) {
     actions.push({ id: 'backup-stale', severity: 'high', labelKey: 'backupStale', params: {} });
   }
-  if (codOutstandingSar > 0) {
+  if (codMissingDates.length > 0) {
+    actions.push({ id: 'cod-evidence', severity: 'high', labelKey: 'codEvidence', params: { count: codMissingDates.length } });
+  }
+  if (codOutstandingSar !== null && codOutstandingSar > 0) {
     actions.push({ id: 'cod-outstanding', severity: 'high', labelKey: 'codOutstanding', params: { amount: codOutstandingSar } });
   }
   if (yesterday && yesterday.failed > 0) {
@@ -140,7 +143,7 @@ export function buildControlTowerSnapshot(inputSpec: ControlTowerInput): Control
   // displaced by insertion-order luck.
   // draft-close is prompt-only (navigation polish lands with R5-UX); its
   // position here is INTENTIONAL — last medium action, never accidental.
-  const PRIORITY = ['recovery-overdue', 'backup-stale', 'cod-outstanding', 'failed-yesterday', 'pod-gaps', 'record-yesterday', 'draft-close'] as const;
+  const PRIORITY = ['recovery-overdue', 'backup-stale', 'cod-evidence', 'cod-outstanding', 'failed-yesterday', 'pod-gaps', 'record-yesterday', 'draft-close'] as const;
   const rank = (a: TowerAction): number => (a.severity === 'high' ? 0 : 1) * 100 + PRIORITY.indexOf(a.id as typeof PRIORITY[number]);
   const sortedActions = [...actions].sort((a, b) => rank(a) - rank(b)).slice(0, 3);
 
@@ -157,6 +160,7 @@ export function buildControlTowerSnapshot(inputSpec: ControlTowerInput): Control
   return {
     yesterday,
     codOutstandingSar,
+    codMissingDates,
     podGapDates,
     recoveryOpen: openEntries.length,
     recoveryOverdue,

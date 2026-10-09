@@ -1,5 +1,7 @@
 'use client';
 
+import { summarizeCashEvidence } from '@/lib/cashEvidence';
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileText, Globe, Printer, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +12,7 @@ import {
   fmtPercent,
   fmtReportDate,
   fmtSar,
+  fmtCashSar,
   type InsightKey,
   type NarrativeKey,
   type ReportModel,
@@ -47,7 +50,8 @@ const NARRATIVE_KEY_TO_LOCALE: Record<NarrativeKey, string> = {
   extrasLine: 'narrativeExtrasLine',
   visitsLine: 'narrativeVisitsLine',
   recoveredLine: 'narrativeRecoveredLine',
-  paymentsLine: 'narrativePaymentsLine',
+  paymentsLine: 'paymentsLine',
+  paymentsUnknownLine: 'paymentsUnknownLine',
 };
 
 export function buildReportLabels(t: (key: string) => string): ReportLabels {
@@ -210,6 +214,7 @@ export default function ProReport({ model, onClose }: { model: ReportModel; onCl
 
   const { totals, series, metrics, monthly, insights } = model;
   const locale = lng === 'both' ? 'en' : lng;
+  const focusCash = summarizeCashEvidence([model.record]);
   const num = (value: number) => fmtInt(locale, value);
   const donutRadius = 46, donutCircumference = 2 * Math.PI * donutRadius;
   const donutFraction = totals.attempts > 0 ? totals.delivered / totals.attempts : 0;
@@ -430,8 +435,8 @@ export default function ProReport({ model, onClose }: { model: ReportModel; onCl
                   {model.codRemittanceLag.map(point => (
                     <tr key={point.date} data-testid={`cod-lag-row-${point.date}`}>
                       <th scope="row">{point.label}</th>
-                      <td>{fmtSar(locale, point.collected)}</td>
-                      <td>{fmtSar(locale, point.remitted)}</td>
+                      <td>{fmtCashSar(locale, point.collected)}</td>
+                      <td>{fmtCashSar(locale, point.remitted)}</td>
                       <td className={point.lagDays > 1 ? 'bad' : 'good'}>{point.lagDays}</td>
                     </tr>
                   ))}
@@ -582,8 +587,8 @@ export default function ProReport({ model, onClose }: { model: ReportModel; onCl
             <div><dt>{bi('businessModel.report.safetyIncidents')}</dt><dd className={(model.record.safetyIncidents ?? 0) > 0 ? 'text-bad' : ''}>{num(model.record.safetyIncidents ?? 0)}</dd></div>
             <div><dt>{bi('businessModel.report.costPerStop')}</dt><dd>{fmtSar(locale, metrics.allocatedCost / Math.max(1, model.record.completedShipments))}</dd></div>
             <div><dt>{bi('businessModel.report.codShipments')}</dt><dd>{num(model.record.codShipments ?? 0)} <small>({locale === 'ar' ? 'نقدي' : 'COD'})</small></dd></div>
-            <div><dt>{bi('businessModel.report.cashCollected')}</dt><dd>{fmtSar(locale, model.record.cashCollectedSar ?? 0)}</dd></div>
-            {model.totals.cashOutstandingSar !== 0 && <div><dt>{bi('businessModel.report.cashOutstanding')}</dt><dd className={model.totals.cashOutstandingSar > 0 ? 'text-bad' : ''}>{fmtSar(locale, model.totals.cashOutstandingSar)}</dd></div>}
+            <div><dt>{bi('businessModel.report.cashCollected')} <small>({bi('businessModel.report.focusDay')})</small></dt><dd>{fmtCashSar(locale, focusCash.collectedSar)}</dd></div>
+            <div><dt>{bi('businessModel.report.cashOutstanding')} <small>({bi('businessModel.report.windowTotals')})</small></dt><dd className={model.totals.cashOutstandingSar !== null && model.totals.cashOutstandingSar > 0 ? 'text-bad' : ''}>{fmtCashSar(locale, model.totals.cashOutstandingSar)}</dd></div>
             {(model.record.extraCosts ?? 0) > 0 && <div><dt>{bi('businessModel.report.extraCosts')}</dt><dd>{fmtSar(locale, model.record.extraCosts ?? 0)}</dd></div>}
             {totals.podTrackedDays > 0 && <div><dt>{bi('businessModel.report.podLine')}</dt><dd className={totals.podIncompleteDays > 0 ? 'text-bad' : ''}>{t('businessModel.report.podShareLine', { lng: lng === 'both' ? 'en' : lng, complete: totals.podTrackedDays - totals.podIncompleteDays, tracked: totals.podTrackedDays })}{lng === 'both' && <> · {t('businessModel.report.podShareLine', { lng: 'ar', complete: totals.podTrackedDays - totals.podIncompleteDays, tracked: totals.podTrackedDays })}</>}</dd></div>}
           </dl>

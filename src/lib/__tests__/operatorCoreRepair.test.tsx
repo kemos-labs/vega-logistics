@@ -114,6 +114,15 @@ describe('operator-core repair', () => {
     expect(screen.getByTestId(`reports-pod-${saraKey}`).textContent).toContain('0');
   });
 
+  it('legacy report cash remains unknown until both amounts exist', () => {
+    const record: DailyRecord = { date: '2026-08-24', completedShipments: 1, failedShipments: 0, fuelCost: 0, driversPresent: 1, notes: '', updatedAt: '' };
+    const { rerender } = render(<ReportsView operationDate="2026-08-24" onOperationDateChange={() => {}} stops={[]} dailyRecords={{ '2026-08-24': record }} onGotoClose={() => {}} />);
+    expect(screen.getByTestId('reports-outstanding').textContent).toContain('Unknown');
+    expect(screen.queryByTestId('reports-uncollected')).toBeNull();
+    rerender(<ReportsView operationDate="2026-08-24" onOperationDateChange={() => {}} stops={[]} dailyRecords={{ '2026-08-24': { ...record, cashCollectedSar: 0, cashRemittedSar: 0 } }} onGotoClose={() => {}} />);
+    expect(screen.getByTestId('reports-outstanding').textContent).toBe('0 SAR');
+  });
+
   it('reports print is disabled for draft and mounts correct portal for reconciled', async () => {
     const stops: StopRecord[] = [
       { id: '1', operationDate: '2026-08-24', customerName: 'C', stopLabel: 'S1', status: 'planned', driverName: 'Ahmed', carNumber: 'A', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as unknown as StopRecord,

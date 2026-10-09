@@ -269,3 +269,15 @@ describe('R6 — recorded-data-only provenance', () => {
     expect(buildFailurePareto(Object.values(records))[0]).toMatchObject({ count: 2 });
   });
 });
+
+
+describe('COD lag cash evidence', () => {
+  it('keeps the dated lag but exposes missing/invalid amounts as unknown', () => {
+    const points = buildCodRemittanceLag({
+      '2026-08-10': record('2026-08-10', { cashCollectedSar: NaN, codRemittedOn: '2026-08-12' }),
+      '2026-08-11': record('2026-08-11', { cashCollectedSar: 0, cashRemittedSar: 0, codRemittedOn: '2026-08-11' }),
+    });
+    expect(points[0]).toMatchObject({ lagDays: 2, collected: null, remitted: null });
+    expect(points[1]).toMatchObject({ lagDays: 0, collected: 0, remitted: 0 });
+  });
+});

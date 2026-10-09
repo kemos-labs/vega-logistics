@@ -154,6 +154,7 @@ describe('report engine — formatters', () => {
     expect(fmtInt('ar', 12345)).toBe('12,345');
     expect(fmtSar('en', 49140)).toContain('49,140');
     expect(fmtSar('ar', 17.5, 1)).toContain('17.5');
+    expect(fmtSar('ar', 100)).toBe('100\u00a0SAR');
   });
 });
 
@@ -312,7 +313,7 @@ describe('report engine — payment split', () => {
     const model = buildReportModel({ kind: 'pro', locale: 'en', record: records[dates[1]], records, input, output, focusDate: FOCUS, windowDays: 3 });
     expect(model.totals.codShipments).toBe(90);
     expect(model.totals.prepaidShipments).toBe(110);
-    expect(model.totals.cashCollectedSar).toBe(500);
+    expect(model.totals.cashCollectedSar).toBeNull();
   });
 });
 
@@ -321,7 +322,7 @@ describe('report engine — COD remittance', () => {
     const dates = windowDates(3);
     const records = {
       [dates[0]]: record(dates[0], 10, 0, { codShipments: 50, cashCollectedSar: 800, cashRemittedSar: 800 }),
-      [dates[1]]: record(dates[1], 10, 0, { codShipments: 40, cashCollectedSar: 600 }),
+      [dates[1]]: record(dates[1], 10, 0, { codShipments: 40, cashCollectedSar: 600, cashRemittedSar: 0 }),
       [dates[2]]: record(dates[2], 10, 0, { codShipments: 30, cashCollectedSar: 450, cashRemittedSar: 300 }),
     };
     const model = buildReportModel({ kind: 'pro', locale: 'en', record: records[dates[2]], records, input, output, focusDate: FOCUS, windowDays: 3 });
@@ -465,3 +466,29 @@ function recordWith(date: string, completedShipments: number, failedShipments = 
     ...extra,
   };
 }
+
+
+describe('cash evidence coverage in reports', () => {
+  const modelFor = (records: Record<string, DailyRecord>) => buildReportModel({ kind: 'pro', locale: 'en', record: Object.values(records).at(-1) ?? record(FOCUS_ISO, 0), records, input, output, focusDate: FOCUS, windowDays: 7 });
+  it('no definitive days are unknown, not zero', () => {
+    expect(modelFor({}).totals).toMatchObject({ cashCollectedSar: null, cashOutstandingSar: null });
+  });
+  it('remittance gaps leave collection known but outstanding unknown', () => {
+    const rec = record(FOCUS_ISO, 10, 0, { cashCollectedSar: 500 });
+    expect(modelFor({ [FOCUS_ISO]: rec }).totals).toMatchObject({ cashCollectedSar: 500, cashOutstandingSar: null });
+  });
+  it.each([undefined, NaN, Infinity, -1])('invalid collection %s makes both aggregates unknown', value => {
+    const rec = record(FOCUS_ISO, 10, 0, { cashCollectedSar: value, cashRemittedSar: 0 });
+    expect(modelFor({ [FOCUS_ISO]: rec }).totals).toMatchObject({ cashCollectedSar: null, cashOutstandingSar: null });
+  });
+  it('known zeros remain known and draft cash gaps are ignored', () => {
+    const rec = record(FOCUS_ISO, 10, 0, { cashCollectedSar: 0, cashRemittedSar: 0 });
+    const draft = record('2026-08-13', 5, 0, { closeStatus: 'draft' });
+    expect(modelFor({ [FOCUS_ISO]: rec, [draft.date]: draft }).totals).toMatchObject({ cashCollectedSar: 0, cashOutstandingSar: 0 });
+  });
+  it('payment narrative explicitly omits an invented collection amount', () => {
+    const facts = buildNarrativeFacts({ totals: fullTotalsShared({ codShipments: 2, cashCollectedSar: null }), metrics: { plannedShipments: dailyPlan }, fuelAmount: 0, expectedFuel: 0, driversPresent: 1, driversTotal: 1 });
+    expect(facts.find(f => f.key === 'paymentsUnknownLine')).toEqual({ key: 'paymentsUnknownLine', params: { cash: 2, prepaid: 0 } });
+    expect(facts.some(f => f.key === 'paymentsLine')).toBe(false);
+  });
+});

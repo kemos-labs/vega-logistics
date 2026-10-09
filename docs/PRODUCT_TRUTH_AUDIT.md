@@ -1,4 +1,16 @@
 # VEGA Product Truth Audit
+
+## Current bounded review — 8 October 2026
+
+This addendum supersedes the older capability-status wording below for the areas inspected in this continuation. The August 23 sections remain historical evidence, not a current readiness certificate.
+
+- `/data/Nemow Logistics/vega-logistics/src/lib/controlTower.ts` and `/data/Nemow Logistics/vega-logistics/src/components/rebuild/ControlTower.tsx` implement the daily workflow view. Missing collection/remittance amounts now produce an unknown cash balance and a follow-up action. Draft closes remain unfinished; today's reconciliation does not mean historical issues are cleared.
+- `/data/Nemow Logistics/vega-logistics/src/lib/nemowPull.ts` uses canonical aliases and integration-source tokens, including per-row delivered-by fallback. Exported expected COD is not evidence of collection or remittance.
+- `/data/Nemow Logistics/vega-logistics/src/lib/eveningClose.ts` implements reviewed stop outcomes and close invariants. `/data/Nemow Logistics/vega-logistics/src/lib/operationsReporting.ts` supplies analytics; stop planning, dispatch, compliance-lite and route-lite code is present, rather than absent as several historical rows below say. Owner acceptance remains open; code presence and test passes are different from an accepted live workflow.
+- Other cash rollups/exports still need the same missing-evidence review. This increment repairs the Control Tower, not every financial surface.
+- No food category, product-specific temperature evidence, sanitation record or excursion workflow was added. The sourced gap analysis is `/data/Nemow Logistics/vega-logistics/docs/FOOD_AND_PARCEL_READINESS.md`.
+- Baseline gates passed with 502 Vitest tests before edits. Final evidence is recorded outside the app at `/data/Nemow Logistics/work/vega-operations-2026-10-08/IMPLEMENTATION_STATUS.md`. This increment is local and has not been deployed.
+
 **Date:** 2026-08-23 · **Method:** full repository read (src/, docs/, workflows, tests) against running app · **Rule:** nothing here is taken from a document's own claim of "done"; every row traces to code that was opened and read during this audit.
 
 ---
@@ -109,3 +121,7 @@ Explicitly deferred (requires business scale + budget justification before any b
 | Live tracking / realtime anything | Not built — banned wording until it exists |
 
 **Unsupported claims removed by this audit:** none remained in shipped UI copy; spec documents relabelled (§6). Banned vocabulary henceforth: "production ready", "compliant", "live tracking", "AI-powered", "real-time", "ZATCA compliant", "verified National Address" — outside evidence-backed contexts.
+
+## Cash/report continuation — 2026-10-09
+
+The earlier cash-rollup gap is addressed for daily/Pro and operational report surfaces using a shared nullable evidence selector. A report balance requires complete numeric collection/remittance coverage across its stated scope. This does not prove receipts, collection events or bank settlement. Two historical Packages exports were compared with the canonical Python reader: counts, outcome buckets, expected COD amounts/coverage and date ranges match after integration-test exclusion. This bounded comparison does not certify every import variant or food-handling readiness. Current local verification is recorded at `/data/Nemow Logistics/work/vega-cash-2026-10-08/IMPLEMENTATION_STATUS.md`; no deployment is claimed.

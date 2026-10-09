@@ -1,3 +1,4 @@
+import { isKnownCashAmount } from '@/lib/cashEvidence';
 import type { FinancialInput, FinancialOutput } from '@/lib/types';
 
 /** Structured miss accounting — feeds the miss-analysis chart and "what we
@@ -225,8 +226,8 @@ export interface CodRemittanceLagPoint {
   label: string;
   /** Days between operation date and remittance date (0 if same day). */
   lagDays: number;
-  collected: number;
-  remitted: number;
+  collected: number | null;
+  remitted: number | null;
 }
 
 /** Per-day remittance lag: days between operation date and the date cash was
@@ -239,7 +240,7 @@ export function buildCodRemittanceLag(records: Record<string, DailyRecord>): Cod
       const operationDay = new Date(`${record.date}T12:00:00`).getTime();
       const remitDay = new Date(`${record.codRemittedOn!}T12:00:00`).getTime();
       const lagDays = Math.max(0, Math.round((remitDay - operationDay) / 86_400_000));
-      return { date: record.date, label: record.date.slice(5), lagDays, collected: record.cashCollectedSar ?? 0, remitted: record.cashRemittedSar ?? 0 };
+      return { date: record.date, label: record.date.slice(5), lagDays, collected: isKnownCashAmount(record.cashCollectedSar) ? record.cashCollectedSar : null, remitted: isKnownCashAmount(record.cashRemittedSar) ? record.cashRemittedSar : null };
     })
     .sort((a, b) => a.date.localeCompare(b.date));
 }

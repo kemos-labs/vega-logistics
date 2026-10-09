@@ -67,6 +67,7 @@ const action = (id: number, done = false, updatedAt?: string): FollowUpAction =>
 
 function fullBundle(): StateBundle {
   return {
+    maintenanceState: { version: 2, incidents: [], vehicles: [], records: [] },
     stops: [],
     financialInput: structuredClone(defaultFinancialInput),
     dailyRecords: {
@@ -772,5 +773,85 @@ describe('backup v3 — stops', () => {
     const text = JSON.stringify(buildBackup(bundleWith([stop()])));
     expect(text.includes('vega-last-backup-at')).toBe(false);
     expect(text.includes('backup-banner-dismissed')).toBe(false);
+  });
+});
+
+describe('v5 maintenance backup durability', () => {
+  const maintenance = () => ({ version: 2 as const, incidents: [], vehicles: [{ id: 'car', carNumber: '7', plate: '', availability: 'available' as const, updatedAt: T1 }], records: [{ id: 'service', vehicleId: 'car', kind: 'oil' as const, date: '2026-08-21', description: '', costSar: null, updatedAt: T1 }] });
+  it('migrates v4 state1 with scoped restoration and blocks full Replace', () => {
+    const oldMaintenance = maintenance();
+    const { incidents: omitted, ...legacy } = oldMaintenance; void omitted;
+    const file = buildBackup(fullBundle());
+    const v4 = { ...file, version: 4, data: { ...file.data, maintenanceState: { ...legacy, version: 1 } } };
+    const parsed = parseBackup(JSON.stringify(v4));
+    expect(parsed.ok).toBe(true); if (!parsed.ok) return;
+    expect(parsed.migratedFrom).toBe(4); expect(parsed.lossless).toBe(false); expect(parsed.legacyScopeMissing).toBe(true); expect(parsed.contentLoss).toBe(false);
+    expect(parsed.file.data.maintenanceState).toEqual(oldMaintenance);
+    expect(replaceWithBackup(fullBundle(), parsed.file).maintenanceState).toEqual(oldMaintenance);
+    const emptyV4 = { ...v4, data: { ...v4.data, maintenanceState: { version: 1, vehicles: [], records: [] } } };
+    const emptyParsed = parseBackup(JSON.stringify(emptyV4)); expect(emptyParsed.ok).toBe(true);
+    if (emptyParsed.ok) expect(replaceWithBackup({ ...fullBundle(), maintenanceState: oldMaintenance }, emptyParsed.file).maintenanceState).toEqual(oldMaintenance);
+    expect(parseBackup(JSON.stringify({ ...v4, version: 5 })).ok).toBe(false);
+    expect(parseBackup(JSON.stringify({ ...v4, data: { ...v4.data, maintenanceState: { ...legacy, version: 1, records: [{ ...legacy.records[0], vehicleId: 'orphan' }] } } })).ok).toBe(false);
+  });
+  it('preserves incidents and optional metadata for both nonempty and empty v4 scope, while v5 can clear', () => {
+    const local = maintenance();
+    const current = { ...fullBundle(), maintenanceState: { ...local,
+      vehicles: [{ ...local.vehicles[0], model: 'Van', city: 'Riyadh', insuranceExpiryDate: '2026-12-31' }],
+      incidents: [{ id: 'incident', vehicleId: 'car', type: 'accident' as const, date: '2026-08-21', description: 'Damage', estimatedCostSar: null, status: 'open' as const, updatedAt: T1 }] } };
+    for (const empty of [false, true]) {
+      const v4 = { ...buildBackup(fullBundle()), version: 4, data: { ...buildBackup(fullBundle()).data,
+        maintenanceState: { version: 1, vehicles: empty ? [] : [{ ...local.vehicles[0], updatedAt: T2 }], records: empty ? [] : local.records } } };
+      const parsed = parseBackup(JSON.stringify(v4)); expect(parsed.ok).toBe(true); if (!parsed.ok) continue;
+      for (const restored of [applyBackupMerge(current, parsed.file).next, replaceWithBackup(current, parsed.file)]) {
+        expect(restored.maintenanceState?.incidents).toEqual(current.maintenanceState.incidents);
+        expect(restored.maintenanceState?.vehicles[0]).toMatchObject({ model: 'Van', city: 'Riyadh', insuranceExpiryDate: '2026-12-31' });
+      }
+    }
+    const incoming = maintenance(); incoming.vehicles[0].updatedAt = T2;
+    expect(applyBackupMerge(current, buildBackup({ ...fullBundle(), maintenanceState: incoming })).next.maintenanceState?.vehicles[0].insuranceExpiryDate).toBeUndefined();
+    expect(replaceWithBackup(current, buildBackup(fullBundle())).maintenanceState).toEqual({ version: 2, vehicles: [], records: [], incidents: [] });
+  });
+  it('roundtrips maintenance and rejects missing or malformed v5 state', () => {
+    const bundle = { ...fullBundle(), maintenanceState: maintenance() };
+    const file = buildBackup(bundle);
+    expect(file.version).toBe(5);
+    const parsed = parseBackup(JSON.stringify(file));
+    expect(parsed.ok && parsed.file.data.maintenanceState).toEqual(bundle.maintenanceState);
+    delete file.data.maintenanceState;
+    expect(parseBackup(JSON.stringify(file)).ok).toBe(false);
+    expect(parseBackup(JSON.stringify({ ...file, data: { ...file.data, maintenanceState: {} } })).ok).toBe(false);
+  });
+  it('v2/v3 legacy scope preserves existing maintenance on merge and replacement', () => {
+    const current = { ...fullBundle(), maintenanceState: maintenance() };
+    for (const version of [2, 3]) {
+      const file = buildBackup(fullBundle()); delete file.data.maintenanceState;
+      const parsed = parseBackup(JSON.stringify({ ...file, version }));
+      expect(parsed.ok).toBe(true); if (!parsed.ok) continue;
+      expect(parsed.migratedFrom).toBe(version); expect(parsed.lossless).toBe(false);
+      expect(applyBackupMerge(current, parsed.file).next.maintenanceState).toEqual(current.maintenanceState);
+      expect(replaceWithBackup(current, parsed.file).maintenanceState).toEqual(current.maintenanceState);
+    }
+    expect(replaceWithBackup(current, buildBackup(fullBundle())).maintenanceState?.vehicles).toEqual([]);
+  });
+  it('newer service wins merge and transactional persistence includes maintenance', () => {
+    const current = { ...fullBundle(), maintenanceState: maintenance() };
+    const incoming = structuredClone(current); incoming.maintenanceState.records[0].updatedAt = T2;
+    const merged = applyBackupMerge(current, buildBackup(incoming));
+    expect(merged.next.maintenanceState?.records[0].updatedAt).toBe(T2);
+    const storage = memoryStorage();
+    expect(commitBundle(current, undefined, { storage }).persistedOk).toBe(true);
+    expect(JSON.parse(storage.getItem(STORAGE_KEYS.maintenanceState)!)).toEqual(current.maintenanceState);
+    const before = storage.dump();
+    const originalSet = storage.setItem;
+    let failOnce = true;
+    storage.setItem = (key, value) => {
+      if (key === STORAGE_KEYS.maintenanceState && failOnce) { failOnce = false; throw new Error('quota'); }
+      originalSet(key, value);
+    };
+    const result = commitBundle(incoming, 'ar', { storage });
+    expect(result.persistedOk).toBe(false); expect(result.rollbackOk).toBe(true);
+    expect(result.failedKeys).toEqual([STORAGE_KEYS.maintenanceState]);
+    expect(storage.dump()).toEqual(before);
   });
 });

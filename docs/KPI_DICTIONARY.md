@@ -31,8 +31,8 @@ Legend: **R** = recorded data only · **D** = derived from model inputs + record
 **COD expected** — R/D — `codShipments × avgCodValuePerShipment` when per-stop values absent (Release R4 adds optional explicit COD amounts per record).
 **COD collected** — R — `cashCollectedSar`.
 **COD remitted** — R — `cashRemittedSar`.
-**Outstanding cash** — R — `Σ collected − Σ remitted` over window.
-**Remittance lag** — R — days between collection date and matching remittance (per-day approximation until R4 introduces remittance events; lag = weighted average age of unremitted collections). Threshold [INT]: ≤2 working days.
+**Control Tower outstanding cash** — R — `max(0, Σ collected − Σ remitted)` across definitive recorded days, only when every included day has finite nonnegative collection AND remittance amounts. No records or any missing/invalid cash field means unknown; known zero remains zero. `codMissingDates` reports missing coverage. Drafts are excluded. The shared cash evidence selector applies to Control Tower, the 14-day summary, operational reports/print/Excel, report totals, Pro previews/PDFs and daily PDF/Excel cash fields. Collection and remittance totals have independent coverage: a known collection can coexist with unknown remittance and unknown balance. Pro report labels distinguish focus-day collection from window balance. This is numeric evidence coverage, not receipt verification.
+**Remittance lag** — R — days between collection date and matching remittance (per-day approximation from operation date to `codRemittedOn`; per-event matching is not implemented). Threshold [INT]: ≤2 working days.
 
 ## Reliability vocabulary (aligned to industry usage; VEGA counts are local)
 

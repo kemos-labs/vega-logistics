@@ -11,6 +11,7 @@
 | `vega-recovery-board-v1` | RecoveryEntry[] | yes | user data |
 | `vega-followup-actions-v1` | FollowUpAction[] | yes | user data |
 | `vega-stops-v1` | StopRecord[] | yes | user data (R2) |
+| `vega-vehicle-maintenance-v1` | MaintenanceState v2 (vehicles, services, incidents) | yes — backup v5 | operational identifiers / notes |
 | `language` | raw `'en'`\|`'ar'` (never JSON-stringified) | yes | preference |
 | `vega-last-backup-at-v1` | raw ISO timestamp | **NO — device metadata** (restoring old backups must not suppress reminders) | device metadata |
 | `vega-backup-banner-dismissed:<YYYY-MM-DD>` | `'1'` | no — day-scoped dismissal | device metadata |
@@ -84,3 +85,21 @@ Every schema change ships in one commit with: version bump of the affected envel
 ## 6. Privacy classification summary
 
 Names/phones/addresses/plates = personal data under PDPL once collected (KSA_COMPLIANCE_MATRIX item 8). Defaults: collect minimum; label optional fields; exports remain local files (no third-party transfer); any future sync must document residency + transfer basis before enabling.
+
+## Derived Control Tower cash state — 8 October 2026
+
+`ControlTowerSnapshot.codOutstandingSar` is nullable: null means no definitive cash history or incomplete/invalid collection/remittance coverage; numeric zero requires explicitly recorded zero amounts or a known net balance. `codMissingDates` lists affected definitive days. These are derived view fields, not persisted keys; no backup-envelope migration is needed. Draft closes remain incomplete in the workflow indicator. Historical records are not backfilled or altered.
+
+## Cash evidence derivation — 2026-10-09
+
+`src/lib/cashEvidence.ts` derives nullable collection, remittance and outstanding totals from definitive daily records. Missing, negative or non-finite cash values remain unknown; explicit zero remains known. Draft records are excluded. No persisted keys or record shapes changed, and historical missing evidence is not backfilled. Remittance-lag points retain the independently recorded dates while rendering missing amounts as unknown.
+
+## Native maintenance storage — 2026-10-09
+
+`vega-vehicle-maintenance-v1` is version-1 `MaintenanceState`: individual vehicles (stable ID, car number/plate, optional odometer, operator availability, update timestamp) and service records (stable ID, vehicle ID, kind, service date, nullable cost, description, optional odometer/date/km intervals and inspection evidence). It joins `STORAGE_KEYS.maintenanceState` and backup v4. No physical records are inferred from financial vehicle classes. Numeric timestamps govern merges; malformed envelopes fail closed. Missing storage migrates to empty without rewriting historical data. Earlier backup v1–v3 inventories preserve current maintenance on Merge; valid v4 full Replace adopts its explicit maintenance inventory, including empty. Full details: `/data/Nemow Logistics/vega-logistics/docs/MAINTENANCE_INTEGRATION.md`.
+
+## Maintenance category expansion — 2026-10-09
+
+The storage key is unchanged; the envelope is version 2. Strict v2 requires `incidents`; a valid v1 envelope migrates purely to v2 with empty incidents. Reading never rewrites old raw bytes; the next explicit successful save persists v2. Vehicle details add optional model/city/insurance expiry (validated calendar date). Incidents carry stable IDs, vehicle linkage, type/date/description, nullable estimated SAR cost, open/resolved status and timestamp. No employee identity, attachment upload, signature or deduction is stored.
+
+Backup v5 includes this complete inventory. V4 normalizes historical maintenance with missing-scope provenance: full Replace is disabled and scoped merge/helper restore retains current incidents and omitted vehicle details. Current v5 newer rows replace whole rows (intentional optional-field clearing works); explicit empty v5 is an explicit full replacement. Older v1–v3 missing maintenance scope remains preserved. Unknown service/incident costs stay null; due/attention and cost coverage are derived only.

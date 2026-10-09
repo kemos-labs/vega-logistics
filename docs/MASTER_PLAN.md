@@ -13,7 +13,7 @@ Success measure: a Saudi owner runs tomorrow's operation more reliably, with les
 
 ## 2. Where we are (audited — details in PRODUCT_TRUTH_AUDIT)
 
-Shipped and verified: fleet-economics model + scenarios; daily ops entry with plan-vs-actual engine; Standard/Pro EN-AR reports (PDF vector + Excel); recovery board; native Saudi Arabic UI (Cairo, RTL law); PWA offline shell; backup v2 integrity system (merge/replace/cancel, transactional writes, legacy scoped restore) **accepted**; backup-age banner (`da133b8`); Arabic WhatsApp provider parser with review-gated confirm (`6d66bf1`). Seams only: telematics (mock), repositories/sync interfaces. Absent: stop-level planning/dispatch/close workflow, compliance-lite fields, driver analytics.
+Shipped and verified: fleet-economics model + scenarios; daily ops entry with plan-vs-actual engine; Standard/Pro EN-AR reports (PDF vector + Excel); recovery board; native Saudi Arabic UI (Cairo, RTL law); PWA offline shell; backup v2 integrity system (merge/replace/cancel, transactional writes, legacy scoped restore) **accepted**; backup-age banner (`da133b8`); Arabic WhatsApp provider parser with review-gated confirm (`6d66bf1`). Seams only: telematics (mock), repositories/sync interfaces. Implemented code awaiting owner acceptance: stop-level planning, dispatch, evening close, compliance-lite fields, driver analytics and route-lite. The earlier August absent-capability wording is superseded by the release checklists below.
 
 **P1 is closed** as of the Foundation commit (see R0). No further alphabetic review-contract loops.
 
@@ -148,3 +148,17 @@ GitHub Pages hosting · self-host-path OSRM/VROOM · Traccar (future) · Supabas
 `tsc clean ✓ · vitest all passing ✓ · lint 0 ✓ · build ✓ · python suite ✓ · git diff --check ✓ · Pages workflow success ✓ · live-site spot-check ✓ · locale parity EN+AR ✓ · docs updated (plan checkboxes, SESSION_MEMORY, DATA_MODEL if schema) ✓ · no unsupported claims introduced ✓`.
 
 Release reports additionally state: user problem solved; research used; decisions; changed files; schema changes/migrations/persisted keys; backup compatibility; AR/EN behavior; browser evidence; tests added + exact total; commit hash; workflow URL; live URL; known limitations; next release.
+
+## Local daily-readiness increment — 8 October 2026
+
+Control Tower cash coverage and draft-close progression were repaired; importer driver fallback and integration-token semantics now match the root workflow. Bilingual follow-up wording distinguishes today's reconciled close from historical outstanding issues. No persisted schema changes or new network integration were introduced. Final local gates and worker findings are recorded at `/data/Nemow Logistics/work/vega-operations-2026-10-08/IMPLEMENTATION_STATUS.md`.
+
+Next in the existing daily-workflow acceptance sequence: verify the core plan → dispatch → close → report cycle against representative real exports, reconcile cash evidence across all exports, and record owner acceptance. Food operations require the additional evidence in `/data/Nemow Logistics/vega-logistics/docs/FOOD_AND_PARCEL_READINESS.md`. No R8 sync, food compliance claim or unattended operational action is authorized by this checkpoint.
+
+## Owner-requested maintenance integration — 2026-10-09
+
+Authorized alongside ongoing acceptance work: native individual-vehicle service history, oil/repair records, six-component inspections, operator date/km intervals and backup v4. Implemented locally; owner acceptance and public deployment pending. This does not mark upstream employee/payroll/tracking modules, live Supabase sync, or automatic dispatch restrictions shipped. Source/provenance and boundaries: `/data/Nemow Logistics/vega-logistics/docs/MAINTENANCE_INTEGRATION.md`.
+
+## Owner-requested source tab continuation — 2026-10-09
+
+Native local category coverage extended to all six source maintenance categories, with filtered service history, insurance-date evidence and a separate incident log. Maintenance v2 / backup v5 preserve historical missing inventory and intentional current-format clearing. This does not mark the source employee suite or live database migrated. Remaining integration order and the actual/dead source routes are documented in `/data/Nemow Logistics/vega-logistics/docs/SOURCE_APP_TAB_COVERAGE.md`. Release checks, browser proof and live verification receipt: `/data/Nemow Logistics/work/maintenance-expansion-2026-10-09/`. Broader R2–R7 owner acceptance, source-data import and R8 sync remain open.

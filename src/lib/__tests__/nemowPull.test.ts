@@ -91,6 +91,30 @@ describe('pullNemowPackages — errors', () => {
 // Live-export regressions (16-09-2026 review): both were caused by choosing the first
 // MATCHING HEADER instead of the first NON-EMPTY alias cell.
 describe('pullNemowPackages — live export column traps', () => {
+  it('matches canonical integration tokens inside source text', () => {
+    const result = pullNemowPackages([
+      ['باركود', 'الحالة', 'مصدر'],
+      ['1', 'تم توصيلها', 'تكامل سلة - اختبار'],
+      ['2', 'تم توصيلها', 'Nemow'],
+    ], 'f.xlsx', 'Packages', NOW);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.summary.excludedIntegration).toBe(1);
+    expect(result.summary.total).toBe(1);
+  });
+
+  it('falls back to delivered-by per row without using the return operator', () => {
+    const result = pullNemowPackages([
+      ['باركود', 'الحالة', 'إسم السائق', 'تم توصيلها بواسطة', 'ارجعت بواسطة'],
+      ['1', 'تم توصيلها', '', 'driver-a', 'return-operator'],
+      ['2', 'تم توصيلها', 'driver-b', 'driver-c', 'return-operator'],
+    ], 'f.xlsx', 'Packages', NOW);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.summary.drivers.map(row => row.driver)).toEqual(['driver-a', 'driver-b']);
+    expect(result.summary.coverage?.missingDriver).toBe(0);
+  });
+
   const aoa = [
     // إسم المستقبل is present but empty; إسم المتجر carries the shipper name.
     // تاريخ إستلام التحصيل sits before تا ريخ اخر حركة and must NOT win.

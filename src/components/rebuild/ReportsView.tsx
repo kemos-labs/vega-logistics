@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { DailyRecord } from '@/lib/operationsReporting';
+import { summarizeCashEvidence } from '@/lib/cashEvidence';
 import { runWorkload } from '@/lib/dispatch';
 import type { StopRecord } from '@/lib/stops';
 import { exportOperationalExcel } from '@/lib/operationsReportExport';
@@ -85,11 +86,15 @@ export function ReportsView({
   const pending = dayStops.filter(s => s.status === 'pending' || s.status === 'planned' || s.status === 'failed').length;
   const codExpected = dayStops.filter(s => s.status === 'delivered').reduce((sum, s) => sum + (s.codAmountSar ?? 0), 0);
   const companyPodGaps = dayStops.filter(s => s.status === 'delivered' && s.podStatus !== 'complete').length;
-  const collected = record?.cashCollectedSar ?? 0;
-  const remitted = record?.cashRemittedSar ?? 0;
-  const outstanding = Math.max(0, collected - remitted);
-  const uncollected = Math.max(0, codExpected - collected);
-  const overRemitted = Math.max(0, remitted - collected);
+  const cash = summarizeCashEvidence(record ? [record] : []);
+  const collected = cash.collectedSar;
+  const remitted = cash.remittedSar;
+  const outstanding = cash.outstandingSar;
+  const uncollected = collected === null ? null : Math.max(0, codExpected - collected);
+  const overRemitted = collected === null || remitted === null ? null : Math.max(0, remitted - collected);
+  const cashText = (value: number | null) => value === null
+    ? t('businessModel.report.cashUnknown') : `${fmt(value)} SAR`;
+
 
   const requestPrint = (target: PrintTarget) => {
     if (!target) return;
@@ -132,7 +137,7 @@ export function ReportsView({
           <p>{t('businessModel.reports.status', { defaultValue: 'Status' })}: {isLegacy ? t('businessModel.reports.legacy', { defaultValue: 'Recorded (legacy)' }) : t('businessModel.reports.reconciled', { defaultValue: 'Reconciled' })}</p>
           <table>
             <thead><tr><th>{t('businessModel.reports.assigned', { defaultValue: 'Stops' })}</th><th>{t('businessModel.reports.delivered', { defaultValue: 'Delivered' })}</th><th>{t('businessModel.reports.returned', { defaultValue: 'Returned' })}</th><th>{t('businessModel.reports.pending', { defaultValue: 'Pending' })}</th><th>{t('businessModel.reports.codExpected', { defaultValue: 'COD expected' })}</th><th>{t('businessModel.reports.collected', { defaultValue: 'Collected' })}</th><th>{t('businessModel.reports.remitted', { defaultValue: 'Remitted' })}</th><th>{t('businessModel.reports.outstanding', { defaultValue: 'Outstanding' })}</th><th>{t('businessModel.reports.podGaps', { defaultValue: 'POD gaps' })}</th></tr></thead>
-            <tbody><tr><td>{dayStops.length}</td><td>{delivered}</td><td>{returned}</td><td>{pending}</td><td>{codExpected}</td><td>{collected}</td><td>{remitted}</td><td>{outstanding}</td><td>{companyPodGaps}</td></tr></tbody>
+            <tbody><tr><td>{dayStops.length}</td><td>{delivered}</td><td>{returned}</td><td>{pending}</td><td>{codExpected}</td><td>{cashText(collected)}</td><td>{cashText(remitted)}</td><td>{cashText(outstanding)}</td><td>{companyPodGaps}</td></tr></tbody>
           </table>
           <h2>{t('businessModel.reports.perDriverTitle', { defaultValue: 'Per-driver runs' })}</h2>
           <table>
@@ -238,11 +243,11 @@ export function ReportsView({
           <div><dt>{t('businessModel.reports.returned', { defaultValue: 'Returned' })}</dt><dd>{fmt(returned)}</dd></div>
           <div><dt>{t('businessModel.reports.pending', { defaultValue: 'Pending' })}</dt><dd>{fmt(pending)}</dd></div>
           <div><dt>{t('businessModel.reports.codExpected', { defaultValue: 'COD expected (delivered stops)' })}</dt><dd data-testid="reports-cod-expected">{fmt(codExpected)} SAR</dd></div>
-          <div><dt>{t('businessModel.reports.collected', { defaultValue: 'Collected' })}</dt><dd>{fmt(collected)} SAR</dd></div>
-          <div><dt>{t('businessModel.reports.remitted', { defaultValue: 'Remitted' })}</dt><dd>{fmt(remitted)} SAR</dd></div>
-          <div><dt>{t('businessModel.reports.outstanding', { defaultValue: 'Outstanding' })}</dt><dd data-testid="reports-outstanding">{fmt(outstanding)} SAR</dd></div>
-          {uncollected > 0 && <div><dt>{t('businessModel.reports.uncollected', { defaultValue: 'Not yet collected' })}</dt><dd data-testid="reports-uncollected">{fmt(uncollected)} SAR</dd></div>}
-          {overRemitted > 0 && <div><dt>{t('businessModel.reports.overRemitted', { defaultValue: 'Over-remitted credit' })}</dt><dd data-testid="reports-over">{fmt(overRemitted)} SAR</dd></div>}
+          <div><dt>{t('businessModel.reports.collected', { defaultValue: 'Collected' })}</dt><dd>{cashText(collected)}</dd></div>
+          <div><dt>{t('businessModel.reports.remitted', { defaultValue: 'Remitted' })}</dt><dd>{cashText(remitted)}</dd></div>
+          <div><dt>{t('businessModel.reports.outstanding', { defaultValue: 'Outstanding' })}</dt><dd data-testid="reports-outstanding">{cashText(outstanding)}</dd></div>
+          {uncollected !== null && uncollected > 0 && <div><dt>{t('businessModel.reports.uncollected', { defaultValue: 'Not yet collected' })}</dt><dd data-testid="reports-uncollected">{fmt(uncollected)} SAR</dd></div>}
+          {overRemitted !== null && overRemitted > 0 && <div><dt>{t('businessModel.reports.overRemitted', { defaultValue: 'Over-remitted credit' })}</dt><dd data-testid="reports-over">{fmt(overRemitted)} SAR</dd></div>}
           <div><dt>{t('businessModel.reports.podGaps', { defaultValue: 'POD gaps' })}</dt><dd data-testid="reports-pod-gaps">{fmt(companyPodGaps)}</dd></div>
         </dl>
         <p className="bm-import-note">{t('businessModel.reports.cashNote', { defaultValue: 'Collected / remitted are recorded values; COD expected derives from delivered stops.' })}</p>

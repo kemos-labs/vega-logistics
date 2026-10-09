@@ -1,3 +1,4 @@
+import { summarizeCashEvidence } from '@/lib/cashEvidence';
 import type { FinancialInput, FinancialOutput } from '@/lib/types';
 import {
   aggregateFailureReasons,
@@ -68,9 +69,9 @@ export interface ReportTotals {
   podTrackedDays: number;
   codShipments: number;
   prepaidShipments: number;
-  cashCollectedSar: number;
+  cashCollectedSar: number | null;
   /** Collected − remitted across the window. Positive = cash still with crew. */
-  cashOutstandingSar: number;
+  cashOutstandingSar: number | null;
   /** Miss reasons across the window, largest first. */
   reasonTotals: Array<{ key: FailureReasonKey; count: number }>;
 }
@@ -180,6 +181,7 @@ export function buildDeliverySeries(records: Record<string, DailyRecord>, output
 function buildTotals(series: DeliveryPoint[], records: Record<string, DailyRecord>, output: FinancialOutput): ReportTotals {
   const recorded = series.filter(point => point.recorded);
   const sourceRecords = recorded.map(point => records[point.date]).filter(Boolean);
+  const cash = summarizeCashEvidence(sourceRecords);
   const delivered = recorded.reduce((sum, point) => sum + point.delivered, 0);
   const missed = recorded.reduce((sum, point) => sum + point.missed, 0);
   const attempts = delivered + missed;
@@ -205,10 +207,10 @@ function buildTotals(series: DeliveryPoint[], records: Record<string, DailyRecor
     podTrackedDays: sourceRecords.filter(rec => Boolean(rec.podStatus)).length,
     codShipments: sourceRecords.reduce((sum, rec) => sum + (rec.codShipments ?? 0), 0),
     prepaidShipments: sourceRecords.reduce((sum, rec) => sum + (rec.prepaidShipments ?? 0), 0),
-    cashCollectedSar: sourceRecords.reduce((sum, rec) => sum + (rec.cashCollectedSar ?? 0), 0),
+    cashCollectedSar: cash.collectedSar,
     // Keep the report's "outstanding" semantic aligned with Control Tower and
     // evening close: over-remittance is credit, never negative outstanding.
-    cashOutstandingSar: Math.max(0, sourceRecords.reduce((sum, rec) => sum + (rec.cashCollectedSar ?? 0) - (rec.cashRemittedSar ?? 0), 0)),
+    cashOutstandingSar: cash.outstandingSar,
     reasonTotals: aggregateFailureReasons(sourceRecords),
   };
 }
@@ -357,7 +359,13 @@ export function buildReportModel(options: {
 export const reportLocaleTag = (locale: 'en' | 'ar') => (locale === 'ar' ? 'ar-SA-u-nu-latn' : 'en-SA');
 
 export function fmtSar(locale: 'en' | 'ar', value: number, digits = 0): string {
-  return new Intl.NumberFormat(reportLocaleTag(locale), { style: 'currency', currency: 'SAR', maximumFractionDigits: digits }).format(value);
+  // Latin currency code avoids jsPDF's Arabic shaping reversing mixed-script amounts.
+  return new Intl.NumberFormat(reportLocaleTag(locale), { style: 'currency', currency: 'SAR', currencyDisplay: locale === 'ar' ? 'code' : 'symbol', maximumFractionDigits: digits }).format(value).replace(/[\u200e\u200f\u061c]/g, '');
+}
+
+/** Missing cash evidence must remain explicit in reports and exports. */
+export function fmtCashSar(locale: 'en' | 'ar', value: number | null): string {
+  return value === null ? (locale === 'ar' ? 'غير معروف (بيانات النقد غير مكتملة)' : 'Unknown (missing cash evidence)') : fmtSar(locale, value);
 }
 
 export function fmtInt(locale: 'en' | 'ar', value: number): string {
@@ -387,7 +395,7 @@ export interface NarrativeInput {
 /** Sentence keys consumed per language by the renderer. */
 export type NarrativeKey =
   | 'lead' | 'targetGap' | 'missReasons' | 'noMisses'
-  | 'fuelLine' | 'crewLine' | 'extrasLine' | 'visitsLine' | 'recoveredLine' | 'paymentsLine';
+  | 'fuelLine' | 'crewLine' | 'extrasLine' | 'visitsLine' | 'recoveredLine' | 'paymentsLine' | 'paymentsUnknownLine';
 
 /** The facts each sentence template needs, resolved at render time so the
  *  engine stays translation-free while preview and PDF stay in sync. */
@@ -414,7 +422,9 @@ export function buildNarrativeFacts(input: NarrativeInput): Array<{ key: Narrati
   if (totals.customerVisits > 0) facts.push({ key: 'visitsLine', params: { visits: totals.customerVisits } });
   if (totals.recovered > 0) facts.push({ key: 'recoveredLine', params: { recovered: totals.recovered, missed: totals.missed } });
   if (totals.codShipments > 0 || totals.prepaidShipments > 0) {
-    facts.push({ key: 'paymentsLine', params: { cash: totals.codShipments, prepaid: totals.prepaidShipments, amount: Math.round(totals.cashCollectedSar) } });
+    facts.push(totals.cashCollectedSar === null
+      ? { key: 'paymentsUnknownLine', params: { cash: totals.codShipments, prepaid: totals.prepaidShipments } }
+      : { key: 'paymentsLine', params: { cash: totals.codShipments, prepaid: totals.prepaidShipments, amount: Math.round(totals.cashCollectedSar) } });
   }
   return facts;
 }

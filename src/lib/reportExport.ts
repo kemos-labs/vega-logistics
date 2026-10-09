@@ -1,3 +1,4 @@
+import { summarizeCashEvidence } from '@/lib/cashEvidence';
 import type { FinancialInput, FinancialOutput } from '@/lib/types';
 import { buildCustomerPerformance, calculateDailyMetrics, type DailyRecord } from '@/lib/operationsReporting';
 import {
@@ -6,6 +7,7 @@ import {
   fmtPercent,
   fmtReportDate,
   fmtSar,
+  fmtCashSar,
   type InsightKey,
   type ReportModel,
 } from '@/lib/reportEngine';
@@ -143,6 +145,8 @@ class ReportDoc {
   /** x anchored to the reading side (right in Arabic). */
   edge(): number { return this.rtl ? 192 : 18; }
   span(): number { return 174; }
+  left(): number { return this.rtl ? this.edge() - this.span() : this.edge(); }
+  right(): number { return this.left() + this.span(); }
   text(value: string, x: number, options: { size?: number; style?: PdfStyle; color?: [number, number, number]; align?: 'left' | 'right' | 'center'; maxWidth?: number } = {}) {
     const { size = 10, color = THEME.ink, align = this.rtl ? 'right' : 'left', maxWidth } = options;
     this.doc.setFont(this.rtl ? 'PlexArabic' : 'helvetica', this.styleOf(options.style ?? 'normal'));
@@ -174,24 +178,24 @@ class ReportDoc {
   }
   row(cells: { text: string; sub?: string; weight?: boolean; color?: [number, number, number] }[], stripe = false) {
     const width = this.span();
-    const left = Math.min(this.edge(), this.edge() - width);
+    const left = this.rtl ? this.edge() - width : this.edge();
     const height = cells.some(cell => cell.sub && this.bi) ? 12 : 9;
     if (stripe) { this.doc.setFillColor(244, 242, 232); this.doc.rect(left, this.y - 5.5, width, height, 'F'); }
     // Column order flips with direction; first cell is the label.
-    const positions = this.rtl
-      ? [this.edge(), left + 1]
-      : [left + 3, this.edge()];
+    const positions = cells.length <= 2
+      ? (this.rtl ? [this.edge(), left + 1] : [left + 3, left + width - 1])
+      : cells.map((_, index) => left + width / cells.length * ((this.rtl ? cells.length - index - 1 : index) + 0.5));
     cells.forEach((cell, index) => {
-      const align = index === 0 ? (this.rtl ? 'right' : 'left') : (this.rtl ? 'left' : 'right');
+      const align = cells.length > 2 ? 'center' : index === 0 ? (this.rtl ? 'right' : 'left') : (this.rtl ? 'left' : 'right');
       this.doc.setFont(this.rtl ? 'PlexArabic' : 'helvetica', cell.weight ? this.styleOf('semibold') : 'normal');
-      this.doc.setFontSize(10);
+      this.doc.setFontSize(cells.length > 2 ? 7.5 : 10);
       this.doc.setTextColor(...(cell.color ?? THEME.ink));
       this.doc.text(cell.text, positions[index], this.y + 1.5, { align });
       if (cell.sub && this.bi) {
         this.doc.setFontSize(7.2);
         this.doc.setTextColor(...THEME.muted);
         this.doc.text(cell.sub, positions[index], this.y + 5.4, { align });
-        this.doc.setFontSize(10);
+        this.doc.setFontSize(cells.length > 2 ? 7.5 : 10);
       }
     });
     this.y += cells.some(cell => cell.sub && this.bi) ? 12 : 9;
@@ -220,6 +224,7 @@ export async function exportDailyReportPdf(
     sub: (bilingual && altLabels?.[key]) || undefined,
   });
   const metrics = calculateDailyMetrics(record, input, output);
+  const cash = summarizeCashEvidence([record]);
   const L = (key: keyof ReportLabels, fallback: string) => labels?.[key] ?? fallback;
 
   const titleT = pick('dailySheetTitle', 'VEGA Daily Operations Report');
@@ -244,8 +249,11 @@ export async function exportDailyReportPdf(
     [L('dailyRevenue', 'Daily revenue'), fmtSar(locale, metrics.revenue)],
     [L('allocatedCost', 'Allocated daily cost'), fmtSar(locale, metrics.allocatedCost)],
     [L('dailyProfit', 'Daily profit / loss'), fmtSar(locale, metrics.profit), metrics.profit < 0 ? THEME.red : THEME.pine],
+    [L('cashCollected', locale === 'ar' ? 'النقد المحصّل' : 'Cash collected'), fmtCashSar(locale, cash.collectedSar)],
+    [locale === 'ar' ? 'النقد المورّد' : 'Cash remitted', fmtCashSar(locale, cash.remittedSar)],
+    [L('cashOutstanding', locale === 'ar' ? 'النقد المتبقي' : 'Outstanding cash'), fmtCashSar(locale, cash.outstandingSar)],
   ];
-  const rowKeys: Array<keyof ReportLabels> = ['plannedShipments','completedShipments','failedShipments','completionRate','driversPresent','fuelUsed','fuelCostLabel','dailyRevenue','allocatedCost','dailyProfit'];
+  const rowKeys: Array<keyof ReportLabels> = ['plannedShipments','completedShipments','failedShipments','completionRate','driversPresent','fuelUsed','fuelCostLabel','dailyRevenue','allocatedCost','dailyProfit','cashCollected','thRemitted','cashOutstanding'];
   rows.forEach((row, index) => {
     const labelPair = pick(rowKeys[index], String(row[0]));
     sheet.row([
@@ -343,12 +351,12 @@ export async function exportProReportPdf(model: ReportModel, labels: ReportLabel
     totals.reasonTotals.slice(0, 5).forEach(entry => {
       const labelEn = labels[entry.key as keyof ReportLabels] ?? entry.key;
       const barWidth = Math.max(4, entry.count / maxReason * 110);
-      const barX = pdf.rtl ? pdf.edge() - 118 : pdf.edge() - pdf.span();
+      const barX = pdf.rtl ? pdf.edge() - 118 : pdf.left();
       // Label on the reading side, bar filling toward it.
       pdf.doc.setFont(pdf.rtl ? 'PlexArabic' : 'helvetica', pdf.styleOfPublic('normal'));
       pdf.doc.setFontSize(9);
       pdf.doc.setTextColor(...THEME.ink);
-      pdf.doc.text(pdf.rtl ? labelEn : labelEn, pdf.rtl ? pdf.edge() : pdf.edge() - pdf.span(), pdf.cursor + 1, { align: pdf.rtl ? 'right' : 'left' });
+      pdf.doc.text(pdf.rtl ? labelEn : labelEn, pdf.edge(), pdf.cursor + 1, { align: pdf.rtl ? 'right' : 'left' });
       pdf.doc.setFillColor(...THEME.red);
       pdf.doc.roundedRect(pdf.rtl ? barX : barX + 34, pdf.cursor - 3, barWidth * 0.72, 4.6, 1.5, 1.5, 'F');
       pdf.doc.setFont(pdf.rtl ? 'PlexArabic' : 'helvetica', pdf.styleOfPublic('semibold'));
@@ -366,16 +374,16 @@ export async function exportProReportPdf(model: ReportModel, labels: ReportLabel
   pdf.cursor += 5;
   const insightsHeight = model.insights.length * 7 + 6;
   pdf.doc.setFillColor(247, 245, 236);
-  pdf.doc.roundedRect(Math.min(pdf.edge(), pdf.edge() - pdf.span()), pdf.cursor - 4, pdf.span(), insightsHeight, 2, 2, 'F');
+  pdf.doc.roundedRect(pdf.left(), pdf.cursor - 4, pdf.span(), insightsHeight, 2, 2, 'F');
   model.insights.forEach(insight => {
     const template = labels[INSIGHT_LABEL_KEYS[insight.key]];
     const bullet = pdf.rtl ? '◂' : '▸';
     const bulletColor = insight.level === 'bad' ? THEME.red : insight.level === 'warn' ? THEME.brass : THEME.pine;
     pdf.doc.setTextColor(...bulletColor);
     pdf.doc.setFont(pdf.rtl ? 'PlexArabic' : 'helvetica', pdf.styleOfPublic('semibold'));
-    const bulletX = pdf.rtl ? pdf.edge() - 4 : pdf.edge() - pdf.span() + 4;
+    const bulletX = pdf.rtl ? pdf.edge() - 4 : pdf.left() + 4;
     pdf.doc.text(bullet, bulletX, pdf.cursor + 1.5, { align: 'center' });
-    pdf.text(fillTemplate(template, insight.params), pdf.edge(), { size: 9.5, maxWidth: pdf.span() - 8 });
+    pdf.text(fillTemplate(template, insight.params), pdf.edge() + (pdf.rtl ? -8 : 8), { size: 9.5, maxWidth: pdf.span() - 8 });
     pdf.cursor += 7;
   });
 
@@ -427,7 +435,7 @@ export async function exportProReportPdf(model: ReportModel, labels: ReportLabel
   /* RAG status line under the meta (industry-standard daily report header) */
   const status = deriveStatus(model.insights);
   const statusLabel = status === 'red' ? labels.statusRed : status === 'amber' ? labels.statusAmber : labels.statusGreen;
-  pdf.text(`● ${statusLabel}`, pdf.edge(), { size: 10.5, style: 'semibold', color: status === 'red' ? THEME.red : status === 'amber' ? THEME.brass : THEME.pine });
+  pdf.text(statusLabel, pdf.edge(), { size: 10.5, style: 'semibold', color: status === 'red' ? THEME.red : status === 'amber' ? THEME.brass : THEME.pine });
   pdf.cursor += 7;
 
   /* Driver identity — providers report per driver + plate */
@@ -462,20 +470,17 @@ export async function exportProReportPdf(model: ReportModel, labels: ReportLabel
       { text: `${labels.codShipments} / ${labels.prepaidShipments}`, color: THEME.muted },
       { text: `${fmtInt(locale, model.record.codShipments ?? 0)} / ${fmtInt(locale, model.record.prepaidShipments ?? 0)}`, weight: true },
     ]);
-    if ((model.record.cashCollectedSar ?? 0) > 0) {
-      pdf.row([
-        { text: labels.cashCollected, color: THEME.muted },
-        { text: fmtSar(locale, model.record.cashCollectedSar ?? 0), weight: true, color: THEME.pine },
-      ], true);
-    }
-    const outstanding = model.totals.cashOutstandingSar;
-    if (outstanding !== 0) {
-      pdf.row([
-        { text: labels.cashOutstanding, color: THEME.muted },
-        { text: fmtSar(locale, outstanding), weight: true, color: outstanding > 0 ? THEME.red : THEME.pine },
-      ], true);
-    }
   }
+  const focusCash = summarizeCashEvidence([model.record]);
+  pdf.row([
+    { text: `${labels.cashCollected} (${labels.focusDay})`, color: THEME.muted },
+    { text: fmtCashSar(locale, focusCash.collectedSar), weight: true, color: THEME.pine },
+  ], true);
+  const outstanding = model.totals.cashOutstandingSar;
+  pdf.row([
+    { text: `${labels.cashOutstanding} (${labels.windowTotals})`, color: THEME.muted },
+    { text: fmtCashSar(locale, outstanding), weight: true, color: outstanding !== null && outstanding > 0 ? THEME.red : THEME.pine },
+  ], true);
   if (model.totals.podTrackedDays > 0) {
     pdf.row([
       { text: fillTemplate(labels.podShareLine, { complete: model.totals.podTrackedDays - model.totals.podIncompleteDays, tracked: model.totals.podTrackedDays }), color: THEME.muted },
@@ -540,7 +545,7 @@ export async function exportProReportPdf(model: ReportModel, labels: ReportLabel
     doc.setFont(pdf.rtl ? 'PlexArabic' : 'helvetica', 'normal');
     doc.setFontSize(9.5);
     doc.setTextColor(...THEME.ink);
-    doc.text(summaryText, Math.min(pdf.edge(), pdf.edge() - pdf.span()), pdf.cursor + 2, { maxWidth: pdf.span(), align: pdf.rtl ? 'right' : 'left' });
+    doc.text(summaryText, pdf.edge(), pdf.cursor + 2, { maxWidth: pdf.span(), align: pdf.rtl ? 'right' : 'left' });
     pdf.cursor += bilingual ? 14 : 10;
     // Weekly recovered/written-off mini bars
     if (model.recoveryTrend && model.recoveryTrend.some(week => week.recovered + week.writtenOff > 0)) {
@@ -550,9 +555,9 @@ export async function exportProReportPdf(model: ReportModel, labels: ReportLabel
       const baseY = pdf.cursor + 26;
       doc.setDrawColor(...THEME.line);
       doc.setLineWidth(0.3);
-      doc.line(Math.min(pdf.edge(), pdf.edge() - pdf.span()), baseY, pdf.edge(), baseY);
+      doc.line(pdf.left(), baseY, pdf.right(), baseY);
       weeks.forEach((week, index) => {
-        const slotX = Math.min(pdf.edge(), pdf.edge() - pdf.span()) + slotW * index;
+        const slotX = pdf.left() + slotW * index;
         const barCenter = slotX + slotW / 2;
         const barWidth = Math.min(9, slotW * 0.5);
         const scaleH = (value: number) => value / maxWeek * 20;
@@ -620,7 +625,7 @@ export async function exportProReportPdf(model: ReportModel, labels: ReportLabel
     doc.setFont(pdf.rtl ? 'PlexArabic' : 'helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(...THEME.ink);
-    doc.text(model.record.tomorrowNote, Math.min(pdf.edge(), pdf.edge() - pdf.span()), pdf.cursor + 2, { maxWidth: pdf.span(), align: pdf.rtl ? 'right' : 'left' });
+    doc.text(model.record.tomorrowNote, pdf.edge(), pdf.cursor + 2, { maxWidth: pdf.span(), align: pdf.rtl ? 'right' : 'left' });
     pdf.cursor += 14;
   }
 
@@ -722,7 +727,7 @@ function drawSparkline(pdf: ReportDoc, series: NonNullable<ReportModel['costPerS
 function drawTableHeader(pdf: ReportDoc, header: string[]) {
   const doc = pdf.doc;
   const width = pdf.span();
-  const left = Math.min(pdf.edge(), pdf.edge() - width);
+  const left = pdf.left();
   doc.setFillColor(...THEME.paper);
   doc.rect(left, pdf.cursor - 5, width, 8.5, 'F');
   const columnWidth = width / header.length;
@@ -745,12 +750,14 @@ export async function exportBusinessModelExcel(
   input: FinancialInput,
   output: FinancialOutput,
   extras?: {
+    locale?: 'en' | 'ar';
     records?: Record<string, DailyRecord>;
     recoveryEntries?: Array<{ createdAt: string; shipments: number; reasonKey?: string; customer?: string; owner: string; status: 'pending' | 'recovered' | 'written_off'; resolvedAt?: string }>;
   },
 ) {
   const ExcelJS = await import('exceljs');
   const metrics = calculateDailyMetrics(record, input, output);
+  const cash = summarizeCashEvidence([record]);
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'VEGA Logistics OS';
 
@@ -772,8 +779,9 @@ export async function exportBusinessModelExcel(
     ['Completion rate %', amount(metrics.completionRate)], ['Drivers present', record.driversPresent],
     ['Fuel spend (SAR)', amount(record.fuelCost)],
     ['Driver', record.driverName ?? ''], ['Car', record.carNumber ?? ''], ['Plate', record.plateNumber ?? ''],
-    ['COD shipments', record.codShipments ?? 0], ['Prepaid shipments', record.prepaidShipments ?? 0], ['Cash collected (SAR)', amount(record.cashCollectedSar ?? 0)],
-    ['Cash remitted (SAR)', amount(record.cashRemittedSar ?? 0)],
+    ['COD shipments', record.codShipments ?? 0], ['Prepaid shipments', record.prepaidShipments ?? 0], ['Cash collected (SAR)', cash.collectedSar === null ? fmtCashSar(extras?.locale ?? 'en', null) : amount(cash.collectedSar)],
+    ['Cash remitted (SAR)', cash.remittedSar === null ? fmtCashSar(extras?.locale ?? 'en', null) : amount(cash.remittedSar)],
+    ['Outstanding cash (SAR)', cash.outstandingSar === null ? fmtCashSar(extras?.locale ?? 'en', null) : amount(cash.outstandingSar)],
     ['Revenue', amount(metrics.revenue)], ['Allocated cost', amount(metrics.allocatedCost)],
     ['Profit / loss', amount(metrics.profit)], ['Notes', record.notes],
   ]);

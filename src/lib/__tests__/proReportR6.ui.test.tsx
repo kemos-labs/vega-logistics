@@ -124,3 +124,20 @@ describe('R6 — ProReport failure Pareto UI', () => {
     expect(screen.getByText(/No failure reasons recorded yet/i)).toBeTruthy();
   });
 });
+
+
+describe('ProReport cash evidence display', () => {
+  it('shows unknown collection and outstanding even without payment counters', () => {
+    const rec = record('2026-08-14');
+    const model = buildReportModel({ kind: 'pro', locale: 'en', record: rec, records: { [rec.date]: rec }, input, output, focusDate: FOCUS });
+    renderProReport(model);
+    expect(screen.getAllByText('Unknown (missing cash evidence)')).toHaveLength(2);
+  });
+  it('renders unknown payment narrative and cash lag cells', () => {
+    const rec = record('2026-08-14', { codShipments: 2, codRemittedOn: '2026-08-14' });
+    const model = buildReportModel({ kind: 'pro', locale: 'en', record: rec, records: { [rec.date]: rec }, input, output, focusDate: FOCUS });
+    renderProReport(model);
+    expect(screen.getAllByText('Unknown (missing cash evidence)')).toHaveLength(4);
+    expect(screen.getByText(/Collected cash is unknown because evidence is incomplete/)).toBeTruthy();
+  });
+});

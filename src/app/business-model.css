@@ -856,3 +856,17 @@ html[lang='ar'] * { letter-spacing: 0 !important; }
   .vega-print-portal *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   html,body{overflow:visible !important}
 }
+
+/* Native maintenance workspace: readable history in both writing directions. */
+.bm-maintenance-workspace{display:grid;gap:18px}
+.bm-maintenance-table{width:100%;min-width:600px;border-collapse:collapse;text-align:start}
+.bm-maintenance-table th,.bm-maintenance-table td{padding:12px 16px;text-align:start;vertical-align:top;border-bottom:1px solid var(--line)}
+.bm-maintenance-table th{font-weight:600;white-space:nowrap}
+.bm-maintenance-table td:last-child{min-width:180px;overflow-wrap:anywhere}
+
+.bm-maintenance-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.bm-maintenance-tabs button{padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);min-height:44px;cursor:pointer}
+.bm-maintenance-tabs button[aria-pressed="true"]{background:var(--pine);border-color:var(--pine);color:white}
+.bm-maintenance-vehicle{display:grid;gap:16px;padding-block:18px;border-top:1px solid var(--line)}
+
+html[lang='ar'] .bm-maintenance-workspace .bm-kpis span{font:600 12px var(--font-cairo),'Cairo',sans-serif;letter-spacing:0;text-transform:none}

@@ -86,7 +86,7 @@ const HEADER_ALIASES: Record<NemowField, string[]> = {
   status: spec.fields.status,
   date: spec.date_chain.flatMap(key => spec.fields[key] ?? []),
   cod: spec.fields.cod,
-  driver: spec.fields.driver,
+  driver: [...spec.fields.driver, ...spec.fields.delivered_by],
   source: spec.fields.source,
 };
 const TOKENS = spec.business_tokens;
@@ -203,7 +203,7 @@ export function pullNemowPackages(
     sourceTotal += 1;
     const status = cellField(cells, 'status');
     const source = cellField(cells, 'source');
-    if (TOKENS.integration_sources.some((token: string) => source.trim().toLocaleLowerCase() === token.trim().toLocaleLowerCase())) { excludedIntegration += 1; continue; }
+    if (TOKENS.integration_sources.some((token: string) => source.toLocaleLowerCase().includes(token.toLocaleLowerCase()))) { excludedIntegration += 1; continue; }
     const codRaw = (cols.cod ?? []).map(index => cells[index]).find(value => cellText(value) !== '');
     const codSar = codRaw === undefined ? null : parseCod(codRaw);
     if (codRaw === undefined) coverage.missingCod += 1;

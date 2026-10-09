@@ -42,6 +42,33 @@ describe('yesterdayKey (local-time law)', () => {
 });
 
 describe('buildControlTowerSnapshot', () => {
+  it('has no cash balance without records and preserves recorded zero', () => {
+    expect(snap().codOutstandingSar).toBeNull();
+    expect(snap({ records: { day: record({ date: '2026-08-22', cashCollectedSar: 0, cashRemittedSar: 0 }) } }).codOutstandingSar).toBe(0);
+  });
+
+  it('never nets unpaired days or converts missing cash evidence to zero', () => {
+    const s = snap({ records: {
+      first: record({ date: '2026-08-21', cashCollectedSar: 100 }),
+      second: record({ date: '2026-08-22', cashRemittedSar: 100 }),
+    } });
+    expect(s.codOutstandingSar).toBeNull();
+    expect(s.codMissingDates).toEqual(['2026-08-22', '2026-08-21']);
+    expect(s.actions.map(a => a.id)).toContain('cod-evidence');
+    expect(s.actions.map(a => a.id)).not.toContain('cod-outstanding');
+  });
+
+  it('does not present a partial history or malformed amounts as a complete cash balance', () => {
+    for (const invalid of [undefined, NaN, Infinity, -1]) {
+      const s = snap({ records: {
+        first: record({ date: '2026-08-21', cashCollectedSar: 100, cashRemittedSar: 20 }),
+        second: record({ date: '2026-08-22', cashCollectedSar: invalid, cashRemittedSar: 0 }),
+      } });
+      expect(s.codOutstandingSar).toBeNull();
+      expect(s.codMissingDates).toEqual(['2026-08-22']);
+    }
+  });
+
   it('yesterday with data reports planned vs delivered/failed/recovered', () => {
     const s = snap({ records: { '2026-08-22': record({ date: '2026-08-22', completedShipments: 82, failedShipments: 9, recoveredShipments: 4 }) } });
     expect(s.yesterday).toEqual({ date: '2026-08-22', planned: 100, delivered: 82, failed: 9, recovered: 4, hasData: true });
@@ -74,7 +101,7 @@ describe('buildControlTowerSnapshot', () => {
   it('actions are severity-sorted BEFORE slicing: backup-stale cannot be displaced by mediums', () => {
     const s = snap({
       records: {
-        '2026-08-22': record({ date: '2026-08-22', failedShipments: 5, podStatus: 'partial', cashCollectedSar: 400 }),
+        '2026-08-22': record({ date: '2026-08-22', failedShipments: 5, podStatus: 'partial', cashCollectedSar: 400, cashRemittedSar: 0 }),
       },
       backup: { visible: true, reason: 'stale', daysSince: 12 }, // high severity, pushed AFTER two mediums pre-fix
     });
@@ -113,7 +140,7 @@ describe('buildControlTowerSnapshot', () => {
   it('top actions are severity-ordered and capped at three', () => {
     const s = snap({
       records: {
-        '2026-08-22': record({ date: '2026-08-22', failedShipments: 5, cashCollectedSar: 400, podStatus: 'partial' }),
+        '2026-08-22': record({ date: '2026-08-22', failedShipments: 5, cashCollectedSar: 400, cashRemittedSar: 0, podStatus: 'partial' }),
       },
       recoveryEntries: [recovery({ id: 'a', createdAt: '2026-08-01' })],
       backup: { visible: true, reason: 'stale', daysSince: 9 },
@@ -146,12 +173,12 @@ describe('tower action PRIORITY — draft-close pinned, never accidental', () =>
     expect(s.yesterday).toBeNull();
     const ids = s.actions.map(a => a.id);
     expect(ids).toContain('record-yesterday');
-    expect(s.codOutstandingSar).toBe(0); // draft cash NEVER moves tower COD
+    expect(s.codOutstandingSar).toBeNull(); // no definitive cash evidence
   });
 
   it('full medium set sorts by the pinned PRIORITY list (slice(0,3) after sort)', () => {
     // yesterday missing → record-yesterday; pod gaps from a DEFINITIVE older day
-    const podDay = record({ date: '2026-08-19', completedShipments: 3, failedShipments: 0, podStatus: 'partial' });
+    const podDay = record({ date: '2026-08-19', completedShipments: 3, failedShipments: 0, podStatus: 'partial', cashCollectedSar: 0, cashRemittedSar: 0 });
     const draft = record({ date: '2026-08-20', completedShipments: 99, failedShipments: 99, closeStatus: 'draft' });
     const s = snap({ records: { '2026-08-19': podDay, '2026-08-20': draft } });
     const ids = s.actions.map(a => a.id);

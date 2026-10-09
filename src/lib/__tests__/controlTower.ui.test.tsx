@@ -35,6 +35,39 @@ function snapFixture() {
 afterEach(() => cleanup());
 
 describe('ControlTowerView', () => {
+  it('shows unknown cash evidence with coverage instead of SAR zero', () => {
+    const snapshot = snapFixture();
+    snapshot.codOutstandingSar = null;
+    snapshot.codMissingDates = ['2026-08-22'];
+    render(<ControlTowerView snapshot={snapshot} onGoto={vi.fn()} />);
+    expect(screen.getByTestId('tower-cod').textContent).toBe('businessModel.tower.cashUnknown');
+    expect(screen.getByTestId('tower-strip').textContent).toContain('businessModel.tower.cashCoverage ~count=1~');
+  });
+
+  it('keeps a draft close on the close step and never marks reporting ready', () => {
+    const snapshot = snapFixture();
+    snapshot.workflow = { stopsPlanned: 2, stopsAssigned: 2, closeStatus: 'draft' };
+    const onGoto = vi.fn();
+    render(<ControlTowerView snapshot={snapshot} onGoto={onGoto} />);
+    expect(screen.queryByTestId('tower-clear')).toBeNull();
+    const primary = document.querySelector('button.bm-primary') as HTMLButtonElement;
+    fireEvent.click(primary);
+    expect(onGoto).toHaveBeenCalledWith('close');
+    const steps = document.querySelectorAll('.bm-workflow-step');
+    expect(steps[2].className).toContain('current');
+    expect(steps[2].className).not.toContain('done');
+    expect(steps[3].className).not.toContain('done');
+  });
+
+  it('keeps reconciled-today distinct from unresolved historical follow-up', () => {
+    const snapshot = snapFixture();
+    snapshot.workflow = { stopsPlanned: 2, stopsAssigned: 2, closeStatus: 'reconciled' };
+    render(<ControlTowerView snapshot={snapshot} onGoto={vi.fn()} />);
+    expect(screen.getByTestId('tower-report-ready').textContent).toBe('businessModel.tower.todayReconciled');
+    expect(screen.queryByTestId('tower-clear')).toBeNull();
+    expect(screen.getByTestId('tower-actions')).toBeTruthy();
+  });
+
   it('shows the top actions with interpolated params and severity markers', () => {
     render(<ControlTowerView snapshot={snapFixture()} onGoto={vi.fn()} />);
     const actions = screen.getByTestId('tower-actions');
