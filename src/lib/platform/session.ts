@@ -21,7 +21,7 @@ function signature(payload: string, secret: string): string {
  * login implementation; production must issue the token through a real OIDC
  * or session provider and set VEGA_SESSION_SECRET outside the client bundle.
  */
-export function readRequestSession(request: NextRequest, now = Date.now()): AuthorizationContext | null {
+export function readRequestSession(request: Pick<NextRequest, 'headers'>, now = Date.now()): AuthorizationContext | null {
   const token = request.headers.get('x-vega-session');
   const secret = process.env.VEGA_SESSION_SECRET;
   if (!token || !secret || token.length > 8192 || !Number.isSafeInteger(now)) return null;

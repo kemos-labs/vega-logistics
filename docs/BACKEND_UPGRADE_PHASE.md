@@ -35,3 +35,11 @@ Local unit tests verify adapters, owner query filters, migration compatibility a
 All six local release gates passed: TypeScript, 596 Vitest tests across 54 files, ESLint with zero problems, production build, Python suite and whitespace check. Five maintenance-adapter tests also passed after a test-description correction. Logs: `/data/Nemow Logistics/work/backend-phase-2026-10-09/final-gates.log`. Luna performed source audit and final read-only review; Sol 6.1 implemented the bounded adapter changes. These native model runs are not claimed as verified-free routes. Live PostgreSQL/RLS tests were not run.
 
 Optional configuration names are `NEXT_PUBLIC_SYNC`, `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`; keys must belong to the reviewed target project, never the cloned application's fallback. Server session configuration is `VEGA_RUNTIME_MODE` and server-only `VEGA_SESSION_SECRET`. Configuration does not provide an identity issuer or complete R8 synchronization.
+
+## Provider route audit follow-up
+
+A broader source read found that existing LogesTechs sync/status routes lacked caller guards and the sync handler could serve its instance cache first. Follow-up hardening must guard before cache reads or provider calls, require operations-read permission and bind the validated VEGA session tenant to a server-configured `VEGA_LOGESTECHS_TENANT_ID`. This binding is separate from the provider's branch/header `LOGESTECHS_TENANT_ID`; equality must not be guessed. The recent webhook feed needs the same read boundary. Webhook ingestion retains its separate signature contract. Missing live/production binding fails closed, and provider failures return sanitized errors. This does not certify guessed provider endpoint paths or enable live mode.
+
+Signed webhook ingestion also requires the explicit VEGA tenant binding in live/production mode: an unset or blank mapping returns 503 before buffering an event. The webhook sender uses its HMAC signature rather than a VEGA user session.
+
+Final provider follow-up acceptance: all six release gates pass with 611 Vitest tests across 55 files, zero ESLint problems and a successful production build. Final log: `/data/Nemow Logistics/work/backend-phase-2026-10-09/accepted-final-gates.log`. Staging database/auth verification and actual provider API contracts remain open.
