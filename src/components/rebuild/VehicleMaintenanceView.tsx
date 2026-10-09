@@ -77,7 +77,7 @@ export function VehicleMaintenanceView({ state, commit, error, loaded }: {
   };
   const save = (next: MaintenanceState) => {
     if (!validateMaintenanceState(next)) { setMessage('invalid'); return false; }
-    if (!commit(next)) return false;
+    if (!commit(next)) { setMessage(''); return false; }
     setMessage('saved'); return true;
   };
   const addVehicle = (event: FormEvent) => {

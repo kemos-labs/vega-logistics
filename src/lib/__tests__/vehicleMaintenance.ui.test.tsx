@@ -111,3 +111,26 @@ describe('maintenance expansion', () => {
     expect(screen.getByText('Brakes: Follow-up required')).toBeTruthy();
   });
 });
+
+
+describe('maintenance save status', () => {
+  it('clears the previous success status when a later incident save fails', async () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Vehicles' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Register vehicle' }).closest('fieldset')?.disabled).toBe(false));
+    fireEvent.change(screen.getByLabelText('Car number'), {target:{value:'N30'}});
+    fireEvent.click(screen.getByRole('button', { name: 'Register vehicle' }));
+    expect(screen.getByRole('status')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', {name:'Accidents & breakdowns'}));
+    fireEvent.change(screen.getByLabelText('Incident details'), {target:{value:'First case'}});
+    fireEvent.click(screen.getByRole('button', {name:'Save incident'}));
+    expect(screen.getByRole('status')).toBeTruthy();
+    const before=localStorage.getItem(VEHICLE_MAINTENANCE_STORAGE_KEY);
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+    fireEvent.change(screen.getByLabelText('Incident details'), {target:{value:'Second case'}});
+    fireEvent.click(screen.getByRole('button', {name:'Save incident'}));
+    expect(screen.getByRole('alert').textContent).toContain('Changes were not saved');
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(localStorage.getItem(VEHICLE_MAINTENANCE_STORAGE_KEY)).toBe(before);
+  });
+});
