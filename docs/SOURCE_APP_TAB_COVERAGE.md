@@ -5,7 +5,7 @@
 
 ## Finding
 
-The original app has two menus, not one: a vehicle-maintenance system (six navigation entries) and an employee-operations system (nine top-level entries, six nested under Operations). VEGA is a distinct logistics workspace with 16 views across its primary and More menus. This audit does **not** find a wholesale integration of the original tabs. VEGA has a real, partial vehicle-maintenance overlap (vehicles, oil/service, inspections); it has no employee/HR system. Similar labels such as reports, costs, and operations do not establish feature parity.
+The original app has two menus, not one: a vehicle-maintenance system (six navigation entries) and an employee-operations system (eight top-level entries including the Operations group, with six child entries: 14 menu items and 13 employee route destinations). VEGA is a distinct logistics workspace with 16 views across its primary and More menus. This audit does **not** find a wholesale integration of the original tabs. VEGA has a real, partial vehicle-maintenance overlap (vehicles, oil/service, inspections); it has no employee/HR system. Similar labels such as reports, costs, and operations do not establish feature parity.
 
 The original system chooser labels Accounting “Soon” and links it to `/accounting`, for which the clone contains no page route. The employee menu also links `/employees/reports` and `/employees/settings`, with no corresponding `page.tsx` in the clone. These are navigation placeholders, not implemented tabs. The source README is the stock Next.js starter; `/data/Nemow Logistics/work/maintenance-integration-2026-10-09/source/CLAUDE.md` only points to its agent instructions. Navigation evidence is in `/data/Nemow Logistics/work/maintenance-integration-2026-10-09/source/components/AppLayout.tsx` and `/data/Nemow Logistics/work/maintenance-integration-2026-10-09/source/app/systems/page.tsx`.
 
@@ -69,3 +69,16 @@ Optional sync remains R8 and separate from native local category coverage. The a
 ## Publication receipt
 
 Code release `d26f9dd7ba09dce1965a5401a8861a2d9f9228ba` was pushed to main; [Pages workflow 37942529747](https://github.com/kemos-labs/vega-logistics/actions/runs/37942529747) completed successfully. The hosted browser shows all six maintenance categories plus Service History and no console errors. Local checks: 558 tests/52 files, all six gates, 1485 matching locale keys. Owner acceptance remains separate.
+
+## Additional source pages outside the sidebar
+
+A checked route-presence ledger covers all 37 `page.tsx` routes in the reviewed source revision: `/data/Nemow Logistics/work/maintenance-expansion-2026-10-09/SOURCE_ROUTE_LEDGER.json`. This proves presence/classification, not full semantic code review or live tenant functionality. In addition to navigation tabs and add/edit/detail subpages, these employee pages exist and remain unintegrated:
+
+| Source route | Static implementation evidence | Native VEGA status |
+|---|---|---|
+| `/employees/users` | Employee/account management reads employees and app_accounts | Not integrated; security-sensitive account/access design required |
+| `/employees/reserve` | Reserve roster reads/updates employee records | Not integrated; belongs with employee availability, not financial vehicle classes |
+| `/employees/position-intelligence` | Restaurant positioning API and rider live-location inputs | Not integrated; authorized source/freshness required, not inferred locations |
+| `/employees/communication` | Employee-targeted messaging/templates and related employee data | Not integrated; future drafts/handoff are separate from authorized external sending |
+
+Source file locations are recorded in the absolute-path ledger. Maintenance sidebar count is six. Employee sidebar count is eight top-level items (one group) plus six children, yielding 13 route destinations; Accounting remains a separate system chooser placeholder. This corrects the initial advisory inventory's group-count error.
