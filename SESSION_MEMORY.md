@@ -4,6 +4,8 @@
 
 ## Source maintenance tab expansion — 2026-10-09
 
+Code release `d26f9dd7ba09dce1965a5401a8861a2d9f9228ba` was pushed to main; [Pages workflow 37942529747](https://github.com/kemos-labs/vega-logistics/actions/runs/37942529747) completed successfully. The hosted browser shows all six maintenance categories plus Service History and no console errors. Local checks: 558 tests/52 files, all six gates, 1485 matching locale keys. Owner acceptance remains separate.
+
 The original source has six maintenance navigation categories plus employee modules and dead placeholder links; source matrix and next sequence are `/data/Nemow Logistics/vega-logistics/docs/SOURCE_APP_TAB_COVERAGE.md`. All six maintenance categories now have native local sections plus Service History; added dashboard, optional model/city/insurance, operational incident log, inspection detail and CSV cost coverage. Storage envelope v2 / backup v5; v4 incomplete scope preserves incidents and metadata, full Replace disabled. Existing raw v1 reads migrate without writing. No original live records, HR suite, location feed, payroll or deductions imported. Release proof/continuation receipt: `/data/Nemow Logistics/work/maintenance-expansion-2026-10-09/`.
 
 ## Native maintenance integration — 2026-10-09

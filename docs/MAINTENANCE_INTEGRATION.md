@@ -35,7 +35,7 @@ Fresh baseline: six gates passed before code changes, 530 Vitest tests. Domain/b
 
 Final verification: all six gates passed, 545 Vitest tests across 51 files, and matching 1439-key English/Arabic locale trees. English full-page and Arabic viewport screenshots were inspected; native history headers have spacing and short labels. A pre-existing initial hydration error reproduced during browser QA and was repaired by mounting the browser-storage dashboard after hydration; actual SSR/hydration regression tests cover persisted English/Arabic state without overwriting storage. A fresh production browser tab reported no console errors.
 
-Final gate results and browser QA are recorded under `/data/Nemow Logistics/work/maintenance-integration-2026-10-09`. Owner acceptance and public deployment remain open.
+Final gate results and browser QA are recorded under `/data/Nemow Logistics/work/maintenance-integration-2026-10-09`. Initial slice owner acceptance was open; the verified publication checkpoint below supersedes its deployment status.
 
 ## Six-category continuation — 2026-10-09
 
@@ -46,3 +46,7 @@ Envelope migration: storage key `vega-vehicle-maintenance-v1` now stores Mainten
 The original six maintenance categories now have native local screens; feature parity remains partial. Source record import, evidence attachments, richer source CRUD/statuses, employee/HR suite, tracking, restaurant demand and payroll remain open. Source placeholders are not counted as working features. Complete original navigation comparison and the remaining sequence: `/data/Nemow Logistics/vega-logistics/docs/SOURCE_APP_TAB_COVERAGE.md`.
 
 Continuation validation: all six local gates passed, 558 tests/52 files, and 1485 matching EN/AR keys. Desktop production preview visited every maintenance section; EN/AR dashboard screenshots inspected. Root report generators/templates and signed outputs remain unchanged. The public deployment receipt is recorded separately under `/data/Nemow Logistics/work/maintenance-expansion-2026-10-09/`.
+
+## Verified publication checkpoint
+
+Code release `d26f9dd7ba09dce1965a5401a8861a2d9f9228ba` was pushed to main; [Pages workflow 37942529747](https://github.com/kemos-labs/vega-logistics/actions/runs/37942529747) completed successfully. The hosted browser shows all six maintenance categories plus Service History and no console errors. Local checks: 558 tests/52 files, all six gates, 1485 matching locale keys. Owner acceptance remains separate.

@@ -16,7 +16,7 @@ These rules are durable; session status lives in `SESSION_MEMORY.md`, roadmap in
 New sessions read, in order: **this file** → `SESSION_MEMORY.md` (exact state, last cycles, handoff list) → `docs/MASTER_PLAN.md` (release roadmap R0–R8) → `docs/DATA_MODEL.md` (storage shapes). Then run the full gate suite (see "The proven working loop") BEFORE changing anything, and continue from the resume point below.
 
 **Resume point (this block is updated in every shipped commit):**
-- Latest verified predecessor: `58b3a9e` (security hardening). The 9 October source-maintenance/cash release and live receipt are tracked in `SESSION_MEMORY.md` and `/data/Nemow Logistics/work/maintenance-expansion-2026-10-09/`.
+- Latest verified code release: `d26f9dd` — native six-category maintenance, backup v5 and cash evidence safeguards. Pages workflow `37942529747` succeeded and hosted maintenance was verified. Exact receipt is in `SESSION_MEMORY.md` and `/data/Nemow Logistics/work/maintenance-expansion-2026-10-09/`.
 - **Awaiting owner acceptance:** broader R2–R7 daily operations plus native maintenance. Passing software/Pages gates does not imply owner acceptance or food suitability.
 - **Current continuation:** native six-category maintenance + history, MaintenanceState v2 / backup v5. Original live data and employee suite remain unmigrated. Read `docs/SOURCE_APP_TAB_COVERAGE.md` for the remaining sequence.
 - Optional sync is last (R8); external writes, telemetry and unattended operation require their documented contracts.

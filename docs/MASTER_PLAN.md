@@ -162,3 +162,7 @@ Authorized alongside ongoing acceptance work: native individual-vehicle service 
 ## Owner-requested source tab continuation — 2026-10-09
 
 Native local category coverage extended to all six source maintenance categories, with filtered service history, insurance-date evidence and a separate incident log. Maintenance v2 / backup v5 preserve historical missing inventory and intentional current-format clearing. This does not mark the source employee suite or live database migrated. Remaining integration order and the actual/dead source routes are documented in `/data/Nemow Logistics/vega-logistics/docs/SOURCE_APP_TAB_COVERAGE.md`. Release checks, browser proof and live verification receipt: `/data/Nemow Logistics/work/maintenance-expansion-2026-10-09/`. Broader R2–R7 owner acceptance, source-data import and R8 sync remain open.
+
+## Verified publication checkpoint — 2026-10-09
+
+Code release `d26f9dd7ba09dce1965a5401a8861a2d9f9228ba` was pushed to main; [Pages workflow 37942529747](https://github.com/kemos-labs/vega-logistics/actions/runs/37942529747) completed successfully. The hosted browser shows all six maintenance categories plus Service History and no console errors. Local checks: 558 tests/52 files, all six gates, 1485 matching locale keys. Owner acceptance remains separate. Employee modules, original record migration, food evidence and unattended operations remain unfinished. Native maintenance category coverage does not close those acceptance gates.
