@@ -121,7 +121,13 @@ export function useSimulatedData() {
   /** Replace the entire drivers list. */
   const setDrivers = useCallback(
     (updater: (prev: DriverRecord[]) => DriverRecord[]) => {
-      const next = applyOperationalPatch(inputRef.current, { drivers: updater(inputRef.current.drivers) });
+      const drivers = updater(inputRef.current.drivers);
+      // Roster changes and active headcount form one operational update. Do not
+      // use count-resizing here: inactive identities must remain in the roster.
+      const next = {
+        ...applyOperationalPatch(inputRef.current, { drivers }),
+        companyDriverCount: drivers.filter(driver => driver.status === 'active').length,
+      };
       inputRef.current = next;
       userOverrideRef.current = true;
       setFinancialInput(next);

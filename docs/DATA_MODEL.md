@@ -111,3 +111,7 @@ Browser keys and backup v5 are unchanged. Existing Supabase `daily_records` adds
 Optional `maintenance_state` contains one owner snapshot (`user_id` Auth FK/primary key, `data` strict MaintenanceState v2, `updated_at`). Reads can migrate v1 purely; writes require v2. RLS restricts rows to `auth.uid() = user_id`. Migration: `/data/Nemow Logistics/vega-logistics/src/lib/platform/db/migrations/002_maintenance_state.sql`. This is owner-only storage, not tenant-shared fleet access, attachments, or conflict-safe synchronization. Full-envelope saves require future R8 conflict/outbox integration before UI activation.
 
 Fresh databases use `/data/Nemow Logistics/vega-logistics/src/lib/platform/db/schema.sql`; existing databases apply migrations 001 then 002 in staging first. SQL has been source-reviewed, not executed against PostgreSQL. No hosted schema or policies are certified. Public connection variables alone do not activate the client: `NEXT_PUBLIC_SYNC=supabase` and explicit repository selection are required. Local repository write/corruption failures propagate. No silent cloud-error fallback forks stored data.
+
+## Roster consistency increment — 2026-10-09
+
+`FinancialInput.drivers` and `companyDriverCount` are updated atomically on roster edits: count equals active roster members while inactive identity rows remain retained. Existing forecast count edits keep their separate resize behavior. No persisted field/key/schema or backup version changed. Stops-only meaningful-data detection affects the backup prompt, not the backup inventory.

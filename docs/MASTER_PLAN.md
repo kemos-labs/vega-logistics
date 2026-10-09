@@ -25,7 +25,7 @@ Shipped and verified: fleet-economics model + scenarios; daily ops entry with pl
 | Short Address = 4 letters + 4 digits | [PRIMARY] SPL | format-only validator |
 | VAT standard rate 15% (VAT Law Art.2 verbatim Arabic; effective 1 Jul 2020) | [PRIMARY] ZATCA law PDF | `vatRate` default source-backed, configurable; drafts only |
 | ZATCA Phase 1 live since Dec 2021; Phase 2 waves w/ ≥6-month notices | [PRIMARY→VERIFY mechanism pages] | data-shaped receipts; never "compliant" |
-| GASTAT 2024: parcels >180M (+~29% YoY), delivery-app orders 288.1M, sector on-time 96%, avg delivery ~2 days | [OFFICIAL STATISTICS] GASTAT W&L 2024 | market context only — never internal targets |
+| Historical GASTAT 2024 context: parcel and delivery-app series are distinct; the 288.1M versus >290M app-order figures need publication/definition reconciliation | [DATED OFFICIAL/SECONDARY CONTEXT; VERIFY current extraction] | no Nemow targets or market-share denominator derived from unresolved aggregates |
 | COD: cash = 25% of consumers' last online purchase (survey share, not value) | [PRIMARY] SAMA 2023 p.24 | COD reconciliation stays core |
 | Ramadan surge real: 26M+ parcels Ramadan 1446 (+18% YoY), 1.1M peak day | [PRIMARY] SPA/TGA 2025-03-29 | season mode = manual plan multiplier |
 | Last-mile up to 50% of logistics costs; ~40% of demand outside major urban centres | [VENDOR] Grant Thornton KSA | motivates non-Riyadh-friendly simplicity |
@@ -170,3 +170,7 @@ Code release `d26f9dd7ba09dce1965a5401a8861a2d9f9228ba` was pushed to main; [Pag
 ## Backend continuation — 2026-10-09
 
 Owner-requested next backend phase: inspect the original Supabase implementation and repair VEGA persistence/session seams, including an owner-scoped native maintenance adapter and additive migration. Scope, evidence and remaining staging/configuration gates: `/data/Nemow Logistics/vega-logistics/docs/BACKEND_UPGRADE_PHASE.md`. This increment does not enable R8 sync, migrate live source records, or deploy server APIs on GitHub Pages.
+
+## Cross-folder review and correctness increment — 2026-10-09
+
+Review covered report-framework, app and KSA-research lanes with explicit file-level coverage under `/data/Nemow Logistics/work/folder-review-2026-10-09/`. Connected UI regressions confirmed roster/headcount drift, vehicle-based payroll display and stops-only backup suppression; repaired without schema/key changes. All payroll-row toggles now match the financial engine. Root reports also received evidence-based narrative and test-segregation/count/duplicate/provenance repairs in their separate checkout. The next implementation order and unresolved source/legal/storage boundaries are maintained in `/data/Nemow Logistics/vega-logistics/docs/FOLDER_REVIEW_NEXT_STEP.md`. Generic connected storage-failure handling, strict Python timestamps, real source import, owner acceptance, food evidence and live cloud activation remain open.

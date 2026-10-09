@@ -120,7 +120,7 @@ export default function BusinessModelApp() {
   // Meaningful data = any real records OR a model tuned away from defaults —
   // both represent work a backup protects.
   const modelModified = useMemo(() => JSON.stringify(input) !== JSON.stringify(defaultFinancialInput), [input]);
-  const hasMeaningfulData = Object.keys(dailyRecords).length > 0 || scenarios.length > 0 || recoveryEntries.length > 0 || modelModified || maintenance.state.vehicles.length > 0 || maintenance.state.records.length > 0;
+  const hasMeaningfulData = Object.keys(dailyRecords).length > 0 || scenarios.length > 0 || recoveryEntries.length > 0 || stops.length > 0 || modelModified || maintenance.state.vehicles.length > 0 || maintenance.state.records.length > 0;
   const backupReminder = useMemo(() => evaluateBackupReminder(reminderNowMs, lastBackupAt, hasMeaningfulData), [reminderNowMs, lastBackupAt, hasMeaningfulData]);
   const bannerDismissed = useMemo(() => isDismissedToday(reminderNowMs), [reminderNowMs]);
   const todayStops = useMemo(() => stops.filter(s => s.operationDate === operationDate), [stops, operationDate]);
@@ -228,30 +228,15 @@ export default function BusinessModelApp() {
   };
   const changeProvider = (id: string, patch: Partial<Provider>) => setProviders(rows => rows.map(row => row.id === id ? { ...row, ...patch } : row));
   const changeDriver = (id: string, patch: Partial<DriverRecord>) => {
-    setDrivers(rows => {
-      const next = rows.map(row => row.id === id ? { ...row, ...patch } : row);
-      const active = next.filter(d => d.status === 'active').length;
-      updateFinancialInput({ companyDriverCount: active });
-      return next;
-    });
+    setDrivers(rows => rows.map(row => row.id === id ? { ...row, ...patch } : row));
   };
   const addDriver = () => {
     const id = `driver-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
     const next: DriverRecord = { id, fullName: '', phone: '', nationalId: '', assignedVehicle: '', status: 'active' };
-    setDrivers(rows => {
-      const updated = [...rows, next];
-      const active = updated.filter(d => d.status === 'active').length;
-      updateFinancialInput({ companyDriverCount: active });
-      return updated;
-    });
+    setDrivers(rows => [...rows, next]);
   };
   const removeDriver = (id: string) => {
-    setDrivers(rows => {
-      const updated = rows.filter(r => r.id !== id);
-      const active = updated.filter(d => d.status === 'active').length;
-      updateFinancialInput({ companyDriverCount: active });
-      return updated;
-    });
+    setDrivers(rows => rows.filter(row => row.id !== id));
   };
   const [driverConfirmId, setDriverConfirmId] = useState<string | null>(null);
   const removeVehicle = (id: string) => {
@@ -708,9 +693,18 @@ function MonthlyTotals({input,output,fleetCount}:{input:FinancialInput;output:Re
   const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
   const num = (value: number) => fmtNum(locale, value);
   const s = t.bind(null);
-  const driverPayroll=fleetCount*input.driverSalary; const opsPayroll=input.opsTeamCount*input.opsTeamAvgSalary; const salesPayroll=input.salesTeamCount*input.salesTeamBaseSalary; const warehousePayroll=input.warehouseStaff*input.warehouseStaffSalary; const otherPeople=Math.max(0,output.costBreakdown.people-driverPayroll-opsPayroll-salesPayroll-warehousePayroll); const vehicleNonFuel=Math.max(0,output.fleetMonthlyCost-output.fuelMonthlyCost);
+  const driverSalaryBasis = input.costToggles?.driverSalary === false ? 0 : input.driverSalary;
+  const opsSalaryBasis = input.costToggles?.opsTeam === false ? 0 : input.opsTeamAvgSalary;
+  const salesSalaryBasis = input.costToggles?.salesTeam === false ? 0 : input.salesTeamBaseSalary;
+  const warehouseSalaryBasis = input.costToggles?.warehouseStaff === false ? 0 : input.warehouseStaffSalary;
+  const driverPayroll = input.companyDriverCount * driverSalaryBasis;
+  const opsPayroll = input.opsTeamCount * opsSalaryBasis;
+  const salesPayroll = input.salesTeamCount * salesSalaryBasis;
+  const warehousePayroll = input.warehouseStaff * warehouseSalaryBasis;
+  const otherPeople = Math.max(0, output.costBreakdown.people - driverPayroll - opsPayroll - salesPayroll - warehousePayroll);
+  const vehicleNonFuel = Math.max(0, output.fleetMonthlyCost - output.fuelMonthlyCost);
   const B='businessModel.summary.';
-  const rows=[{label:s(B+'rDrivers'),formula:`${fleetCount} × ${money(input.driverSalary)}`,total:driverPayroll},{label:s(B+'rOpsTeam'),formula:`${input.opsTeamCount} × ${money(input.opsTeamAvgSalary)}`,total:opsPayroll},{label:s(B+'rSalesTeam'),formula:`${input.salesTeamCount} × ${money(input.salesTeamBaseSalary)}`,total:salesPayroll},{label:s(B+'rWarehouse'),formula:`${input.warehouseStaff} × ${money(input.warehouseStaffSalary)}`,total:warehousePayroll},{label:s(B+'rOtherPeople'),formula:s(B+'rOtherPeopleFormula'),total:otherPeople},{label:s(B+'rFuel'),formula:s(B+'rFuelFormula',{fleet:fleetCount,price:money(input.fuelPricePerLiter,2)}),total:output.fuelMonthlyCost},{label:s(B+'rVehicles'),formula:s(B+'rVehiclesFormula',{fleet:fleetCount}),total:vehicleNonFuel},{label:s(B+'rFacilities'),formula:s(B+'rFacilitiesFormula'),total:output.costBreakdown.facilities},{label:s(B+'rPerShipment'),formula:s(B+'rPerShipmentFormula',{count:num(output.totalMonthlyShipments)}),total:output.costBreakdown.perShipment},{label:s(B+'rOther'),formula:s(B+'rOtherFormula'),total:output.costBreakdown.other}];
+  const rows=[{label:s(B+'rDrivers'),formula:`${input.companyDriverCount} × ${money(driverSalaryBasis)}`,total:driverPayroll},{label:s(B+'rOpsTeam'),formula:`${input.opsTeamCount} × ${money(opsSalaryBasis)}`,total:opsPayroll},{label:s(B+'rSalesTeam'),formula:`${input.salesTeamCount} × ${money(salesSalaryBasis)}`,total:salesPayroll},{label:s(B+'rWarehouse'),formula:`${input.warehouseStaff} × ${money(warehouseSalaryBasis)}`,total:warehousePayroll},{label:s(B+'rOtherPeople'),formula:s(B+'rOtherPeopleFormula'),total:otherPeople},{label:s(B+'rFuel'),formula:s(B+'rFuelFormula',{fleet:fleetCount,price:money(input.fuelPricePerLiter,2)}),total:output.fuelMonthlyCost},{label:s(B+'rVehicles'),formula:s(B+'rVehiclesFormula',{fleet:fleetCount}),total:vehicleNonFuel},{label:s(B+'rFacilities'),formula:s(B+'rFacilitiesFormula'),total:output.costBreakdown.facilities},{label:s(B+'rPerShipment'),formula:s(B+'rPerShipmentFormula',{count:num(output.totalMonthlyShipments)}),total:output.costBreakdown.perShipment},{label:s(B+'rOther'),formula:s(B+'rOtherFormula'),total:output.costBreakdown.other}];
   return <section className="bm-panel bm-monthly-totals"><div className="bm-panel-head"><div><span>{s(B+'totalsTag')}</span><h2>{s(B+'totalsHead')}</h2></div><strong>{money(output.totalCost)}</strong></div><div className="bm-total-rows">{rows.map(row=><div key={row.label}><span><strong>{row.label}</strong><small>{row.formula}</small></span><b>{money(row.total)}</b></div>)}</div><div className="bm-total-result"><span><small>{s(B+'totalRevenue')}</small><strong>{money(output.totalRevenue)}</strong></span><span><small>{s(B+'totalCost')}</small><strong>{money(output.totalCost)}</strong></span><span className={output.netMargin<0?'bad':'good'}><small>{s(B+'totalProfitLoss')}</small><strong>{money(output.netMargin)}</strong></span></div></section>; }
 function Summary({ output,input,fleetCount,driverGap,contribution,risks,onNavigate }: { output:ReturnType<typeof useSimulatedData>['financialOutput']; input:FinancialInput; fleetCount:number; driverGap:number; contribution:number; risks:RiskItem[]; onNavigate:(view:View)=>void }) {
   const { t, i18n } = useTranslation();

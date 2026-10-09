@@ -27,3 +27,7 @@ Before unattended operation: establish the input source/tenant contract, retry a
 ## Acceptance checklist for the next supervised pilot
 
 Use a representative export without changing existing signed reports. Reconcile source totals, excluded integrations, status buckets, drivers, expected COD and recorded collection/remittance separately. Exercise one missing-cash day, a draft close, a failed stop and a restored backup. Measure time and manual interventions. Record owner acceptance explicitly. A food pilot adds actual food profiles and transport evidence above; parcel tests cannot stand in for them.
+
+## Source-refresh boundary — 2026-10-09
+
+The current SFDA listing and indexed logger FAQ support further scoped investigation, but the full FAQ body timed out in the parent refresh and the complete current Arabic guide was not re-extracted. Do not turn indexed excerpts into a universal food/parcel logger rule. Exact category/product conditions require direct guide verification. Source applicability and current publication-definition disputes are maintained in `/data/Nemow Logistics/vega-logistics/docs/FOLDER_REVIEW_NEXT_STEP.md`; none of this increment adds food evidence or proves Nemow authorization.
