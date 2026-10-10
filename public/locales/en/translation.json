@@ -1259,13 +1259,14 @@
         "importSuccess": "{{count}} stops imported.",
         "errMalformed": "Broken CSV: an unterminated or misplaced quote — fix the file, then preview again."
       },
-      "bootDropped": "{{count}} saved stop(s) were corrupt and are hidden from this session — export a backup first, then re-save your stops.",
+      "bootDropped": "{{count}} saved stop(s) failed validation. Editing and close/dispatch actions are paused; a standard backup omits these rows. Restore a verified full backup to recover safely.",
       "bootDismiss": "Understood",
       "dupExactBlocked": "This stop duplicates an existing saved stop — edit the existing record instead.",
       "dupConflictBlocked": "Same shipment reference exists with different details — resolve the conflict before saving.",
       "dupProbableAck": "This may duplicate an existing stop. Review it, then tick the acknowledgement to save anyway.",
       "dupProbableAckLabel": "I reviewed the possible duplicate — save anyway.",
-      "import.errReadFailed": "The file could not be read — try again or paste the rows instead."
+      "import.errReadFailed": "The file could not be read — try again or paste the rows instead.",
+      "persistBlocked": "Saved data could not be read. Existing data was preserved; editing is blocked. Open Backups to restore a verified backup."
     },
     "dispatch": {
       "nav": "Dispatch",
@@ -1349,7 +1350,8 @@
         "morning": "Morning",
         "afternoon": "Afternoon",
         "evening": "Evening"
-      }
+      },
+      "persistBlocked": "Saved data could not be read. Existing data was preserved; editing is blocked. Open Backups to restore a verified backup."
     },
     "close": {
       "nav": "Evening close",
@@ -1432,7 +1434,8 @@
       "driversPresent": "Drivers present",
       "codOutstanding": "Outstanding with crew",
       "codUncollected": "Not yet collected",
-      "codOverRemitted": "Over-remitted credit"
+      "codOverRemitted": "Over-remitted credit",
+      "persistBlocked": "Saved data could not be read. Existing data was preserved; editing is blocked. Open Backups to restore a verified backup."
     },
     "a11y": {
       "skipToMain": "Skip to main content",
@@ -1622,6 +1625,13 @@
       "costCoverage": "Cost coverage",
       "recorded": "Recorded",
       "inspectionOutcome": "Inspection outcome"
+    },
+    "storage": {
+      "readError": "Saved data could not be read. Existing data was preserved; editing is blocked. Open Backups to restore a verified backup.",
+      "writeError": "Changes were not saved. The last saved values remain displayed. Check browser storage permissions or free device space, then repeat the change.",
+      "openBackups": "Open Backups",
+      "backupBlocked": "A complete backup is unavailable while saved data has a storage error. Existing data was preserved.",
+      "mergeBlocked": "Merge is paused because some saved data could not be read. Restore a verified full backup to recover safely."
     }
   }
 }

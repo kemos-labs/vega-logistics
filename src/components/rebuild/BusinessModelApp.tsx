@@ -9,7 +9,7 @@ import { ClipboardCheck, Route, MapPin, LayoutDashboard, AlertTriangle, BadgeChe
 import { useTranslation } from 'react-i18next';
 import '@/lib/i18n';
 import { useSimulatedData } from '@/hooks/useSimulatedData';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useLocalStorage, type StorageIssue, type StorageSaveResult } from '@/hooks/useLocalStorage';
 import type { DriverRecord, FinancialInput, Provider, VehicleClass } from '@/lib/types';
 import { calculateFinancials } from '@/lib/calculations';
 import { buildProjection, migrateDailyRecords, toDateString, isDefinitiveDailyRecord, type DailyRecord } from '@/lib/operationsReporting';
@@ -64,7 +64,7 @@ export default function BusinessModelApp() {
   const lng = i18n.language?.startsWith('ar') ? 'ar' : 'en';
   const locale = localeOf(i18n.language);
   const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
-  const { financialInput: input, financialOutput: output, updateFinancialInput, applyFinancialInput, setVehicleClasses, setProviders, setDrivers, addVehicleClass, addProvider } = useSimulatedData();
+  const { financialInput: input, financialOutput: output, updateFinancialInput, applyFinancialInput, acceptFinancialInput, financialStorageIssue, setVehicleClasses, setProviders, setDrivers, addVehicleClass, addProvider } = useSimulatedData();
   const [view, setView] = useState<View>('summary');
   const maintenance = useVehicleMaintenance();
   const [operationDate, setOperationDate] = useState(() => toDateString(new Date()));
@@ -77,22 +77,22 @@ export default function BusinessModelApp() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration gate for localStorage badge
   useEffect(() => { setHydrated(true); }, []);
   const [search, setSearch] = useState('');
-  const [rawDailyRecords, setDailyRecords] = useLocalStorage<Record<string, DailyRecord>>('vega-daily-reports-v2', {});
+  const [rawDailyRecords, setDailyRecords, dailyStore] = useLocalStorage<Record<string, DailyRecord>>('vega-daily-reports-v2', {});
   // v2 records stored fuel as litres; drivers now log cash — convert on read.
   const dailyRecords = useMemo(() => migrateDailyRecords(rawDailyRecords, input.fuelPricePerLiter), [rawDailyRecords, input.fuelPricePerLiter]);
-  const [scenarios, setScenarios] = useLocalStorage<Scenario[]>('vega-scenarios-v1', []);
-  const [rawRecoveryEntries, setRecoveryEntries] = useLocalStorage<RecoveryEntry[]>('vega-recovery-board-v1', []);
+  const [scenarios, setScenarios, scenariosStore] = useLocalStorage<Scenario[]>('vega-scenarios-v1', []);
+  const [rawRecoveryEntries, setRecoveryEntries, recoveryStore] = useLocalStorage<RecoveryEntry[]>('vega-recovery-board-v1', []);
   // Boot-time validation (R2-C): the UI/backups only ever see the VALIDATED
   // collection. The raw localStorage value is NOT rewritten here — an
   // operator with a corrupt source gets a warning and the chance to export.
   const bootStops = useMemo(() => {
     try { return readStoredStops(localStorage.getItem(STORAGE_KEYS.stops)); } catch { return { stops: [] as StopRecord[], dropped: 0 }; }
   }, []);
-  const [stops, setStops] = useLocalStorage<StopRecord[]>(STORAGE_KEYS.stops, bootStops.stops);
+  const [stops, setStops, stopsStore] = useLocalStorage<StopRecord[]>(STORAGE_KEYS.stops, bootStops.stops);
   // Nemow Excel pull (first-page dashboard feed): DISPOSABLE device metadata
   // (see DATA_MODEL §1) — re-creatable from the source workbook at any time,
   // deliberately OUTSIDE STORAGE_KEYS + backup files.
-  const [nemowPull, setNemowPull] = useLocalStorage<NemowSummary | null>('vega-nemow-pull-v1', null);
+  const [nemowPull, setNemowPull, nemowStore] = useLocalStorage<NemowSummary | null>('vega-nemow-pull-v1', null);
   const [stopsBootDropped, setStopsBootDropped] = useState(bootStops.dropped);
   const recoveryEntries = useMemo(() => validateRecoveryEntries(rawRecoveryEntries), [rawRecoveryEntries]);
   const pendingRecoveries = recoveryEntries.filter(entry => entry.status === 'pending').length;
@@ -103,7 +103,13 @@ export default function BusinessModelApp() {
     { id: 2, text: 'Confirm actual monthly payroll and headcount', owner: 'Finance', done: false },
     { id: 3, text: 'Reconcile vehicle rent and fuel assumptions', owner: 'Operations', done: false },
   ], []);
-  const [actions, setActions] = useLocalStorage<typeof defaultActions>('vega-followup-actions-v1', defaultActions);
+  const [actions, setActions, actionsStore] = useLocalStorage<typeof defaultActions>('vega-followup-actions-v1', defaultActions);
+  const storageIssues: StorageIssue[] = [financialStorageIssue, dailyStore.issue, scenariosStore.issue, recoveryStore.issue, stopsStore.issue, nemowStore.issue, actionsStore.issue].filter((issue): issue is StorageIssue => issue !== null);
+  const hasUnreadableStorage = storageIssues.some(issue => issue.stage === 'read' || issue.stage === 'parse' || issue.stage === 'blocked');
+  const isUnreadable = (key: string) => storageIssues.some(issue => issue.key === key && (issue.stage === 'read' || issue.stage === 'parse' || issue.stage === 'blocked'));
+  const acceptStops = (next: StopRecord[]) => { stopsStore.acceptPersisted(next); setStopsBootDropped(0); };
+  const stopTransactionsReady = !isUnreadable(STORAGE_KEYS.stops) && stopsBootDropped === 0;
+  const closeTransactionsReady = stopsBootDropped === 0 && ![STORAGE_KEYS.stops, 'vega-daily-reports-v2', 'vega-recovery-board-v1'].some(isUnreadable);
   // Backup-age reminder (contract G2): device metadata key is deliberately
   // OUTSIDE backup files; stamp updates only when a download is initiated.
   const [lastBackupAt, setLastBackupAt] = useState<string | null>(() => {
@@ -284,9 +290,13 @@ export default function BusinessModelApp() {
           />
         )}
       <main id="bm-main" className="bm-main">
-        {view === 'close' && <EveningCloseView initialDate={operationDate} operationDate={operationDate} onOperationDateChange={setOperationDate} stops={stops} setStops={setStops} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} />}
-        {view === 'dispatch' && <DispatchBoardView operationDate={operationDate} onOperationDateChange={setOperationDate} stops={stops} setStops={setStops} drivers={input.drivers} />}
-        {view === 'stops' && <StopPlanning operationDate={operationDate} onOperationDateChange={setOperationDate} stops={stops} setStops={setStops} />}
+        {storageIssues.length > 0 && <div className="bm-import-warning" role="alert" data-testid="storage-failure-alert">
+          <p>{hasUnreadableStorage ? t('businessModel.storage.readError') : t('businessModel.storage.writeError')}</p>
+          <button onClick={goToBackupSection}>{t('businessModel.storage.openBackups')}</button>
+        </div>}
+        {view === 'close' && <EveningCloseView initialDate={operationDate} operationDate={operationDate} onOperationDateChange={setOperationDate} stops={stops} setStops={acceptStops} dailyRecords={dailyRecords} setDailyRecords={dailyStore.acceptPersisted} recoveryEntries={recoveryEntries} setRecoveryEntries={recoveryStore.acceptPersisted} storageReady={closeTransactionsReady} />}
+        {view === 'dispatch' && <DispatchBoardView operationDate={operationDate} onOperationDateChange={setOperationDate} stops={stops} setStops={acceptStops} drivers={input.drivers} storageReady={stopTransactionsReady} />}
+        {view === 'stops' && <StopPlanning operationDate={operationDate} onOperationDateChange={setOperationDate} stops={stops} setStops={acceptStops} storageReady={stopTransactionsReady} />}
         {stopsBootDropped > 0 && (
           <p className="bm-import-warning" role="alert" data-testid="stops-boot-warning">
             {t('businessModel.stops.bootDropped', { count: stopsBootDropped })}
@@ -294,7 +304,7 @@ export default function BusinessModelApp() {
           </p>
         )}
         {view === 'tower' && <ControlTowerView snapshot={towerSnapshot} onGoto={(target) => selectView(target)} />}
-        {view === 'summary' && <CoreSummary output={output} input={input} fleetCount={fleetCount} driverGap={driverGap} contribution={contribution} risks={risks} onNavigate={selectView} dailyRecords={dailyRecords} stops={stops} operationDate={operationDate} onOperationDateChange={setOperationDate} nemow={nemowPull} onNemowPull={setNemowPull} />}
+        {view === 'summary' && <CoreSummary output={output} input={input} fleetCount={fleetCount} driverGap={driverGap} contribution={contribution} risks={risks} onNavigate={selectView} dailyRecords={dailyRecords} stops={stops} operationDate={operationDate} onOperationDateChange={setOperationDate} nemow={nemowPull} onNemowPull={(value) => { const saved = setNemowPull(value); if (!saved.ok) return; }} />}
         {view === 'maintenance' && <VehicleMaintenanceView state={maintenance.state} commit={maintenance.commit} error={maintenance.error} loaded={maintenance.loaded} />}
         {view === 'fleet' && <Page title={t('businessModel.fleet.title')} description={t('businessModel.fleet.newDesc')}><button onClick={() => selectView('maintenance')}>{t('businessModel.maintenanceWorkspace.openWorkspace')}</button><div className="bm-roster"><div className="bm-roster-head"><h2>{t('businessModel.fleet.rosterTitle')}</h2><span>{t('businessModel.fleet.rosterCount',{count:input.drivers.length})}</span></div><EditableTable columns={[t('businessModel.fleet.colDriverName'),t('businessModel.fleet.colPhone'),t('businessModel.fleet.colAssignedVehicle'),t('businessModel.fleet.colCarNumber'),t('businessModel.fleet.colPlateNumber'),t('businessModel.fleet.colStatus'),'']}>
 {input.drivers.map(driver => <div className="bm-table-row bm-driver-row" key={driver.id}><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colDriverName')}`} value={driver.fullName} onChange={value => changeDriver(driver.id,{fullName:value})} /><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colPhone')}`} value={driver.phone} onChange={value => changeDriver(driver.id,{phone:value})} /><input aria-label={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colAssignedVehicle')}`} list="bm-vehicle-names" value={driver.assignedVehicle} onChange={event => changeDriver(driver.id,{assignedVehicle:event.target.value})} /><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colCarNumber')}`} value={driver.carNumber ?? ''} onChange={value => changeDriver(driver.id,{carNumber:value})} /><TextInput ariaLabel={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colPlateNumber')}`} value={driver.plateNumber ?? ''} onChange={value => changeDriver(driver.id,{plateNumber:value})} /><select aria-label={`${driver.fullName || 'driver'} ${t('businessModel.fleet.colStatus')}`} value={driver.status} onChange={event => changeDriver(driver.id,{status:event.target.value as DriverRecord['status']})}><option value="active">{t('businessModel.common.active')}</option><option value="inactive">{t('businessModel.common.inactive')}</option></select>{driverConfirmId === driver.id ? (
@@ -311,12 +321,12 @@ export default function BusinessModelApp() {
         {view === 'customers' && <Page title={t('businessModel.customers.title')} description={t('businessModel.customers.desc')}><EditableTable columns={[t('businessModel.customers.colCustomer'),t('businessModel.customers.colShipmentsDay'),t('businessModel.customers.colPriceShipment'),t('businessModel.customers.colMonthlyRevenue'),'']}>
           {input.providers.map(row => { const evaluation = output.providerEvaluations.find(item => item.id === row.id); return <div className="bm-table-row bm-customer-row" key={row.id}><TextInput ariaLabel={t('businessModel.customers.colCustomer')} value={row.name} onChange={value => changeProvider(row.id,{name:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.customers.colShipmentsDay')}`} value={row.shipmentsPerDay} onChange={value => changeProvider(row.id,{shipmentsPerDay:value})} /><CellNumber ariaLabel={`${row.name} ${t('businessModel.customers.colPriceShipment')}`} value={row.pricePerShipment} onChange={value => changeProvider(row.id,{pricePerShipment:value})} step="0.1" /><strong>{money(evaluation?.monthlyRevenue ?? 0)}</strong><button className="bm-remove" aria-label={`${t('businessModel.common.remove')} ${row.name}`} onClick={() => removeProvider(row.id)}>{t('businessModel.common.remove')}</button></div>})}
         </EditableTable><button className="bm-add" onClick={addProvider}><Plus size={15}/> {t('businessModel.common.addCustomer')}</button></Page>}
-        {view === 'logestechs' && <Page title={t('businessModel.logestechs.title', { defaultValue: 'LogesTechs live feed' })} description={t('businessModel.logestechs.desc', { defaultValue: 'Pull channel volumes, drivers and fleet from your LogesTechs 3PL into the dashboard.' })}><LogestechsView input={input} setProviders={setProviders} setDrivers={setDrivers} updateFinancialInput={updateFinancialInput} /></Page>}
+        {view === 'logestechs' && <Page title={t('businessModel.logestechs.title', { defaultValue: 'LogesTechs live feed' })} description={t('businessModel.logestechs.desc', { defaultValue: 'Pull channel volumes, drivers and fleet from your LogesTechs 3PL into the dashboard.' })}><LogestechsView input={input} updateFinancialInput={updateFinancialInput} /></Page>}
         {view === 'costs' && <Page title={t('businessModel.costs.title')} description={t('businessModel.costs.desc')}><CostSections input={input} output={output} setNumber={setNumber} changeVehicle={changeVehicle} /></Page>}
         {view === 'daily' && <ReportsView operationDate={operationDate} onOperationDateChange={setOperationDate} stops={stops} dailyRecords={dailyRecords} onGotoClose={() => selectView('close')} />}
         {view === 'compliance' && <Page title={t('businessModel.compliance.title')} description={t('businessModel.compliance.desc')}><ComplianceLiteView /></Page>}
         {view === 'risks' && <Page title={t('businessModel.risks.title')} description={t('businessModel.risks.desc')}><div className="bm-risk-table"><div className="bm-risk-head"><span>{t('businessModel.risks.thStatus')}</span><span>{t('businessModel.risks.thRisk')}</span><span>{t('businessModel.risks.thValue')}</span><span>{t('businessModel.risks.thReason')}</span></div>{risks.map(risk => <div className="bm-risk-row" key={risk.titleKey}><span className={risk.level === 'controlled' ? 'ok' : 'bad'}>{levelLabel[risk.level]}</span><strong>{t(`businessModel.risks.${risk.titleKey}`)}</strong><span>{risk.value}</span><p>{risk.detail}</p></div>)}</div></Page>}
-        {view === 'scenarios' && <ScenarioView input={input} output={output} scenarios={scenarios} setScenarios={setScenarios} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} actions={actions} setActions={setActions} stops={stops} setStops={setStops} maintenanceState={maintenance.state} setMaintenanceState={maintenance.acceptRestored} maintenanceError={maintenance.error} applyFinancialInput={applyFinancialInput} onBackedUp={() => { const iso = new Date().toISOString(); markBackedUpNow(); setLastBackupAt(iso); bumpReminderClock(); }} />}
+        {view === 'scenarios' && <ScenarioView input={input} output={output} scenarios={scenarios} setScenarios={setScenarios} dailyRecords={dailyRecords} setDailyRecords={setDailyRecords} recoveryEntries={recoveryEntries} setRecoveryEntries={setRecoveryEntries} actions={actions} setActions={setActions} stops={stops} setStops={setStops} backupBlocked={hasUnreadableStorage || stopsBootDropped > 0} acceptFinancialInput={acceptFinancialInput} acceptDailyRecords={dailyStore.acceptPersisted} acceptScenarios={scenariosStore.acceptPersisted} acceptRecoveryEntries={recoveryStore.acceptPersisted} acceptActions={actionsStore.acceptPersisted} acceptStops={acceptStops} maintenanceState={maintenance.state} setMaintenanceState={maintenance.acceptRestored} maintenanceError={maintenance.error} applyFinancialInput={applyFinancialInput} onBackedUp={() => { const iso = new Date().toISOString(); markBackedUpNow(); setLastBackupAt(iso); bumpReminderClock(); }} />}
         {view === 'recovery' && <Page title={t('businessModel.recovery.recovery')} description={t('businessModel.recovery.recoveryDesc')}><RecoveryBoard entries={recoveryEntries} setEntries={setRecoveryEntries} /></Page>}
         {view === 'actions' && <Page title={t('businessModel.actionsPage.title')} description={t('businessModel.actionsPage.desc')}><div className="bm-actions">{actions.map(action => <div className={action.done ? 'done' : ''} key={action.id}><button aria-label={action.done ? action.text : action.text} onClick={() => setActions(rows => rows.map(row => row.id === action.id ? {...row,done:!row.done,updatedAt:new Date().toISOString()}:row))}>{action.done ? <Check size={15}/> : null}</button><span><strong>{action.text}</strong><small>{action.owner}</small></span></div>)}</div></Page>}
       </main>
@@ -819,7 +829,7 @@ export function BackupBanner({ reason, days, onCta, onDismiss }: { reason: 'neve
   );
 }
 
-export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDailyRecords,recoveryEntries,setRecoveryEntries,actions,setActions,stops,setStops,maintenanceState,setMaintenanceState,maintenanceError,applyFinancialInput,onBackedUp}:{input:FinancialInput;output:ReturnType<typeof useSimulatedData>['financialOutput'];scenarios:Scenario[];setScenarios:(value:Scenario[]|((prev:Scenario[])=>Scenario[]))=>void;dailyRecords:Record<string,DailyRecord>;setDailyRecords:(value:Record<string,DailyRecord>|((prev:Record<string,DailyRecord>)=>Record<string,DailyRecord>))=>void;recoveryEntries:RecoveryEntry[];setRecoveryEntries:(value:RecoveryEntry[]|((prev:RecoveryEntry[])=>RecoveryEntry[]))=>void;actions:FollowUpAction[];setActions:(value:FollowUpAction[]|((prev:FollowUpAction[])=>FollowUpAction[]))=>void;stops:StopRecord[];setStops:(value:StopRecord[]|((prev:StopRecord[])=>StopRecord[]))=>void;maintenanceState?:MaintenanceState;setMaintenanceState?:(value:MaintenanceState)=>void;maintenanceError?:string;applyFinancialInput:(next:FinancialInput)=>void;onBackedUp:()=>void}) {
+export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,setDailyRecords,recoveryEntries,setRecoveryEntries,actions,setActions,stops,setStops,backupBlocked=false,acceptFinancialInput,acceptDailyRecords,acceptScenarios,acceptRecoveryEntries,acceptActions,acceptStops,maintenanceState,setMaintenanceState,maintenanceError,applyFinancialInput,onBackedUp}:{input:FinancialInput;output:ReturnType<typeof useSimulatedData>['financialOutput'];scenarios:Scenario[];setScenarios:(value:Scenario[]|((prev:Scenario[])=>Scenario[]))=>StorageSaveResult|void;dailyRecords:Record<string,DailyRecord>;setDailyRecords:(value:Record<string,DailyRecord>|((prev:Record<string,DailyRecord>)=>Record<string,DailyRecord>))=>StorageSaveResult|void;recoveryEntries:RecoveryEntry[];setRecoveryEntries:(value:RecoveryEntry[]|((prev:RecoveryEntry[])=>RecoveryEntry[]))=>StorageSaveResult|void;actions:FollowUpAction[];setActions:(value:FollowUpAction[]|((prev:FollowUpAction[])=>FollowUpAction[]))=>StorageSaveResult|void;stops:StopRecord[];setStops:(value:StopRecord[]|((prev:StopRecord[])=>StopRecord[]))=>StorageSaveResult|void;backupBlocked?:boolean;acceptFinancialInput?:(next:FinancialInput)=>void;acceptDailyRecords?:(next:Record<string,DailyRecord>)=>void;acceptScenarios?:(next:Scenario[])=>void;acceptRecoveryEntries?:(next:RecoveryEntry[])=>void;acceptActions?:(next:FollowUpAction[])=>void;acceptStops?:(next:StopRecord[])=>void;maintenanceState?:MaintenanceState;setMaintenanceState?:(value:MaintenanceState)=>void;maintenanceError?:string;applyFinancialInput:(next:FinancialInput)=>StorageSaveResult|void;onBackedUp:()=>void}) {
   const { t, i18n } = useTranslation();
   const locale = localeOf(i18n.language);
   const money = (value: number, digits = 0) => fmtMoney(locale, value, digits);
@@ -827,8 +837,8 @@ export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,s
   const [name,setName]=useState('');
   const [message,setMessage]=useState('');
   const fileRef=useRef<HTMLInputElement>(null);
-  const save=()=>{ setScenarios(prev=>[...prev, createScenario(name,input,prev)]); setName(''); setMessage(t(S+'savedMessage')); };
-  const load=(scenario:Scenario)=>{ applyFinancialInput(structuredClone(scenario.input)); setMessage(t(S+'loadedMessage',{name:scenario.name})); };
+  const save=()=>{ const result=setScenarios(prev=>[...prev, createScenario(name,input,prev)]); if(result && !result.ok) return; setName(''); setMessage(t(S+'savedMessage')); };
+  const load=(scenario:Scenario)=>{ const result=applyFinancialInput(structuredClone(scenario.input)); if(!result || result.ok) setMessage(t(S+'loadedMessage',{name:scenario.name})); };
   const remove=(id:string)=>setScenarios(prev=>prev.filter(s=>s.id!==id));
   const [pendingImport,setPendingImport]=useState<{file:BackupFileV2;migratedFrom?:1|2|3|4;warnings:string[];lossless:boolean;contentLoss?:boolean}|null>(null);
   const bundle=useMemo(()=>({financialInput:input,dailyRecords,scenarios,recoveryEntries,followUpActions:actions,stops,maintenanceState}),[input,dailyRecords,scenarios,recoveryEntries,actions,stops,maintenanceState]);
@@ -839,6 +849,7 @@ export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,s
   const activeLanguage = i18n.language === 'ar' ? 'ar' : 'en';
   const downloadBackup=()=>{
     if (maintenanceError) { setMessage(t('businessModel.maintenanceWorkspace.' + maintenanceError)); return; }
+    if (backupBlocked) { setMessage(t('businessModel.storage.backupBlocked')); return; }
     const backup=buildBackup(bundle,activeLanguage);
     const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
@@ -865,15 +876,16 @@ export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,s
     else setMessage(t(S+'partialFailMessage',{keys:result.failedKeys.join(', ')}));
   };
   const applyState=(next:ReturnType<typeof applyBackupMerge>['next'])=>{
-    applyFinancialInput(next.financialInput);
-    setDailyRecords(next.dailyRecords); setScenarios(next.scenarios);
-    setRecoveryEntries(next.recoveryEntries); setActions(next.followUpActions);
-    if (next.stops) setStops(next.stops);
+    (acceptFinancialInput ?? applyFinancialInput)(next.financialInput);
+    (acceptDailyRecords ?? setDailyRecords)(next.dailyRecords); (acceptScenarios ?? setScenarios)(next.scenarios);
+    (acceptRecoveryEntries ?? setRecoveryEntries)(next.recoveryEntries); (acceptActions ?? setActions)(next.followUpActions);
+    if (next.stops) (acceptStops ?? setStops)(next.stops);
     if (next.maintenanceState) setMaintenanceState?.(next.maintenanceState);
   };
   const switchLanguageIfAny=(lang?:string)=>{ if(lang){ void i18n.changeLanguage(lang); window.dispatchEvent(new CustomEvent('vega:set-language',{detail:lang})); } };
   const doMerge=()=>{
     if (maintenanceError) { setMessage(t('businessModel.maintenanceWorkspace.' + maintenanceError)); return; }
+    if (backupBlocked) { setMessage(t('businessModel.storage.mergeBlocked')); return; }
     if(!pendingImport) return;
     const {next}=applyBackupMerge(bundle,pendingImport.file);
     // Merge retains model inputs and language; recorded collections persist transactionally.
@@ -892,14 +904,15 @@ export function ScenarioView({input,output,scenarios,setScenarios,dailyRecords,s
     finishOk(result,t(S+'replaceDoneMessage',{date:fmtDateMedium(locale,pendingImport.file.exportedAt||new Date().toISOString())}));
   };
   const doLegacyScope=()=>{
+    if (backupBlocked) { setMessage(t('businessModel.storage.mergeBlocked')); return; }
     if(!pendingImport||pendingImport.migratedFrom!==1||pendingImport.contentLoss) return;
     const {next}=applyLegacyScopedRestore(bundle,pendingImport.file);
     // adopt ONLY v1 scope: model input, days, scenarios — recovery entries,
     // follow-up actions and language are preserved untouched (E-2)
     const result=commitBundle({financialInput:next.financialInput,dailyRecords:next.dailyRecords,scenarios:next.scenarios},undefined,{keys:['financialInput','dailyRecords','scenarios']});
     if(!result.persistedOk){ finishOk(result,''); return; }
-    applyFinancialInput(next.financialInput);
-    setDailyRecords(next.dailyRecords); setScenarios(next.scenarios);
+    (acceptFinancialInput ?? applyFinancialInput)(next.financialInput);
+    (acceptDailyRecords ?? setDailyRecords)(next.dailyRecords); (acceptScenarios ?? setScenarios)(next.scenarios);
     finishOk(result,t(S+'scopedDoneMessage',{days:Object.keys(next.dailyRecords).length}));
   };
   return <><div className="bm-page-head"><h1>{t(S+'title')}</h1><p>{t(S+'desc')}</p></div>

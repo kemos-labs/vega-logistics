@@ -5,18 +5,17 @@ import { useTranslation } from 'react-i18next';
 import { ArrowDownToLine, Copy, PlugZap, RefreshCw } from 'lucide-react';
 import { useLogestechs } from '@/hooks/useLogestechs';
 import { buildApplyPatch } from '@/lib/logestechs/mapper';
-import type { DriverRecord, FinancialInput, Provider } from '@/lib/types';
+import type { FinancialInput } from '@/lib/types';
+import type { StorageSaveResult } from '@/hooks/useLocalStorage';
 
 interface Props {
   input: FinancialInput;
-  setProviders: (u: (prev: Provider[]) => Provider[]) => void;
-  setDrivers: (u: (prev: DriverRecord[]) => DriverRecord[]) => void;
-  updateFinancialInput: (patch: Partial<FinancialInput>) => void;
+  updateFinancialInput: (patch: Partial<FinancialInput>) => StorageSaveResult;
 }
 
 type Tab = 'shipments' | 'fleet' | 'stock';
 
-export default function LogestechsView({ input, setProviders, setDrivers, updateFinancialInput }: Props) {
+export default function LogestechsView({ input, updateFinancialInput }: Props) {
   const { t } = useTranslation();
   const { status, summary, loading, syncing, lastSync, autoSync, setAutoSync, resync, staticFallback } = useLogestechs(300);
   const [tab, setTab] = useState<Tab>('shipments');
@@ -32,14 +31,15 @@ export default function LogestechsView({ input, setProviders, setDrivers, update
 
   const applyToDashboard = () => {
     if (!patch) return;
-    setProviders(() => patch.providers);
-    setDrivers(() => patch.drivers);
-    updateFinancialInput({
+    setAppliedAt(null);
+    const saved = updateFinancialInput({
+      providers: patch.providers,
+      drivers: patch.drivers,
       companyDriverCount: patch.companyDriverCount,
       failedDeliveryRate: patch.failedDeliveryRate,
       returnRate: patch.returnRate,
     });
-    setAppliedAt(new Date().toLocaleTimeString());
+    if (saved.ok) setAppliedAt(new Date().toLocaleTimeString());
   };
 
   return (

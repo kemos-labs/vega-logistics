@@ -19,9 +19,10 @@ import { toDateString } from '@/lib/operationsReporting';
 import type { StopRecord } from '@/lib/stops';
 import type { DriverRecord } from '@/lib/types';
 
-export function DispatchBoardView({ stops, setStops, drivers, operationDate: controlledDate, onOperationDateChange }: {
+export function DispatchBoardView({ stops, setStops, drivers, storageReady = true, operationDate: controlledDate, onOperationDateChange }: {
   stops: StopRecord[];
-  setStops: (value: StopRecord[] | ((prev: StopRecord[]) => StopRecord[])) => void;
+  setStops: (value: StopRecord[]) => void;
+  storageReady?: boolean;
   drivers: DriverRecord[];
   operationDate?: string;
   onOperationDateChange?: (d:string)=>void;
@@ -50,6 +51,7 @@ export function DispatchBoardView({ stops, setStops, drivers, operationDate: con
   const driverOptions = useMemo(() => assignableDrivers(drivers), [drivers]);
 
   function persist(next: StopRecord[], successMessage?: string): boolean {
+    if (!storageReady) { setMessage(t(S + 'persistBlocked')); return false; }
     const result = commitBundle({ stops: next }, undefined, { keys: ['stops'] });
     if (result.persistedOk) { setStops(next); if (successMessage) setMessage(successMessage); return true; }
     setMessage(t(S + (result.rollbackOk ? 'persistFailed' : 'rollbackCritical'), { keys: result.failedKeys.join(', ') }));

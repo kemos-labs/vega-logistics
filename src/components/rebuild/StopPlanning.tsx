@@ -23,9 +23,10 @@ type Draft = Record<string, string>;
 
 const EMPTY_DRAFT: Draft = { customerName: '', reference: '', stopLabel: '', addressNotes: '', shortAddress: '', phone: '', codAmountSar: '', serviceWindow: '', lat: '', lng: '' };
 
-export function StopPlanning({ stops, setStops, operationDate: controlledDate, onOperationDateChange }: {
+export function StopPlanning({ stops, setStops, storageReady = true, operationDate: controlledDate, onOperationDateChange }: {
   stops: StopRecord[];
-  setStops: (value: StopRecord[] | ((prev: StopRecord[]) => StopRecord[])) => void;
+  setStops: (value: StopRecord[]) => void;
+  storageReady?: boolean;
   operationDate?: string;
   onOperationDateChange?: (d:string)=>void;
 }) {
@@ -59,6 +60,7 @@ export function StopPlanning({ stops, setStops, operationDate: controlledDate, o
 
   /** Storage seam: transactional write; React state moves only on success. */
   function persist(next: StopRecord[], successMessage?: string): boolean {
+    if (!storageReady) { setMessage(t(S + 'persistBlocked')); return false; }
     const result: PersistResult = commitBundle({ stops: next }, undefined, { keys: ['stops'] });
     if (result.persistedOk) {
       setStops(next);

@@ -31,7 +31,7 @@ function newId(prefix: string): string {
 }
 
 export function useSimulatedData() {
-  const [financialInput, setFinancialInput] = useLocalStorage<FinancialInput>('vega-financialInput-v2', defaultFinancialInput);
+  const [financialInput, setFinancialInput, financialStorage] = useLocalStorage<FinancialInput>('vega-financialInput-v2', defaultFinancialInput);
   const [financialOutput, setFinancialOutput] = useState<FinancialOutput>(() => calculateFinancials(defaultFinancialInput));
   const [ghostGrowth, setGhostGrowth] = useState<GhostGrowthResult>(() =>
     calculateGhostGrowthIndex(defaultGhostMetrics, calculateFinancials(defaultFinancialInput).fleetUtilization)
@@ -62,60 +62,61 @@ export function useSimulatedData() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const acceptFinancialInput = useCallback((next: FinancialInput) => {
+    financialStorage.acceptPersisted(next);
+    inputRef.current = next;
+    userOverrideRef.current = true;
+    recompute(next);
+  }, [financialStorage, recompute]);
+
+  const persistFinancialInput = useCallback((next: FinancialInput) => {
+    const result = setFinancialInput(next);
+    if (!result.ok) return result;
+    inputRef.current = next;
+    userOverrideRef.current = true;
+    recompute(next);
+    return result;
+  }, [recompute, setFinancialInput]);
+
   /** Generic patch: any top-level field of FinancialInput. */
   const updateFinancialInput = useCallback((patch: Partial<FinancialInput>) => {
     const next = applyOperationalPatch(inputRef.current, patch);
-    inputRef.current = next;
-    userOverrideRef.current = true;
-    setFinancialInput(next);
-    recompute(next);
-  }, [recompute, setFinancialInput]);
+    return persistFinancialInput(next);
+  }, [persistFinancialInput]);
 
   /** Replace the entire vehicle class list. */
   const setVehicleClasses = useCallback(
     (updater: (prev: VehicleClass[]) => VehicleClass[]) => {
       const next = applyOperationalPatch(inputRef.current, { vehicleClasses: updater(inputRef.current.vehicleClasses) });
-      inputRef.current = next;
-      userOverrideRef.current = true;
-      setFinancialInput(next);
-      recompute(next);
+      return persistFinancialInput(next);
     },
-    [recompute, setFinancialInput]
+    [persistFinancialInput]
   );
 
   /** Replace the entire provider list. */
   const setProviders = useCallback(
     (updater: (prev: Provider[]) => Provider[]) => {
       const next = applyOperationalPatch(inputRef.current, { providers: updater(inputRef.current.providers) });
-      inputRef.current = next;
-      userOverrideRef.current = true;
-      setFinancialInput(next);
-      recompute(next);
+      return persistFinancialInput(next);
     },
-    [recompute, setFinancialInput]
+    [persistFinancialInput]
   );
 
   /** Replace the entire maintenance list. */
   const setMaintenance = useCallback(
     (updater: (prev: MaintenanceEntry[]) => MaintenanceEntry[]) => {
       const next = applyOperationalPatch(inputRef.current, { maintenance: updater(inputRef.current.maintenance) });
-      inputRef.current = next;
-      userOverrideRef.current = true;
-      setFinancialInput(next);
-      recompute(next);
+      return persistFinancialInput(next);
     },
-    [recompute, setFinancialInput]
+    [persistFinancialInput]
   );
 
   /** Replace the entire financial input — used by scenario load and backup import. */
   const applyFinancialInput = useCallback(
     (next: FinancialInput) => {
-      inputRef.current = next;
-      userOverrideRef.current = true;
-      setFinancialInput(next);
-      recompute(next);
+      return persistFinancialInput(next);
     },
-    [recompute, setFinancialInput]
+    [persistFinancialInput]
   );
 
   /** Replace the entire drivers list. */
@@ -128,12 +129,9 @@ export function useSimulatedData() {
         ...applyOperationalPatch(inputRef.current, { drivers }),
         companyDriverCount: drivers.filter(driver => driver.status === 'active').length,
       };
-      inputRef.current = next;
-      userOverrideRef.current = true;
-      setFinancialInput(next);
-      recompute(next);
+      return persistFinancialInput(next);
     },
-    [recompute, setFinancialInput]
+    [persistFinancialInput]
   );
 
   const addVehicleClass = useCallback(() => {
@@ -183,6 +181,7 @@ export function useSimulatedData() {
 
   return {
     financialInput,
+    financialStorageIssue: financialStorage.issue,
     financialOutput,
     ghostGrowth,
     kpis,
@@ -191,6 +190,7 @@ export function useSimulatedData() {
     lastUpdate,
     updateFinancialInput,
     applyFinancialInput,
+    acceptFinancialInput,
     setVehicleClasses,
     setProviders,
     setMaintenance,

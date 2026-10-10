@@ -289,6 +289,17 @@ describe('corrupt data is rejected without deleting current data (contract C2)',
 
 describe('transactional persistence (contract E-4)', () => {
 
+  it('rejects unstringifiable transaction data before the first storage write', () => {
+    const store = memoryStorage({ [STORAGE_KEYS.financialInput]: '{"kept":true}' });
+    const before = store.dump();
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    const result = commitBundle({ financialInput: cyclic as unknown as StateBundle['financialInput'] }, undefined, { storage: store, keys: ['financialInput'] });
+    expect(result.persistedOk).toBe(false);
+    expect(result.failedKeys).toEqual([STORAGE_KEYS.financialInput]);
+    expect(store.dump()).toEqual(before);
+  });
+
   it('writes all six destinations; language stored RAW (no JSON quotes)', () => {
     const store = memoryStorage();
     const result = commitBundle(fullBundle(), 'ar', { storage: store });

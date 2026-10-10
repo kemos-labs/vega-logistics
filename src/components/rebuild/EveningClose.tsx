@@ -20,17 +20,18 @@ import type { FailureReasonKey } from '@/lib/operationsReporting';
 
 type Outcome = 'delivered' | 'returned' | 'pending' | 'failed';
 
-export function EveningCloseView({ initialDate, operationDate: controlledDate, onOperationDateChange, stops, setStops, dailyRecords, setDailyRecords, recoveryEntries, setRecoveryEntries }: {
+export function EveningCloseView({ initialDate, operationDate: controlledDate, onOperationDateChange, stops, setStops, dailyRecords, setDailyRecords, recoveryEntries, setRecoveryEntries, storageReady = true }: {
   /** Optional starting operation date; defaults to today (local law). */
   initialDate?: string;
   operationDate?: string;
   onOperationDateChange?: (d:string)=>void;
   stops: StopRecord[];
-  setStops: (value: StopRecord[] | ((prev: StopRecord[]) => StopRecord[])) => void;
+  setStops: (value: StopRecord[]) => void;
   dailyRecords: Record<string, DailyRecord>;
-  setDailyRecords: (value: Record<string, DailyRecord> | ((prev: Record<string, DailyRecord>) => Record<string, DailyRecord>)) => void;
+  setDailyRecords: (value: Record<string, DailyRecord>) => void;
   recoveryEntries: RecoveryEntry[];
-  setRecoveryEntries: (value: RecoveryEntry[] | ((prev: RecoveryEntry[]) => RecoveryEntry[])) => void;
+  setRecoveryEntries: (value: RecoveryEntry[]) => void;
+  storageReady?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const S = 'businessModel.close.';
@@ -148,6 +149,7 @@ export function EveningCloseView({ initialDate, operationDate: controlledDate, o
   const isReconciled = existing?.closeStatus === 'reconciled';
 
   function persist(next: { daily?: DailyRecord; stops?: StopRecord[]; recovery?: RecoveryEntry[] }, successMessage: string): boolean {
+    if (!storageReady) { setMessage(t(S + 'persistBlocked')); return false; }
     const bundle: Record<string, unknown> = {};
     const keys: Array<'dailyRecords' | 'stops' | 'recoveryEntries'> = [];
     if (next.daily) { bundle.dailyRecords = { ...dailyRecords, [date]: next.daily }; keys.push('dailyRecords'); }

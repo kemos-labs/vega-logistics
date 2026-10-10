@@ -13,13 +13,14 @@ import {
   type RecoveryStatus,
 } from '@/lib/recoveryBoard';
 import { FAILURE_REASON_KEYS } from '@/lib/operationsReporting';
+import type { StorageSaveResult } from '@/hooks/useLocalStorage';
 
 const localeTag = (language?: string) => (language?.startsWith('ar') ? 'ar-SA-u-nu-latn' : 'en-SA');
 const fmtDateMedium = (language: string, iso: string) => new Intl.DateTimeFormat(localeTag(language), { dateStyle: 'medium' }).format(new Date(`${iso}T12:00:00`));
 
 interface Props {
   entries: RecoveryEntry[];
-  setEntries: (value: RecoveryEntry[] | ((previous: RecoveryEntry[]) => RecoveryEntry[])) => void;
+  setEntries: (value: RecoveryEntry[] | ((previous: RecoveryEntry[]) => RecoveryEntry[])) => StorageSaveResult;
 }
 
 export default function RecoveryBoard({ entries, setEntries }: Props) {
@@ -45,7 +46,8 @@ export default function RecoveryBoard({ entries, setEntries }: Props) {
       customer: customer.trim() || undefined,
       owner: owner.trim(),
     });
-    setEntries(rows => [{ ...entry, updatedAt: new Date().toISOString() }, ...rows]);
+    const saved = setEntries(rows => [{ ...entry, updatedAt: new Date().toISOString() }, ...rows]);
+    if (!saved.ok) return;
     setShipments('1');
     setCustomer('');
   };

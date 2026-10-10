@@ -896,7 +896,8 @@ export interface PersistResult {
 type WritableStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 function defaultStorage(): WritableStorage | undefined {
-  return typeof window === 'undefined' ? undefined : window.localStorage;
+  if (typeof window === 'undefined') return undefined;
+  try { return window.localStorage; } catch { return undefined; }
 }
 
 /**
@@ -914,11 +915,9 @@ export function commitBundle(
   language?: string,
   options: { storage?: WritableStorage; keys?: ReadonlyArray<keyof typeof STORAGE_KEYS> } = {},
 ): PersistResult {
-  const storage = options.storage ?? defaultStorage();
-  if (!storage) return { persistedOk: false, failedKeys: [], rollbackOk: true, rollbackFailedKeys: [] };
-
   const allWrites: Array<[string, string | null]> = []; // null ⇒ key not wanted
   const wants = options.keys ?? (Object.keys(STORAGE_KEYS) as Array<keyof typeof STORAGE_KEYS>);
+  const serializationFailures: string[] = [];
   for (const slot of wants) {
     const key = STORAGE_KEYS[slot];
     if (slot === 'language') {
@@ -926,9 +925,21 @@ export function commitBundle(
       continue;
     }
     const value = (bundle as Record<string, unknown>)[slot];
-    if (value !== undefined) allWrites.push([key, JSON.stringify(value)]);
+    if (value !== undefined) {
+      try {
+        const serialized = JSON.stringify(value);
+        if (serialized === undefined) serializationFailures.push(key);
+        else allWrites.push([key, serialized]);
+      } catch {
+        serializationFailures.push(key);
+      }
+    }
   }
+  if (serializationFailures.length > 0) return { persistedOk: false, failedKeys: serializationFailures, rollbackOk: true, rollbackFailedKeys: [] };
   const present = allWrites.filter(([, v]) => v !== null) as Array<[string, string]>;
+  let storage: WritableStorage | undefined;
+  try { storage = options.storage ?? defaultStorage(); } catch { storage = undefined; }
+  if (!storage) return { persistedOk: false, failedKeys: present.map(([key]) => key), rollbackOk: true, rollbackFailedKeys: [] };
 
   // 1. snapshot raw values of every destination we will touch.
   // A failing read is treated like a failed write: abort BEFORE touching

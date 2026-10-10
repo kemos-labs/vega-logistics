@@ -67,13 +67,19 @@ function createSpies() {
     setRecoveryEntries: vi.fn(),
     setActions: vi.fn(),
     applyFinancialInput: vi.fn(),
+    acceptFinancialInput: vi.fn(),
+    acceptDailyRecords: vi.fn(),
+    acceptScenarios: vi.fn(),
+    acceptRecoveryEntries: vi.fn(),
+    acceptActions: vi.fn(),
+    acceptStops: vi.fn(),
   };
 }
 function spiesForLastRender() {
   return lastSpies as unknown as Record<string, ReturnType<typeof vi.fn>>;
 }
 
-function renderView(current: StateBundle, language = 'en') {
+function renderView(current: StateBundle, language = 'en', adoptCommittedState = false) {
   const spies = createSpies();
   lastSpies = spies;
   const view = render(
@@ -93,6 +99,14 @@ function renderView(current: StateBundle, language = 'en') {
       setRecoveryEntries={spies.setRecoveryEntries}
       actions={current.followUpActions as FollowUpAction[]}
       setActions={spies.setActions}
+      {...(adoptCommittedState ? {
+        acceptFinancialInput: spies.acceptFinancialInput,
+        acceptDailyRecords: spies.acceptDailyRecords,
+        acceptScenarios: spies.acceptScenarios,
+        acceptRecoveryEntries: spies.acceptRecoveryEntries,
+        acceptActions: spies.acceptActions,
+        acceptStops: spies.acceptStops,
+      } : {})}
       applyFinancialInput={spies.applyFinancialInput} onBackedUp={() => undefined} />,
   );
   void language;
@@ -146,6 +160,26 @@ describe('exported file language (contract E-1)', () => {
 });
 
 describe('backup UI integration', () => {
+  it('adopts a successful full replacement without a second set of hook writes', async () => {
+    const current = bundle();
+    const { spies } = renderView(current, 'en', true);
+    chooseFile(new File([JSON.stringify(buildBackup(current))], 'full.json', { type: 'application/json' }));
+    await expectPreview();
+    fireEvent.click(screen.getByTestId('import-replace'));
+    expect(spies.acceptFinancialInput).toHaveBeenCalledOnce();
+    expect(spies.acceptDailyRecords).toHaveBeenCalledOnce();
+    expect(spies.acceptScenarios).toHaveBeenCalledOnce();
+    expect(spies.acceptRecoveryEntries).toHaveBeenCalledOnce();
+    expect(spies.acceptActions).toHaveBeenCalledOnce();
+    expect(spies.acceptStops).toHaveBeenCalledOnce();
+    expect(spies.applyFinancialInput).not.toHaveBeenCalled();
+    expect(spies.setDailyRecords).not.toHaveBeenCalled();
+    expect(spies.setScenarios).not.toHaveBeenCalled();
+    expect(spies.setRecoveryEntries).not.toHaveBeenCalled();
+    expect(spies.setActions).not.toHaveBeenCalled();
+    expect(spies.setStops).not.toHaveBeenCalled();
+  });
+
   it('preview → Cancel changes neither React state nor localStorage', async () => {
     const current = bundle();
     const before = structuredClone(current);
