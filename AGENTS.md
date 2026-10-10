@@ -16,9 +16,9 @@ These rules are durable; session status lives in `SESSION_MEMORY.md`, roadmap in
 New sessions read, in order: **this file** → `SESSION_MEMORY.md` (exact state, last cycles, handoff list) → `docs/MASTER_PLAN.md` (release roadmap R0–R8) → `docs/DATA_MODEL.md` (storage shapes). Then run the full gate suite (see "The proven working loop") BEFORE changing anything, and continue from the resume point below.
 
 **Resume point (this block is updated in every shipped commit):**
-- Latest verified prior code release: `a2790f2` — backend seams and provider access boundaries; Pages workflow `37957555600` succeeded. Current folder-review repairs and exact next-step limitations are in `/data/Nemow Logistics/vega-logistics/docs/FOLDER_REVIEW_NEXT_STEP.md`; release evidence is under `/data/Nemow Logistics/work/folder-review-2026-10-09/`.
+- Latest verified code release: `086b94b630fa84ad0804cca03be76cce5a0e5c5c` — browser-storage failure durability; Pages workflow `38008312345` passed quality/build/deploy and the public site/locales returned HTTP 200. Current folder-review repairs and exact next-step limitations are in `/data/Nemow Logistics/vega-logistics/docs/FOLDER_REVIEW_NEXT_STEP.md`; cross-folder review evidence is under `/data/Nemow Logistics/work/folder-review-2026-10-09/`.
 - **Awaiting owner acceptance:** broader R2–R7 daily operations plus native maintenance. Passing software/Pages gates does not imply owner acceptance or food suitability.
-- **Current continuation:** native six-category maintenance + history, MaintenanceState v2 / backup v5. Original live data and employee suite remain unmigrated. Read `docs/SOURCE_APP_TAB_COVERAGE.md` for the remaining sequence.
+- **Current continuation:** strict full-value timestamp parsing/timezone policy in the Python canonical reader, with compatibility fixtures; reconcile accounting-rate assumptions only against owner-backed contracts. Then continue the ordered source mapping/import and acceptance work in `/data/Nemow Logistics/vega-logistics/docs/FOLDER_REVIEW_NEXT_STEP.md`. Original live data and employee suite remain unmigrated; read `docs/SOURCE_APP_TAB_COVERAGE.md` for source coverage.
 - Optional sync is last (R8); external writes, telemetry and unattended operation require their documented contracts.
 
 ## The proven working loop (operationalizes R1)
